@@ -1,0 +1,35 @@
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Real project data must never be committed
+data/
+projects/
+uploads/
+exports/
+credentials/
+
+# Generated and temporary files
+tmp/
+temp/
+work/
+outputs/
+*.zip
+*.log
+**/.edge-*/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node and editors
+node_modules/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

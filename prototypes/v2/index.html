@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>衡鉴审计协同台</title>
+  <style>
+    :root {
+      --bg: #f2f5f4;
+      --surface: #fbfcfb;
+      --surface-2: #edf2f0;
+      --surface-3: #e4ece9;
+      --ink: #15211e;
+      --muted: #596963;
+      --quiet: #7c8b86;
+      --line: #d4dedb;
+      --line-strong: #aebdb8;
+      --accent: #0b6b57;
+      --accent-hover: #075744;
+      --accent-soft: #dcefe9;
+      --danger: #b42318;
+      --danger-soft: #fce8e6;
+      --warning: #8a5b00;
+      --warning-soft: #fff0c7;
+      --success: #14784f;
+      --success-soft: #dff2e8;
+      --shadow: 0 16px 42px rgb(32 56 49 / 0.12);
+      --rail: 72px;
+      --context: 244px;
+      --assistant: 366px;
+      --top: 62px;
+      color-scheme: light;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #101614;
+      --surface: #171f1c;
+      --surface-2: #1f2a26;
+      --surface-3: #283630;
+      --ink: #eef5f2;
+      --muted: #b3c0bb;
+      --quiet: #8fa09a;
+      --line: #34433d;
+      --line-strong: #53665f;
+      --accent: #58b89c;
+      --accent-hover: #70c9ae;
+      --accent-soft: #173f34;
+      --danger: #ff8e86;
+      --danger-soft: #482320;
+      --warning: #f0c45a;
+      --warning-soft: #493b18;
+      --success: #73c99e;
+      --success-soft: #193f2e;
+      --shadow: 0 16px 42px rgb(0 0 0 / 0.34);
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html, body { margin: 0; min-width: 320px; min-height: 100dvh; background: var(--bg); }
+    body { color: var(--ink); font: 14px/1.55 "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif; }
+    button, input, select, textarea { font: inherit; }
+    button, select { cursor: pointer; }
+    button:active { transform: translateY(1px); }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 30%, transparent); outline-offset: 2px; }
+    button:disabled, input:disabled { cursor: not-allowed; opacity: .52; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 6px; font-size: clamp(24px, 2.4vw, 34px); line-height: 1.2; letter-spacing: -.035em; }
+    h2 { margin-bottom: 3px; font-size: 17px; }
+    h3 { margin-bottom: 5px; font-size: 14px; }
+    p { color: var(--muted); }
+    .mono { font-family: "Cascadia Mono", Consolas, monospace; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+
+    .app { min-height: 100dvh; }
+    .rail { position: fixed; inset: 0 auto 0 0; z-index: 40; display: flex; width: var(--rail); flex-direction: column; align-items: center; border-right: 1px solid var(--line); background: var(--surface); }
+    .logo { display: grid; width: 40px; height: 40px; margin: 12px 0 16px; place-items: center; border-radius: 10px; color: #f3fbf8; background: #0b6b57; font-size: 17px; font-weight: 800; }
+    .rail-nav { display: grid; width: 100%; gap: 4px; padding: 0 8px; }
+    .rail-link { display: grid; min-height: 48px; place-items: center; gap: 1px; border: 0; border-radius: 8px; color: var(--muted); background: transparent; padding: 5px 2px; }
+    .rail-link span:first-child { font-size: 15px; font-weight: 800; }
+    .rail-link small { font-size: 10px; }
+    .rail-link:hover { background: var(--surface-2); }
+    .rail-link.is-active { color: var(--accent); background: var(--accent-soft); }
+    .rail-bottom { display: grid; width: 100%; gap: 6px; margin-top: auto; padding: 10px 8px 14px; }
+    .rail-bottom button { min-height: 38px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--surface); font-size: 11px; }
+
+    .context { position: fixed; inset: 0 auto 0 var(--rail); z-index: 30; width: var(--context); padding: 16px 14px; border-right: 1px solid var(--line); background: var(--surface); }
+    .project-label { color: var(--quiet); font-size: 11px; font-weight: 700; }
+    .project-select { width: 100%; min-height: 42px; margin: 5px 0 18px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--surface); padding: 8px; font-weight: 700; }
+    .context-section { margin-top: 18px; }
+    .context-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: var(--quiet); font-size: 11px; font-weight: 700; }
+    .context-title button { border: 0; color: var(--accent); background: transparent; font-weight: 700; }
+    .queue-item { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .queue-item strong { font-size: 12px; }
+    .queue-item span { color: var(--quiet); font-size: 10px; }
+    .queue-item b { grid-row: 1 / 3; grid-column: 2; align-self: center; font-size: 11px; }
+    .context-metrics { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .context-metric { padding: 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .context-metric:nth-child(even) { border-right: 0; }
+    .context-metric:nth-last-child(-n+2) { border-bottom: 0; }
+    .context-metric strong, .context-metric span { display: block; }
+    .context-metric strong { font-size: 18px; }
+    .context-metric span { color: var(--quiet); font-size: 10px; }
+    .guard { margin-top: 18px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+    .guard-head { display: flex; justify-content: space-between; font-size: 11px; }
+    .guard strong { font-family: "Cascadia Mono", Consolas, monospace; }
+    .guard-line { height: 3px; margin: 9px 0 7px; background: var(--line); }
+    .guard-line span { display: block; width: 38%; height: 100%; background: var(--accent); }
+    .guard small { color: var(--quiet); }
+
+    .topbar { position: fixed; inset: 0 0 auto calc(var(--rail) + var(--context)); z-index: 25; display: flex; height: var(--top); align-items: center; justify-content: space-between; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(12px); }
+    .top-title strong, .top-title span { display: block; }
+    .top-title span { color: var(--quiet); font-size: 10px; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .top-actions select, .model-select { min-height: 34px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: var(--surface); padding: 5px 9px; }
+    .status-button { min-height: 34px; border: 1px solid var(--line); border-radius: 7px; color: var(--success); background: var(--surface); padding: 5px 10px; font-weight: 700; }
+    .status-button.is-offline { color: var(--danger); background: var(--danger-soft); }
+    .ghost-button, .primary-button { min-height: 36px; border-radius: 7px; padding: 7px 13px; white-space: nowrap; font-weight: 700; }
+    .ghost-button { border: 1px solid var(--line-strong); color: var(--ink); background: var(--surface); }
+    .ghost-button:hover { border-color: var(--accent); color: var(--accent); }
+    .primary-button { border: 1px solid #0b6b57; color: #f5fbf9; background: #0b6b57; }
+    .primary-button:hover { background: #075744; }
+
+    .main { min-height: 100dvh; margin-left: calc(var(--rail) + var(--context)); padding: calc(var(--top) + 24px) calc(var(--assistant) + 24px) 48px 24px; }
+    .offline-note { display: flex; gap: 10px; margin-bottom: 16px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--warning) 36%, var(--line)); border-radius: 8px; background: var(--warning-soft); }
+    .offline-note span { color: var(--muted); }
+    .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; margin-bottom: 20px; }
+    .page-heading p { max-width: 680px; margin-bottom: 0; }
+    .page-actions { display: flex; gap: 8px; }
+    .eyebrow { margin-bottom: 4px !important; color: var(--accent) !important; font-size: 11px; font-weight: 800; }
+
+    .metric-band { display: grid; grid-template-columns: 1.25fr 1fr 1fr 1fr; margin-bottom: 18px; border-block: 1px solid var(--line); }
+    .metric { padding: 15px 18px 15px 0; }
+    .metric + .metric { padding-left: 18px; border-left: 1px solid var(--line); }
+    .metric span, .metric small { display: block; color: var(--quiet); }
+    .metric strong { display: block; margin: 2px 0; font-size: 25px; letter-spacing: -.02em; }
+    .metric small { font-size: 10px; }
+
+    .grid-main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(230px, .85fr); gap: 16px; }
+    .section { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+    .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 16px 12px; }
+    .section-head p { margin-bottom: 0; color: var(--quiet); font-size: 11px; }
+    .section-head button { border: 0; color: var(--accent); background: transparent; font-weight: 700; }
+    .focus-list { display: grid; }
+    .focus-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) 92px 72px; align-items: center; gap: 12px; padding: 13px 16px; border-top: 1px solid var(--line); cursor: pointer; }
+    .focus-row:hover { background: var(--surface-2); }
+    .focus-row strong, .focus-row span { display: block; }
+    .focus-row span { margin-top: 2px; color: var(--quiet); font-size: 11px; }
+    .focus-amount { color: var(--ink) !important; font-family: "Cascadia Mono", Consolas, monospace; text-align: right; }
+    .badge { display: inline-flex; min-height: 22px; align-items: center; border-radius: 4px; padding: 2px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .badge-danger { color: var(--danger); background: var(--danger-soft); }
+    .badge-warning { color: var(--warning); background: var(--warning-soft); }
+    .badge-success { color: var(--success); background: var(--success-soft); }
+    .badge-neutral { color: var(--muted); background: var(--surface-2); }
+    .activity { padding: 0 16px 14px; }
+    .activity-item { position: relative; padding: 8px 0 10px 18px; }
+    .activity-item::before { content: ""; position: absolute; top: 14px; left: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+    .activity-item::after { content: ""; position: absolute; top: 24px; bottom: -5px; left: 3px; width: 1px; background: var(--line); }
+    .activity-item:last-child::after { display: none; }
+    .activity-item strong, .activity-item span { display: block; }
+    .activity-item span { color: var(--quiet); font-size: 10px; }
+    .empty { padding: 54px 20px; color: var(--muted); text-align: center; }
+    .empty strong, .empty span { display: block; }
+
+    .toolbar { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 14px; }
+    .field { display: flex; min-width: 160px; flex-direction: column; gap: 4px; color: var(--muted); font-size: 11px; }
+    .field.grow { min-width: 240px; flex: 1; }
+    .field input, .field select, .field textarea { width: 100%; min-height: 36px; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--ink); background: var(--surface); padding: 7px 9px; }
+    .upload-box { display: flex; min-height: 126px; align-items: center; justify-content: center; flex-direction: column; margin-bottom: 15px; border: 1px dashed var(--line-strong); border-radius: 10px; color: var(--muted); background: var(--surface); text-align: center; }
+    .upload-box:hover, .upload-box.is-over { border-color: var(--accent); background: var(--accent-soft); }
+    .upload-box strong { color: var(--ink); font-size: 15px; }
+    .upload-box small { margin-top: 6px; color: var(--quiet); }
+    .table-wrap { max-width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 9px 12px; color: var(--quiet); background: var(--surface-2); text-align: left; font-size: 10px; white-space: nowrap; }
+    td { padding: 11px 12px; border-bottom: 1px solid var(--line); color: var(--muted); vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr[data-action] { cursor: pointer; }
+    tbody tr[data-action]:hover { background: var(--surface-2); }
+    td strong { color: var(--ink); }
+    .subline { display: block; color: var(--quiet); font-size: 10px; }
+
+    .chart-wrap { min-height: 320px; padding: 0 12px 12px; }
+    canvas { display: block; width: 100%; height: 300px; }
+    .rule-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0 14px 14px; }
+    .rule-box { padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+    .rule-box strong, .rule-box span { display: block; }
+    .rule-box strong { font-size: 20px; }
+    .rule-box span { color: var(--quiet); font-size: 10px; }
+    .skeleton { padding: 14px; }
+    .skeleton i { display: block; height: 56px; margin-bottom: 9px; border-radius: 7px; background: var(--surface-2); }
+
+    .template-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0 16px 16px; }
+    .template { min-height: 112px; padding: 13px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--surface); text-align: left; }
+    .template:hover { border-color: var(--accent); }
+    .template.is-selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
+    .template strong, .template span, .template small { display: block; }
+    .template span { margin-top: 4px; color: var(--muted); }
+    .template small { margin-top: 9px; color: var(--quiet); }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .setting-group { padding-bottom: 8px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 16px; border-top: 1px solid var(--line); }
+    .setting-row strong, .setting-row span { display: block; }
+    .setting-row span { color: var(--quiet); font-size: 10px; }
+    .switch { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+    .switch input { position: absolute; opacity: 0; }
+    .switch i { position: relative; width: 36px; height: 20px; border-radius: 10px; background: var(--line-strong); }
+    .switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--surface); transition: transform 150ms ease; }
+    .switch input:checked + i { background: var(--accent); }
+    .switch input:checked + i::after { transform: translateX(16px); }
+    .range { width: 150px; accent-color: var(--accent); }
+
+    .assistant { position: fixed; inset: var(--top) 0 0 auto; z-index: 20; display: flex; width: var(--assistant); flex-direction: column; border-left: 1px solid var(--line); background: var(--surface); }
+    .assistant-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 15px 16px; border-bottom: 1px solid var(--line); }
+    .assistant-head p { margin-bottom: 0; font-size: 10px; }
+    .assistant-head .close-assistant { display: none; }
+    .assistant-scope { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+    .assistant-scope span { color: var(--muted); font-size: 11px; }
+    .scope-button { border: 0; color: var(--accent); background: transparent; font-size: 11px; font-weight: 800; }
+    .chat { flex: 1; overflow-y: auto; padding: 14px 16px; }
+    .message { max-width: 92%; margin-bottom: 12px; padding: 10px 11px; border-radius: 9px; color: var(--ink); background: var(--surface-2); }
+    .message.user { margin-left: auto; color: #f4fbf8; background: #0b6b57; }
+    .message strong, .message small { display: block; }
+    .message strong { margin-bottom: 3px; font-size: 11px; }
+    .message p { margin-bottom: 0; color: inherit; font-size: 12px; }
+    .message small { margin-top: 6px; color: inherit; opacity: .72; }
+    .prompt-list { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+    .prompt-list button { border: 1px solid var(--line); border-radius: 7px; color: var(--muted); background: var(--surface); padding: 6px 8px; font-size: 10px; }
+    .prompt-list button:hover { border-color: var(--accent); color: var(--accent); }
+    .composer { padding: 12px 14px 14px; border-top: 1px solid var(--line); }
+    .composer textarea { width: 100%; min-height: 76px; resize: none; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink); background: var(--surface); padding: 9px; }
+    .composer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+    .composer-row span { color: var(--quiet); font-size: 10px; }
+    .thinking { display: flex; gap: 4px; align-items: center; }
+    .thinking i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: .45; }
+
+    .drawer-backdrop { position: fixed; inset: 0; z-index: 60; background: rgb(11 20 17 / .42); }
+    .drawer { position: fixed; inset: 0 0 0 auto; z-index: 61; width: min(590px, 94vw); overflow-y: auto; border-left: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); transform: translateX(100%); transition: transform 180ms ease; }
+    .drawer.is-open { transform: translateX(0); }
+    .drawer-head { position: sticky; top: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 17px 18px; border-bottom: 1px solid var(--line); background: var(--surface); }
+    .close { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: var(--surface); font-size: 20px; }
+    .drawer-body { padding: 18px; }
+    .drawer-section { margin-bottom: 22px; }
+    .calc { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+    .calc div { display: flex; justify-content: space-between; gap: 8px; }
+    .calc span { color: var(--muted); }
+    .evidence { width: 100%; margin-bottom: 8px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--surface); text-align: left; }
+    .evidence:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .evidence strong, .evidence span { display: block; }
+    .evidence span { color: var(--accent); font-size: 10px; }
+    .drawer-actions { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--surface); }
+    .toast-area { position: fixed; z-index: 80; right: 18px; bottom: 18px; display: grid; width: min(340px, calc(100vw - 36px)); gap: 8px; }
+    .toast { padding: 11px 13px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow); }
+    .toast strong, .toast span { display: block; }
+    .toast span { color: var(--muted); font-size: 11px; }
+    .mobile-ai { display: none; }
+
+    @media (max-width: 1250px) {
+      :root { --assistant: 330px; --context: 224px; }
+      .metric-band { grid-template-columns: 1fr 1fr; }
+      .metric:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; }
+      .metric:nth-child(4) { border-top: 1px solid var(--line); }
+      .grid-main { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 980px) {
+      :root { --context: 0px; --assistant: 0px; }
+      .context { display: none; }
+      .topbar { left: var(--rail); }
+      .main { padding-right: 18px; }
+      .assistant { width: min(390px, 94vw); z-index: 50; box-shadow: var(--shadow); transform: translateX(100%); transition: transform 180ms ease; }
+      .assistant.is-open { transform: translateX(0); }
+      .assistant-head .close-assistant { display: grid; }
+      .mobile-ai { display: inline-flex; }
+      .settings-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 680px) {
+      :root { --rail: 0px; --top: 58px; }
+      .rail { inset: auto 0 0 0; width: 100vw; max-width: 100vw; height: 62px; flex-direction: row; border-top: 1px solid var(--line); border-right: 0; }
+      .logo, .rail-bottom { display: none; }
+      .rail-nav { grid-template-columns: repeat(6, 1fr); padding: 5px 6px; }
+      .rail-link { min-height: 50px; }
+      .topbar { left: 0; width: 100vw; max-width: 100vw; padding: 0 14px; }
+      .top-title span, .top-actions select { display: none; }
+      .status-button { width: 34px; padding: 5px; font-size: 0; }
+      .status-button::after { content: "API"; font-size: 10px; }
+      .main { width: 100vw; max-width: 100vw; overflow-x: hidden; padding: calc(var(--top) + 18px) 14px 82px; }
+      .page-heading { align-items: flex-start; flex-direction: column; }
+      .page-actions { width: 100%; }
+      .page-actions button { flex: 1; }
+      .metric-band { grid-template-columns: 1fr 1fr; }
+      .metric { padding: 12px 10px 12px 0; }
+      .metric + .metric { padding-left: 10px; }
+      .focus-row { grid-template-columns: 58px minmax(150px, 1fr) 82px 68px; min-width: 560px; }
+      .focus-list { overflow-x: auto; }
+      .toolbar { align-items: stretch; flex-direction: column; }
+      .field.grow { min-width: 0; }
+      .template-grid, .rule-grid { grid-template-columns: 1fr; }
+      .assistant { inset: 0 0 62px auto; width: min(390px, 100vw); }
+      .drawer { bottom: 62px; width: 100vw; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="rail" aria-label="主导航">
+      <div class="logo" aria-label="衡鉴">衡</div>
+      <nav class="rail-nav">
+        <button class="rail-link is-active" data-page="home"><span>总</span><small>总览</small></button>
+        <button class="rail-link" data-page="docs"><span>资</span><small>资料</small></button>
+        <button class="rail-link" data-page="analysis"><span>析</span><small>分析</small></button>
+        <button class="rail-link" data-page="risks"><span>险</span><small>风险</small></button>
+        <button class="rail-link" data-page="output"><span>出</span><small>输出</small></button>
+        <button class="rail-link" data-page="settings"><span>设</span><small>设置</small></button>
+      </nav>
+      <div class="rail-bottom"><button id="themeButton">主题</button><button id="helpButton">帮助</button></div>
+    </aside>
+
+    <aside class="context" aria-label="项目上下文">
+      <label class="project-label" for="projectSelect">当前审计项目</label>
+      <select class="project-select" id="projectSelect"><option>华东制造集团 2019-2025</option><option>远川商贸专项审计 2024</option></select>
+      <div class="context-section">
+        <div class="context-title"><span>风险工作队列</span><button data-page-link="risks">全部</button></div>
+        <div class="queue-item"><strong>期末收入确认集中</strong><span>8 项证据已完整</span><b class="badge badge-danger">高</b></div>
+        <div class="queue-item"><strong>关联方往来缺少披露</strong><span>仍需补充两项资料</span><b class="badge badge-warning">补证</b></div>
+        <div class="queue-item"><strong>存货周转连续下降</strong><span>等待人工复核</span><b class="badge badge-neutral">中</b></div>
+      </div>
+      <div class="context-section">
+        <div class="context-title"><span>项目状态</span></div>
+        <div class="context-metrics"><div class="context-metric"><strong class="mono">286</strong><span>资料</span></div><div class="context-metric"><strong class="mono">39</strong><span>风险</span></div><div class="context-metric"><strong class="mono">19</strong><span>已核实</span></div><div class="context-metric"><strong class="mono">5</strong><span>待补证</span></div></div>
+      </div>
+      <div class="guard"><div class="guard-head"><span>资源保护</span><strong id="contextCpu">19%</strong></div><div class="guard-line"><span></span></div><small>轻薄本模式，本地任务并发 1</small></div>
+    </aside>
+
+    <header class="topbar">
+      <div class="top-title"><strong id="topTitle">项目总览</strong><span>所有资料与结果保存在本机</span></div>
+      <div class="top-actions">
+        <button class="status-button" id="offlineButton">外部 API 已允许</button>
+        <select id="globalModel" aria-label="当前主模型"><option>DeepSeek V3.2</option><option>GLM-4.6</option><option>Kimi K2</option><option>Qwen3 Max</option></select>
+        <button class="ghost-button mobile-ai" id="mobileAi">AI 助手</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="offline-note" id="offlineNote" hidden><strong>严格离线已开启</strong><span>外部模型、OCR、Embedding 和远端文件请求已被阻止。</span></div>
+      <div id="pageContent"></div>
+    </main>
+
+    <aside class="assistant" id="assistant" aria-label="审计 AI 助手">
+      <div class="assistant-head"><div><h2>审计助手</h2><p>只使用已选择的项目证据回答</p></div><button class="close close-assistant" id="closeAssistant" aria-label="关闭助手">×</button></div>
+      <div class="assistant-scope"><span id="scopeText">证据范围：全部已解析资料</span><button class="scope-button" id="scopeButton">调整范围</button></div>
+      <div class="chat" id="chat">
+        <div class="message"><strong>审计助手</strong><p>我已载入项目指标与证据索引。你可以让我解释异常、比较年度变化，或整理访谈问题。</p><small>未发送原始文件</small></div>
+      </div>
+      <div class="prompt-list"><button data-prompt="解释应收账款异常并列出证据">解释重点异常</button><button data-prompt="根据待补证风险生成资料清单">生成资料清单</button><button data-prompt="比较 2024 与 2025 年关键指标">比较年度变化</button></div>
+      <div class="composer">
+        <label class="sr-only" for="chatInput">向审计助手提问</label>
+        <textarea id="chatInput" placeholder="输入问题，例如：应收账款增长是否与收入匹配？"></textarea>
+        <div class="composer-row"><span id="composerHint">预计发送 6 个证据块</span><button class="primary-button" id="sendChat">发送</button></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="drawer" id="riskDrawer" aria-hidden="true">
+    <div class="drawer-head"><div><span class="eyebrow" id="drawerId">R-2025-018</span><h2 id="drawerTitle">应收账款期末异常增长</h2></div><button class="close" id="closeDrawer" aria-label="关闭详情">×</button></div>
+    <div class="drawer-body">
+      <div class="drawer-section"><span class="badge badge-danger">高风险</span> <span class="badge badge-warning" id="drawerStatusBadge">待复核</span><p id="drawerSummary" style="margin-top:10px">2025 年末应收账款余额同比增长 47.3%，明显高于收入增速。</p></div>
+      <div class="drawer-section"><h3>本地计算</h3><div class="calc"><div><span>期末余额</span><strong class="mono">8,426.7 万</strong></div><div><span>同比增幅</span><strong class="mono">47.3%</strong></div><div><span>收入增幅</span><strong class="mono">8.6%</strong></div><div><span>异常分数</span><strong class="mono">3.14</strong></div></div></div>
+      <div class="drawer-section"><h3>支持证据</h3><button class="evidence"><strong>2025 年应收账款明细.xlsx</strong><span>账龄分析，第 426-438 行</span></button><button class="evidence"><strong>2025 年度财务报表附注.pdf</strong><span>第 38 页，证据块 E-2025-0841</span></button></div>
+      <div class="drawer-section"><h3>人工处理</h3><label class="field"><span>风险状态</span><select id="drawerStatus"><option>待复核</option><option>已核实</option><option>已排除</option><option>待补证</option><option>已关闭</option></select></label><label class="field" style="margin-top:10px"><span>处理意见</span><textarea id="drawerNote" rows="4" placeholder="状态变化时需要填写判断依据"></textarea></label></div>
+    </div>
+    <div class="drawer-actions"><button class="ghost-button" id="addToChat">加入助手证据范围</button><button class="primary-button" id="saveRisk">保存</button></div>
+  </aside>
+
+  <input type="file" id="fileInput" accept=".pdf,.xlsx,.xls,.csv,.docx" multiple hidden>
+  <div class="toast-area" id="toastArea" aria-live="polite"></div>
+
+  <script>
+    const appState = {
+      page: "home",
+      offline: false,
+      scope: "全部已解析资料",
+      selectedTemplate: "风险清单",
+      docs: [
+        ["2025年银行流水扫描件.pdf", "2025", "银行流水", "视觉模型", "运行中", "143 / 208 页"],
+        ["2025年度财务报表附注.pdf", "2025", "财务报表", "本地解析", "已完成", "86 页"],
+        ["应收账款账龄分析.xlsx", "2025", "明细账", "本地解析", "已完成", "12 个工作表"],
+        ["关联方往来核对表.xlsx", "2025", "专项资料", "待判定", "待处理", "9 个工作表"],
+        ["固定资产减值测试底稿.pdf", "2024", "审计底稿", "视觉模型", "失败", "28 页"]
+      ],
+      risks: [
+        ["R-2025-018", "应收账款期末异常增长", "高", "8,426.7 万", "5 / 6", "待复核", "同比增长 47.3%，显著高于收入增速"],
+        ["R-2025-011", "关联方资金往来披露不完整", "高", "3,187.4 万", "7 / 9", "待补证", "三笔大额往来未匹配披露清单"],
+        ["R-2025-006", "期末收入确认集中", "高", "6,742.1 万", "8 / 8", "已核实", "12 月收入占全年 28.6%"],
+        ["R-2024-037", "存货周转率连续下降", "中", "1,904.2 万", "4 / 4", "待复核", "连续三年下降，部分库龄超过 720 天"],
+        ["R-2024-029", "在建工程长期未转固", "中", "918.6 万", "6 / 6", "已核实", "两个项目完工后超过 14 个月仍未转固"]
+      ]
+    };
+
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
+
+    function badge(value) {
+      if (["高", "失败"].includes(value)) return "badge-danger";
+      if (["中", "待复核", "待补证", "待处理", "运行中"].includes(value)) return "badge-warning";
+      if (["已完成", "已核实", "已关闭"].includes(value)) return "badge-success";
+      return "badge-neutral";
+    }
+
+    function toast(title, text = "") {
+      const item = document.createElement("div");
+      item.className = "toast";
+      item.innerHTML = `<strong>${escapeHtml(title)}</strong>${text ? `<span>${escapeHtml(text)}</span>` : ""}`;
+      $("#toastArea").appendChild(item);
+      setTimeout(() => item.remove(), 3200);
+    }
+
+    function heading(eyebrow, title, description, actions = "") {
+      return `<div class="page-heading"><div><p class="eyebrow">${eyebrow}</p><h1>${title}</h1><p>${description}</p></div>${actions ? `<div class="page-actions">${actions}</div>` : ""}</div>`;
+    }
+
+    function homePage() {
+      return `${heading("今日审计工作台", "先看证据，再形成判断", "集中处理新增资料、重点风险和待补证事项。AI 助手只接收当前任务需要的证据片段。", '<button class="ghost-button" data-go="docs">导入资料</button><button class="primary-button" data-go="analysis">继续分析</button>')}
+      <section class="metric-band"><div class="metric"><span>资料解析</span><strong class="mono">92.6%</strong><small>286 个文件，共 4,872 页</small></div><div class="metric"><span>待复核风险</span><strong class="mono">12</strong><small>其中 8 项为高风险</small></div><div class="metric"><span>已核实事项</span><strong class="mono">19</strong><small>16 项可进入报告</small></div><div class="metric"><span>API 费用估算</span><strong class="mono">¥ 37.84</strong><small>缓存命中率 41.7%</small></div></section>
+      <div class="grid-main"><section class="section"><div class="section-head"><div><h2>当前工作重点</h2><p>按金额影响、证据完整度和更新时间排序</p></div><button data-go="risks">全部风险</button></div><div class="focus-list">${appState.risks.slice(0,4).map(r => `<div class="focus-row" data-risk="${r[0]}" tabindex="0"><span class="badge ${badge(r[2])}">${r[2]}风险</span><div><strong>${r[1]}</strong><span>${r[6]}</span></div><span class="focus-amount">¥ ${r[3]}</span><span class="badge ${badge(r[5])}">${r[5]}</span></div>`).join("")}</div></section>
+      <section class="section"><div class="section-head"><div><h2>最近活动</h2><p>保留本地任务与人工操作记录</p></div></div><div class="activity"><div class="activity-item"><strong>银行流水解析继续运行</strong><span>143 / 208 页，视觉模型 GLM-4.6V</span></div><div class="activity-item"><strong>总账勾稽检查完成</strong><span>发现 6 项差异，形成 3 个候选风险</span></div><div class="activity-item"><strong>风险 R-2025-006 已核实</strong><span>审计员补充人工意见并锁定证据快照</span></div><div class="activity-item"><strong>管理层材料已导出</strong><span>Word 格式，包含 14 项已核实风险</span></div></div></section></div>`;
+    }
+
+    function docsPage() {
+      return `${heading("资料中心", "文件、解析与证据定位", "原始文件留在本机。扫描件按页调用视觉服务，完成后立即释放临时图像。", '<button class="ghost-button" id="pauseQueue">暂停队列</button><button class="primary-button" id="pickFiles">选择文件</button>')}
+      <div class="upload-box" id="uploadBox" tabindex="0" role="button"><strong>拖放财务资料到这里</strong><span>支持 PDF、Excel、CSV 和 Word</span><small>先计算哈希并去重，再决定解析方式</small></div>
+      <div class="toolbar"><label class="field grow"><span>搜索资料</span><input id="docSearch" type="search" placeholder="文件名、年度、类型或状态"></label><label class="field"><span>状态</span><select id="docFilter"><option>全部</option><option>已完成</option><option>运行中</option><option>待处理</option><option>失败</option></select></label></div>
+      <section class="section"><div class="table-wrap"><table><thead><tr><th>文件</th><th>年度</th><th>类型</th><th>解析方式</th><th>状态</th><th>范围</th></tr></thead><tbody id="docRows"></tbody></table></div><div class="empty" id="docEmpty" hidden><strong>没有匹配的资料</strong><span>调整搜索或筛选条件后重试。</span></div></section>`;
+    }
+
+    function analysisPage() {
+      return `${heading("分析中心", "规则计算与多年趋势", "确定性规则和财务指标在本地执行，模型负责解释已检索的证据。", '<button class="ghost-button" id="analysisScope">分析范围</button><button class="primary-button ai-action" id="runAnalysis">运行增量分析</button>')}
+      <div class="toolbar"><label class="field"><span>指标</span><select id="metricSelect"><option value="ar">应收账款周转天数</option><option value="inventory">存货周转天数</option><option value="margin">销售毛利率</option></select></label><label class="field"><span>比较口径</span><select><option>同比与历史中位数</option><option>仅同比</option><option>稳健异常分数</option></select></label></div>
+      <div class="grid-main"><section class="section"><div class="section-head"><div><h2 id="chartTitle">应收账款周转天数</h2><p id="chartText">2025 年为 96.4 天，较历史中位数高 38.7 天</p></div><span class="badge badge-danger">显著异常</span></div><div class="chart-wrap"><canvas id="chart" width="900" height="300"></canvas></div></section><section class="section"><div class="section-head"><div><h2>规则运行</h2><p>最近完成时间 14:32</p></div></div><div class="rule-grid"><div class="rule-box"><strong class="mono">24</strong><span>已执行规则</span></div><div class="rule-box"><strong class="mono">6</strong><span>高优先异常</span></div><div class="rule-box"><strong class="mono">11</strong><span>中优先异常</span></div><div class="rule-box"><strong class="mono">3</strong><span>待模型解释</span></div></div></section></div>
+      <section class="section" style="margin-top:16px"><div class="section-head"><div><h2>异常结果</h2><p>结果保留规则版本、输入值和证据范围</p></div></div><div class="focus-list" id="findingList">${appState.risks.slice(0,3).map(r => `<div class="focus-row" data-risk="${r[0]}" tabindex="0"><span class="badge ${badge(r[2])}">${r[2]}优先</span><div><strong>${r[1]}</strong><span>本地规则计算，${r[4]} 项证据完整</span></div><span class="focus-amount">¥ ${r[3]}</span><span>${r[0]}</span></div>`).join("")}</div><div class="skeleton" id="analysisSkeleton" hidden><i></i><i></i><i></i></div></section>`;
+    }
+
+    function risksPage() {
+      return `${heading("风险中心", "风险事项与证据链", "人工状态、支持证据、反证和历史版本共同构成可复核结论。", '<button class="ghost-button" data-go="output">导出清单</button><button class="primary-button" id="newRisk">新建风险</button>')}
+      <section class="metric-band"><div class="metric"><span>全部风险</span><strong class="mono">39</strong><small>当前项目全部版本</small></div><div class="metric"><span>待复核</span><strong class="mono">12</strong><small>8 项为高风险</small></div><div class="metric"><span>待补证</span><strong class="mono">5</strong><small>共缺少 11 项资料</small></div><div class="metric"><span>已核实</span><strong class="mono">19</strong><small>16 项可进入报告</small></div></section>
+      <div class="toolbar"><label class="field grow"><span>搜索风险</span><input id="riskSearch" type="search" placeholder="编号、摘要或证据"></label><label class="field"><span>风险等级</span><select id="riskLevel"><option>全部</option><option>高</option><option>中</option><option>低</option></select></label><label class="field"><span>状态</span><select id="riskStatus"><option>全部</option><option>待复核</option><option>已核实</option><option>待补证</option><option>已排除</option></select></label></div>
+      <section class="section"><div class="table-wrap"><table><thead><tr><th>风险事项</th><th>等级</th><th>金额影响</th><th>证据</th><th>状态</th></tr></thead><tbody id="riskRows"></tbody></table></div><div class="empty" id="riskEmpty" hidden><strong>没有匹配的风险</strong><span>调整搜索或筛选条件后重试。</span></div></section>`;
+    }
+
+    function outputPage() {
+      return `${heading("输出中心", "把已核实风险转成审计材料", "生成前校验证据、人工意见和状态。导出记录保留模板、风险快照与模型来源。", '<button class="primary-button ai-action" id="generateTop">生成材料</button>')}
+      <div class="grid-main"><section class="section"><div class="section-head"><div><h2>选择模板</h2><p>固定结构便于复核与后续编辑</p></div></div><div class="template-grid"><button class="template is-selected" data-template="风险清单"><strong>风险清单</strong><span>状态、金额影响和证据索引</span><small>Excel 与 Word</small></button><button class="template" data-template="访谈提纲"><strong>访谈提纲</strong><span>按风险分组生成访谈问题</span><small>Word 与 PDF</small></button><button class="template" data-template="管理层材料"><strong>管理层材料</strong><span>已核实事项、影响与整改建议</span><small>Word 与 PDF</small></button><button class="template" data-template="证据包索引"><strong>证据包索引</strong><span>文档、页码与风险映射</span><small>Excel 与 PDF</small></button></div></section>
+      <section class="section setting-group"><div class="section-head"><div><h2>生成设置</h2><p id="templateName">当前模板：风险清单</p></div></div><div class="setting-row"><div><strong>风险范围</strong><span>已核实且证据完整</span></div><span class="mono">16 项</span></div><div class="setting-row"><div><strong>输出格式</strong><span>保留模板字段和证据编号</span></div><select id="formatSelect"><option>Word</option><option>Excel</option><option>PDF</option></select></div><div class="setting-row"><div><strong>生成模型</strong><span>只发送确认后的必要证据</span></div><select id="outputModel"><option>当前主模型</option><option>DeepSeek V3.2</option><option>GLM-4.6</option><option>Kimi K2</option><option>Qwen3 Max</option></select></div><div style="padding:14px 16px"><button class="primary-button ai-action" id="generateOutput" style="width:100%">生成风险清单</button></div></section></div>
+      <section class="section" style="margin-top:16px"><div class="section-head"><div><h2>最近导出</h2><p>文件保存在项目本地目录</p></div></div><div class="table-wrap"><table><thead><tr><th>文件</th><th>模板</th><th>风险快照</th><th>来源</th><th>时间</th></tr></thead><tbody id="exportRows"><tr><td><strong>华东制造_风险清单_2025-09-20.xlsx</strong></td><td>风险清单</td><td>16 项已核实</td><td>本地模板</td><td>今天 16:02</td></tr><tr><td><strong>华东制造_管理层材料_草稿.docx</strong></td><td>管理层材料</td><td>14 项已核实</td><td>DeepSeek V3.2</td><td>昨天 18:24</td></tr></tbody></table></div></section>`;
+    }
+
+    function settingsPage() {
+      return `${heading("系统设置", "模型、资源与隐私", "支持 DeepSeek、GLM、Kimi、千问及自定义 OpenAI 兼容接口。", '')}
+      <div class="settings-grid"><section class="section setting-group"><div class="section-head"><div><h2>模型服务</h2><p>密钥仅保存在本机系统凭据</p></div><button id="addProvider">新增</button></div>${[["DeepSeek","deepseek-chat","已连接"],["智谱 GLM","glm-4.6","已连接"],["月之暗面 Kimi","kimi-k2","未测试"],["阿里云百炼","qwen3-max","已连接"]].map(p => `<div class="setting-row"><div><strong>${p[0]}</strong><span>${p[1]}</span></div><button class="ghost-button provider-test">${p[2]}</button></div>`).join("")}</section>
+      <section class="section setting-group"><div class="section-head"><div><h2>资源保护</h2><p>默认采用轻薄本配置</p></div><span class="badge badge-success">已启用</span></div><div class="setting-row"><div><strong>CPU 峰值上限</strong><span>持续目标不高于 35%</span></div><input class="range" id="cpuRange" type="range" min="25" max="50" value="45"></div><div class="setting-row"><div><strong>外部 API 并发</strong><span>允许范围 1-4</span></div><input class="range" id="apiRange" type="range" min="1" max="4" value="2"></div><div class="setting-row"><div><strong>整机保护</strong><span>整机 CPU 超过 50% 时暂停</span></div><label class="switch"><input type="checkbox" checked><i></i></label></div></section>
+      <section class="section setting-group"><div class="section-head"><div><h2>隐私与离线</h2><p>统一控制全部外部请求</p></div></div><div class="setting-row"><div><strong>严格离线模式</strong><span>阻止模型、OCR、Embedding 和远端文件</span></div><label class="switch"><input id="offlineSwitch" type="checkbox"><i></i></label></div><div class="setting-row"><div><strong>最小证据外发</strong><span>只发送当前任务需要的证据片段</span></div><label class="switch"><input type="checkbox" checked><i></i></label></div><div class="setting-row"><div><strong>调用摘要日志</strong><span>不默认保存完整敏感正文</span></div><label class="switch"><input type="checkbox" checked><i></i></label></div></section>
+      <section class="section setting-group"><div class="section-head"><div><h2>任务路由</h2><p>主模型失败后可切换备用模型</p></div></div>${[["快速抽取","DeepSeek V3.2"],["视觉识别","GLM-4.6V"],["风险解释","DeepSeek V3.2"],["报告生成","Qwen3 Max"]].map(r => `<div class="setting-row"><div><strong>${r[0]}</strong><span>${r[1]}</span></div><button class="ghost-button route-edit">编辑</button></div>`).join("")}</section></div>`;
+    }
+
+    const pageMap = { home: homePage, docs: docsPage, analysis: analysisPage, risks: risksPage, output: outputPage, settings: settingsPage };
+    const titleMap = { home: "项目总览", docs: "资料中心", analysis: "分析中心", risks: "风险中心", output: "输出中心", settings: "系统设置" };
+
+    function setPage(page) {
+      appState.page = page;
+      $("#pageContent").innerHTML = pageMap[page]();
+      $("#topTitle").textContent = titleMap[page];
+      $$(".rail-link").forEach(button => button.classList.toggle("is-active", button.dataset.page === page));
+      history.replaceState(null, "", `#${page}`);
+      bindPageEvents();
+      updateOfflineControls();
+      if (page === "analysis") requestAnimationFrame(drawChart);
+      document.documentElement.scrollTop = 0;
+    }
+
+    function bindPageEvents() {
+      $$('[data-go]').forEach(button => button.addEventListener("click", () => setPage(button.dataset.go)));
+      $$('[data-risk]').forEach(row => {
+        row.addEventListener("click", () => openRisk(row.dataset.risk));
+        row.addEventListener("keydown", event => { if (["Enter", " "].includes(event.key)) openRisk(row.dataset.risk); });
+      });
+      if (appState.page === "docs") bindDocs();
+      if (appState.page === "analysis") bindAnalysis();
+      if (appState.page === "risks") bindRisks();
+      if (appState.page === "output") bindOutput();
+      if (appState.page === "settings") bindSettings();
+      $("#newRisk")?.addEventListener("click", () => toast("已创建空白风险", "正式版将要求填写规则、证据和人工判断。"));
+    }
+
+    function renderDocs() {
+      const query = $("#docSearch")?.value.trim().toLowerCase() || "";
+      const filter = $("#docFilter")?.value || "全部";
+      const rows = appState.docs.filter(d => d.join(" ").toLowerCase().includes(query) && (filter === "全部" || d[4] === filter));
+      $("#docRows").innerHTML = rows.map(d => `<tr data-action="doc"><td><strong>${escapeHtml(d[0])}</strong><span class="subline">SHA-256 已校验</span></td><td>${d[1]}</td><td>${d[2]}</td><td>${d[3]}</td><td><span class="badge ${badge(d[4])}">${d[4]}</span></td><td>${d[5]}</td></tr>`).join("");
+      $("#docEmpty").hidden = rows.length > 0;
+    }
+
+    function bindDocs() {
+      renderDocs();
+      $("#docSearch").addEventListener("input", renderDocs);
+      $("#docFilter").addEventListener("change", renderDocs);
+      $("#pickFiles").addEventListener("click", () => $("#fileInput").click());
+      $("#uploadBox").addEventListener("click", () => $("#fileInput").click());
+      $("#uploadBox").addEventListener("keydown", event => { if (["Enter", " "].includes(event.key)) $("#fileInput").click(); });
+      ["dragenter", "dragover"].forEach(name => $("#uploadBox").addEventListener(name, event => { event.preventDefault(); event.currentTarget.classList.add("is-over"); }));
+      ["dragleave", "drop"].forEach(name => $("#uploadBox").addEventListener(name, event => { event.preventDefault(); event.currentTarget.classList.remove("is-over"); }));
+      $("#uploadBox").addEventListener("drop", event => addFiles(event.dataTransfer.files));
+      $("#pauseQueue").addEventListener("click", event => { const paused = event.target.textContent.includes("暂停"); event.target.textContent = paused ? "继续队列" : "暂停队列"; toast(paused ? "队列已暂停" : "队列已继续", "已完成步骤不会重复执行或重复计费。" ); });
+      $("#docRows").addEventListener("click", event => { const row = event.target.closest("tr"); if (row) toast("已打开资料预览", row.querySelector("strong").textContent); });
+    }
+
+    function addFiles(files) {
+      [...files].forEach(file => appState.docs.unshift([file.name, "2025", "待识别", "待判定", "待处理", "等待解析"]));
+      if (appState.page !== "docs") setPage("docs"); else renderDocs();
+      toast(`已加入 ${files.length} 个文件`, "正在计算哈希并检查重复文件。" );
+    }
+
+    function bindAnalysis() {
+      $("#metricSelect").addEventListener("change", drawChart);
+      $("#analysisScope").addEventListener("click", () => toast("当前分析范围", "2019-2025 年，全部主体，仅处理新增或受影响数据。"));
+      $("#runAnalysis").addEventListener("click", event => {
+        if (appState.offline) return;
+        event.target.disabled = true; event.target.textContent = "正在分析";
+        $("#findingList").hidden = true; $("#analysisSkeleton").hidden = false;
+        setTimeout(() => { event.target.disabled = false; event.target.textContent = "运行增量分析"; $("#findingList").hidden = false; $("#analysisSkeleton").hidden = true; toast("增量分析完成", "2 项风险已更新，1 项新异常等待复核。" ); }, 1600);
+      });
+    }
+
+    function drawChart() {
+      const canvas = $("#chart");
+      if (!canvas) return;
+      const values = { ar: [48.7,51.2,54.1,57.7,63.5,71.8,96.4], inventory: [76.2,78.1,81.4,83.9,91.7,108.3,128.6], margin: [25.1,24.8,24.5,25.7,23.4,21.6,18.7] };
+      const meta = { ar:["应收账款周转天数","2025 年为 96.4 天，较历史中位数高 38.7 天",110,57.7], inventory:["存货周转天数","2025 年为 128.6 天，连续三年上升",145,83.9], margin:["销售毛利率","2025 年为 18.7%，较历史中位数下降 5.8 个百分点",32,24.5] };
+      const key = $("#metricSelect").value; const data = values[key]; const [title, text, max, median] = meta[key];
+      $("#chartTitle").textContent = title; $("#chartText").textContent = text;
+      const rect = canvas.getBoundingClientRect(); const dpr = Math.min(devicePixelRatio || 1, 2); canvas.width = rect.width*dpr; canvas.height = rect.height*dpr;
+      const ctx = canvas.getContext("2d"); ctx.scale(dpr,dpr); const w=rect.width,h=rect.height,p={l:44,r:20,t:18,b:34}; const cw=w-p.l-p.r,ch=h-p.t-p.b;
+      const css = getComputedStyle(document.documentElement); const line=css.getPropertyValue("--line").trim(), quiet=css.getPropertyValue("--quiet").trim(), accent=css.getPropertyValue("--accent").trim(), surface=css.getPropertyValue("--surface").trim();
+      ctx.clearRect(0,0,w,h); ctx.font='10px "Microsoft YaHei UI"'; ctx.fillStyle=quiet; ctx.strokeStyle=line; ctx.lineWidth=1;
+      for(let i=0;i<=4;i++){const y=p.t+ch*i/4;ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke();ctx.textAlign="right";ctx.fillText((max-max*i/4).toFixed(0),p.l-8,y+3);}
+      const my=p.t+ch-(median/max)*ch; ctx.setLineDash([5,5]); ctx.beginPath();ctx.moveTo(p.l,my);ctx.lineTo(w-p.r,my);ctx.strokeStyle=quiet;ctx.stroke();ctx.setLineDash([]);
+      const pts=data.map((v,i)=>({x:p.l+cw*i/(data.length-1),y:p.t+ch-(v/max)*ch})); ctx.strokeStyle=accent;ctx.lineWidth=2.5;ctx.beginPath();pts.forEach((pt,i)=>i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));ctx.stroke();
+      pts.forEach((pt,i)=>{ctx.fillStyle=surface;ctx.beginPath();ctx.arc(pt.x,pt.y,4.5,0,Math.PI*2);ctx.fill();ctx.strokeStyle=accent;ctx.stroke();ctx.fillStyle=quiet;ctx.textAlign="center";ctx.fillText(String(2019+i),pt.x,h-12);});
+    }
+
+    function renderRisks() {
+      const query = $("#riskSearch").value.trim().toLowerCase(); const level=$("#riskLevel").value; const status=$("#riskStatus").value;
+      const rows = appState.risks.filter(r => r.join(" ").toLowerCase().includes(query) && (level==="全部"||r[2]===level) && (status==="全部"||r[5]===status));
+      $("#riskRows").innerHTML = rows.map(r => `<tr data-action="risk" data-risk="${r[0]}"><td><strong>${r[0]}　${r[1]}</strong><span class="subline">${r[6]}</span></td><td><span class="badge ${badge(r[2])}">${r[2]}</span></td><td class="mono">¥ ${r[3]}</td><td>${r[4]}</td><td><span class="badge ${badge(r[5])}">${r[5]}</span></td></tr>`).join("");
+      $("#riskEmpty").hidden = rows.length > 0;
+    }
+
+    function bindRisks() {
+      renderRisks();
+      $("#riskSearch").addEventListener("input", renderRisks); $("#riskLevel").addEventListener("change", renderRisks); $("#riskStatus").addEventListener("change", renderRisks);
+      $("#riskRows").addEventListener("click", event => { const row=event.target.closest("tr[data-risk]"); if(row) openRisk(row.dataset.risk); });
+    }
+
+    function bindOutput() {
+      $$(".template").forEach(button => button.addEventListener("click", () => { appState.selectedTemplate=button.dataset.template; $$(".template").forEach(item=>item.classList.toggle("is-selected",item===button)); $("#templateName").textContent=`当前模板：${appState.selectedTemplate}`; $("#generateOutput").textContent=`生成${appState.selectedTemplate}`; }));
+      [$("#generateTop"),$("#generateOutput")].forEach(button=>button.addEventListener("click",()=>{if(!appState.offline) toast(`${appState.selectedTemplate}已生成`,"原型仅模拟流程，未创建真实文件。" );}));
+    }
+
+    function bindSettings() {
+      $("#offlineSwitch").checked=appState.offline; $("#offlineSwitch").addEventListener("change",event=>setOffline(event.target.checked));
+      $("#addProvider").addEventListener("click",()=>toast("新增服务商","正式版将打开 Base URL、API Key 与模型能力配置。"));
+      $$(".provider-test").forEach(button=>button.addEventListener("click",()=>{button.textContent="测试中";button.disabled=true;setTimeout(()=>{button.textContent="已连接";button.disabled=false;toast("连接成功","接口与结构化输出能力验证通过。")},650);}));
+      $$(".route-edit").forEach(button=>button.addEventListener("click",()=>toast("任务路由","可配置主模型、失败回退与高风险第二模型复核。")));
+    }
+
+    function openRisk(id) {
+      const risk = appState.risks.find(r=>r[0]===id) || appState.risks[0];
+      $("#drawerId").textContent=risk[0]; $("#drawerTitle").textContent=risk[1]; $("#drawerSummary").textContent=risk[6]; $("#drawerStatusBadge").textContent=risk[5]; $("#drawerStatusBadge").className=`badge ${badge(risk[5])}`; $("#drawerStatus").value=risk[5]; $("#drawerNote").value=""; $("#riskDrawer").dataset.risk=risk[0];
+      $("#drawerBackdrop").hidden=false; $("#riskDrawer").classList.add("is-open"); $("#riskDrawer").setAttribute("aria-hidden","false");
+    }
+
+    function closeRisk(){ $("#riskDrawer").classList.remove("is-open"); $("#riskDrawer").setAttribute("aria-hidden","true"); setTimeout(()=>$("#drawerBackdrop").hidden=true,190); }
+
+    function setOffline(value) {
+      appState.offline=value; $("#offlineButton").textContent=value?"严格离线":"外部 API 已允许"; $("#offlineButton").classList.toggle("is-offline",value); $("#offlineNote").hidden=!value; $("#offlineSwitch") && ($("#offlineSwitch").checked=value); updateOfflineControls(); toast(value?"已开启严格离线":"已允许外部 API",value?"模型与 OCR 请求已统一拦截。":"仍将遵守最小证据外发策略。" );
+    }
+
+    function updateOfflineControls(){ $$(".ai-action").forEach(button=>button.disabled=appState.offline); $("#chatInput").disabled=appState.offline; $("#sendChat").disabled=appState.offline; $("#composerHint").textContent=appState.offline?"严格离线模式下无法调用外部模型":"预计发送 6 个证据块"; }
+
+    function sendChat() {
+      const input=$("#chatInput"); const text=input.value.trim(); if(!text||appState.offline)return;
+      $("#chat").insertAdjacentHTML("beforeend",`<div class="message user"><strong>你</strong><p>${escapeHtml(text)}</p></div>`); input.value=""; $("#chat").scrollTop=$("#chat").scrollHeight;
+      const thinking=document.createElement("div"); thinking.className="message"; thinking.innerHTML='<strong>审计助手</strong><div class="thinking"><i></i><i></i><i></i></div>'; $("#chat").appendChild(thinking);
+      setTimeout(()=>{ thinking.innerHTML=`<strong>审计助手</strong><p>应收账款增幅明显高于收入增幅，异常集中在三家经销商。当前证据支持列为高风险，但期后回款资料尚不完整，建议先补充 2026 年 1-3 月回款清单。</p><small>${escapeHtml($("#globalModel").value)}，引用 6 个证据块</small>`; $("#chat").scrollTop=$("#chat").scrollHeight; },900);
+    }
+
+    function init() {
+      const requestedTheme=new URLSearchParams(location.search).get("theme");
+      const stored=localStorage.getItem("hengjian-v2-theme");
+      document.documentElement.dataset.theme=[requestedTheme,stored].find(value=>["light","dark"].includes(value))||((window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light");
+      $$(".rail-link").forEach(button=>button.addEventListener("click",()=>setPage(button.dataset.page)));
+      $$('[data-page-link]').forEach(button=>button.addEventListener("click",()=>setPage(button.dataset.pageLink)));
+      $("#themeButton").addEventListener("click",()=>{const next=document.documentElement.dataset.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=next;localStorage.setItem("hengjian-v2-theme",next);requestAnimationFrame(drawChart);});
+      $("#helpButton").addEventListener("click",()=>toast("原型使用提示","点击风险查看证据，右侧助手可模拟多模型问答。"));
+      $("#projectSelect").addEventListener("change",event=>toast("项目已切换",event.target.value));
+      $("#globalModel").addEventListener("change",event=>toast("主模型已切换",`后续任务将使用 ${event.target.value}`));
+      $("#offlineButton").addEventListener("click",()=>setOffline(!appState.offline));
+      $("#mobileAi").addEventListener("click",()=>$("#assistant").classList.add("is-open")); $("#closeAssistant").addEventListener("click",()=>$("#assistant").classList.remove("is-open"));
+      $("#scopeButton").addEventListener("click",()=>{appState.scope=appState.scope==="全部已解析资料"?"当前风险关联证据":"全部已解析资料";$("#scopeText").textContent=`证据范围：${appState.scope}`;toast("证据范围已调整",appState.scope);});
+      $$("[data-prompt]").forEach(button=>button.addEventListener("click",()=>{$("#chatInput").value=button.dataset.prompt;$("#chatInput").focus();}));
+      $("#sendChat").addEventListener("click",sendChat); $("#chatInput").addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();sendChat();}});
+      $("#fileInput").addEventListener("change",event=>addFiles(event.target.files));
+      $("#closeDrawer").addEventListener("click",closeRisk); $("#drawerBackdrop").addEventListener("click",closeRisk);
+      $("#addToChat").addEventListener("click",()=>{appState.scope=`风险 ${$("#riskDrawer").dataset.risk} 的关联证据`;$("#scopeText").textContent=`证据范围：${appState.scope}`;closeRisk();$("#assistant").classList.add("is-open");toast("已加入助手证据范围",appState.scope);});
+      $("#saveRisk").addEventListener("click",()=>{const risk=appState.risks.find(r=>r[0]===$("#riskDrawer").dataset.risk);const status=$("#drawerStatus").value;const note=$("#drawerNote").value.trim();if(status!==risk[5]&&!note){toast("请填写处理意见","风险状态变化需要记录判断依据。" );$("#drawerNote").focus();return;}risk[5]=status;closeRisk();if(appState.page==="risks")renderRisks();toast("风险已保存","新的状态和人工意见已写入历史记录。" );});
+      document.addEventListener("keydown",event=>{if(event.key==="Escape"){closeRisk();$("#assistant").classList.remove("is-open");}});
+      const page=location.hash.slice(1);setPage(pageMap[page]?page:"home");
+    }
+
+    init();
+  </script>
+</body>
+</html>

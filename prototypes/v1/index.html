@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>衡鉴财务审计工作台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="主导航">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">衡</div>
+        <div>
+          <strong>衡鉴</strong>
+          <span>财务审计工作台</span>
+        </div>
+      </div>
+
+      <div class="project-switcher">
+        <label for="projectSelect">当前项目</label>
+        <select id="projectSelect">
+          <option>华东制造集团 2019-2025</option>
+          <option>远川商贸专项审计 2024</option>
+        </select>
+      </div>
+
+      <nav class="nav-list">
+        <button class="nav-item is-active" data-page="overview"><span class="nav-key">项</span><span>项目</span></button>
+        <button class="nav-item" data-page="documents"><span class="nav-key">资</span><span>资料</span><span class="nav-count">3</span></button>
+        <button class="nav-item" data-page="analysis"><span class="nav-key">析</span><span>分析</span></button>
+        <button class="nav-item" data-page="risks"><span class="nav-key">险</span><span>风险</span><span class="nav-count nav-count-danger">8</span></button>
+        <button class="nav-item" data-page="outputs"><span class="nav-key">出</span><span>输出</span></button>
+        <button class="nav-item" data-page="settings"><span class="nav-key">设</span><span>设置</span></button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="resource-mini">
+          <div><span>应用 CPU</span><strong id="sidebarCpu">18%</strong></div>
+          <meter id="cpuMeter" min="0" max="50" value="18">18%</meter>
+          <small>保护上限 45%，持续目标 35%</small>
+        </div>
+        <button class="text-button" id="themeToggle" type="button">切换深色主题</button>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" type="button" aria-label="打开导航">菜单</button>
+        <div class="topbar-project">
+          <strong id="topProjectName">华东制造集团 2019-2025</strong>
+          <span>本地路径已连接</span>
+        </div>
+        <div class="status-strip" aria-label="系统状态">
+          <button class="status-control" id="apiStatus" type="button" title="切换严格离线模式">
+            <span class="status-dot status-dot-ok" aria-hidden="true"></span>
+            <span>外部 API 已允许</span>
+          </button>
+          <div class="status-item"><span>后台任务</span><strong id="taskCount">1</strong></div>
+          <label class="model-quick" for="quickModel">主模型</label>
+          <select id="quickModel" aria-label="当前主模型">
+            <option>DeepSeek V3.2</option>
+            <option>GLM-4.6</option>
+            <option>Kimi K2</option>
+            <option>Qwen3 Max</option>
+          </select>
+          <div class="status-item resource-status"><span>CPU</span><strong id="topCpu">18%</strong></div>
+        </div>
+      </header>
+
+      <main class="main-content" id="mainContent">
+        <div class="offline-banner" id="offlineBanner" role="status" hidden>
+          <strong>严格离线模式已开启</strong>
+          <span>外部模型、OCR、Embedding 和远端文件请求已被阻止。本地阅读、搜索和规则分析仍可使用。</span>
+        </div>
+
+        <section class="page is-active" id="page-overview" aria-labelledby="overviewTitle">
+          <div class="page-heading">
+            <div>
+              <p class="breadcrumb">项目概览</p>
+              <h1 id="overviewTitle">华东制造集团年度审计</h1>
+              <p>被审计主体：华东制造集团有限公司　审计范围：2019-2025</p>
+            </div>
+            <div class="heading-actions">
+              <button class="button button-secondary" data-go="documents">导入资料</button>
+              <button class="button button-primary" data-go="analysis">继续分析</button>
+            </div>
+          </div>
+
+          <div class="metric-grid">
+            <article class="metric-cell">
+              <span>项目资料</span>
+              <strong>286</strong>
+              <small>共 4,872 页，92.6% 已解析</small>
+            </article>
+            <article class="metric-cell">
+              <span>待复核风险</span>
+              <strong>12</strong>
+              <small>其中 8 项为高风险</small>
+            </article>
+            <article class="metric-cell">
+              <span>已核实事项</span>
+              <strong>19</strong>
+              <small>可进入报告 16 项</small>
+            </article>
+            <article class="metric-cell">
+              <span>本月 API 估算</span>
+              <strong>¥ 37.84</strong>
+              <small>缓存命中率 41.7%</small>
+            </article>
+          </div>
+
+          <div class="overview-layout">
+            <section class="panel task-panel" aria-labelledby="taskTitle">
+              <div class="panel-heading">
+                <div>
+                  <h2 id="taskTitle">处理进度</h2>
+                  <p>当前仅运行一个本地 CPU 任务</p>
+                </div>
+                <button class="text-button" data-go="documents">查看队列</button>
+              </div>
+              <div class="task-row">
+                <div class="task-state">运行中</div>
+                <div class="task-main">
+                  <strong>2025 年银行流水扫描件解析</strong>
+                  <span>正在调用视觉模型，已完成 143 / 208 页</span>
+                  <div class="progress" aria-label="解析进度 68.8%"><span style="width:68.8%"></span></div>
+                </div>
+                <strong>68.8%</strong>
+              </div>
+              <div class="task-row">
+                <div class="task-state task-state-done">已完成</div>
+                <div class="task-main">
+                  <strong>总账与明细账勾稽检查</strong>
+                  <span>识别 6 项差异，形成 3 张风险卡片</span>
+                </div>
+                <strong>14:32</strong>
+              </div>
+              <div class="task-row">
+                <div class="task-state task-state-warn">待处理</div>
+                <div class="task-main">
+                  <strong>增量风险解释</strong>
+                  <span>等待当前解析任务释放队列</span>
+                </div>
+                <strong>1 项</strong>
+              </div>
+            </section>
+
+            <aside class="panel resource-panel" aria-labelledby="resourceTitle">
+              <div class="panel-heading">
+                <div>
+                  <h2 id="resourceTitle">资源保护</h2>
+                  <p>轻薄本模式</p>
+                </div>
+                <span class="badge badge-ok">运行正常</span>
+              </div>
+              <div class="resource-number"><strong>18%</strong><span>当前应用 CPU</span></div>
+              <dl class="compact-stats">
+                <div><dt>应用内存</dt><dd>2.18 GB</dd></div>
+                <div><dt>外部 API 并发</dt><dd>2</dd></div>
+                <div><dt>本地任务并发</dt><dd>1</dd></div>
+                <div><dt>磁盘可用</dt><dd>186 GB</dd></div>
+              </dl>
+              <p class="panel-note">整机 CPU 连续 10 秒超过 50% 时，后台任务将自动暂停。</p>
+            </aside>
+          </div>
+
+          <section class="panel" aria-labelledby="riskPreviewTitle">
+            <div class="panel-heading">
+              <div>
+                <h2 id="riskPreviewTitle">优先复核风险</h2>
+                <p>按风险等级、证据完整性和金额影响排序</p>
+              </div>
+              <button class="text-button" data-go="risks">查看全部风险</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>编号</th><th>风险事项</th><th>等级</th><th>金额影响</th><th>证据</th><th>状态</th></tr></thead>
+                <tbody>
+                  <tr class="clickable risk-link" data-risk="R-2025-018"><td>R-2025-018</td><td><strong>应收账款期末异常增长</strong><span class="cell-sub">同比增长 47.3%，显著高于收入增速</span></td><td><span class="badge badge-danger">高</span></td><td class="num">¥ 8,426.7 万</td><td>5 项</td><td><span class="badge badge-warn">待复核</span></td></tr>
+                  <tr class="clickable risk-link" data-risk="R-2025-011"><td>R-2025-011</td><td><strong>关联方资金往来披露不完整</strong><span class="cell-sub">三笔大额往来未匹配披露清单</span></td><td><span class="badge badge-danger">高</span></td><td class="num">¥ 3,187.4 万</td><td>7 项</td><td><span class="badge badge-warn">待补证</span></td></tr>
+                  <tr class="clickable risk-link" data-risk="R-2024-037"><td>R-2024-037</td><td><strong>存货周转率连续下降</strong><span class="cell-sub">连续三年下降，部分库龄超过 720 天</span></td><td><span class="badge badge-medium">中</span></td><td class="num">¥ 1,904.2 万</td><td>4 项</td><td><span class="badge badge-neutral">待复核</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="page" id="page-documents" aria-labelledby="documentsTitle">
+          <div class="page-heading">
+            <div><p class="breadcrumb">资料中心</p><h1 id="documentsTitle">项目资料与处理队列</h1><p>原始文件、索引和解析结果保存在本机。</p></div>
+            <div class="heading-actions"><button class="button button-secondary" id="pauseQueue">暂停队列</button><button class="button button-primary" id="chooseFiles">选择文件</button></div>
+          </div>
+          <input id="fileInput" type="file" accept=".pdf,.xlsx,.xls,.csv,.docx" multiple hidden>
+          <div class="upload-zone" id="uploadZone" tabindex="0" role="button" aria-label="拖放或选择文件上传">
+            <strong>将财务资料拖放到这里</strong>
+            <span>支持 PDF、Excel、CSV 和 Word，可一次选择多个文件</span>
+            <small>扫描件会按页调用外部 OCR 或视觉模型，原始文件不会离开本机</small>
+          </div>
+          <div class="toolbar">
+            <label class="search-field"><span>搜索资料</span><input id="documentSearch" type="search" placeholder="文件名、年度、科目或状态"></label>
+            <label><span>解析状态</span><select id="documentFilter"><option value="all">全部状态</option><option value="已完成">已完成</option><option value="运行中">运行中</option><option value="待处理">待处理</option><option value="失败">失败</option></select></label>
+            <div class="toolbar-summary">286 个文件　4,872 页</div>
+          </div>
+          <section class="panel table-panel">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>文件名</th><th>年度</th><th>类型</th><th>页数</th><th>解析方式</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody id="documentRows"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="documentEmpty" hidden><strong>没有匹配的资料</strong><span>调整搜索词或状态筛选后重试。</span></div>
+          </section>
+        </section>
+
+        <section class="page" id="page-analysis" aria-labelledby="analysisTitle">
+          <div class="page-heading">
+            <div><p class="breadcrumb">分析中心</p><h1 id="analysisTitle">多年财务指标与异常检测</h1><p>本地代码负责计算，大模型只解释已检索的相关证据。</p></div>
+            <div class="heading-actions"><button class="button button-secondary" id="analysisScope">分析范围</button><button class="button button-primary api-dependent" id="runAnalysis">运行增量分析</button></div>
+          </div>
+          <div class="analysis-toolbar panel">
+            <label><span>指标</span><select id="metricSelect"><option value="receivable">应收账款周转天数</option><option value="inventory">存货周转天数</option><option value="margin">销售毛利率</option></select></label>
+            <label><span>比较口径</span><select><option>同比与历史中位数</option><option>仅同比</option><option>稳健 Z-score</option></select></label>
+            <div class="analysis-legend"><span class="legend-line"></span>项目指标 <span class="legend-dash"></span>历史中位数</div>
+          </div>
+          <div class="analysis-layout">
+            <section class="panel chart-panel">
+              <div class="panel-heading"><div><h2 id="chartTitle">应收账款周转天数</h2><p id="chartSummary">2025 年为 96.4 天，较历史中位数高 38.7 天</p></div><span class="badge badge-danger">显著异常</span></div>
+              <canvas id="trendChart" width="900" height="340" aria-label="多年指标趋势图"></canvas>
+            </section>
+            <aside class="panel rule-panel">
+              <div class="panel-heading"><div><h2>规则检查</h2><p>最近一次运行 14:32</p></div></div>
+              <div class="rule-summary"><strong>24</strong><span>条规则已执行</span></div>
+              <dl class="compact-stats"><div><dt>高优先级异常</dt><dd class="danger-text">6</dd></div><div><dt>中优先级异常</dt><dd>11</dd></div><div><dt>未触发</dt><dd>7</dd></div><div><dt>待模型解释</dt><dd>3</dd></div></dl>
+              <button class="button button-secondary button-full" id="viewRunLog">查看本次运行记录</button>
+            </aside>
+          </div>
+          <section class="panel" id="analysisResults">
+            <div class="panel-heading"><div><h2>异常结果</h2><p>每项结果均保留计算规则、输入值和证据范围</p></div><label><span class="sr-only">结果筛选</span><select><option>按优先级排序</option><option>按金额影响排序</option><option>按年度排序</option></select></label></div>
+            <div class="finding-list" id="findingList"></div>
+            <div class="skeleton-list" id="analysisSkeleton" hidden aria-label="正在运行分析"><i></i><i></i><i></i></div>
+          </section>
+        </section>
+
+        <section class="page" id="page-risks" aria-labelledby="risksTitle">
+          <div class="page-heading">
+            <div><p class="breadcrumb">风险中心</p><h1 id="risksTitle">风险事项与证据链</h1><p>风险结论需要人工确认，模型解释不能覆盖人工判断。</p></div>
+            <div class="heading-actions"><button class="button button-secondary" id="exportRisks">导出风险清单</button><button class="button button-primary" id="newRisk">新建风险事项</button></div>
+          </div>
+          <div class="risk-stats">
+            <button class="risk-stat is-selected" data-risk-filter="all"><strong>39</strong><span>全部风险</span></button>
+            <button class="risk-stat" data-risk-filter="待复核"><strong>12</strong><span>待复核</span></button>
+            <button class="risk-stat" data-risk-filter="已核实"><strong>19</strong><span>已核实</span></button>
+            <button class="risk-stat" data-risk-filter="待补证"><strong>5</strong><span>待补证</span></button>
+            <button class="risk-stat" data-risk-filter="已排除"><strong>3</strong><span>已排除</span></button>
+          </div>
+          <div class="toolbar">
+            <label class="search-field"><span>搜索风险</span><input id="riskSearch" type="search" placeholder="编号、类型、摘要或证据"></label>
+            <label><span>风险等级</span><select id="riskLevelFilter"><option value="all">全部等级</option><option>高</option><option>中</option><option>低</option></select></label>
+            <label><span>年度</span><select><option>全部年度</option><option>2025</option><option>2024</option><option>2023</option></select></label>
+          </div>
+          <section class="panel table-panel">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>风险事项</th><th>等级</th><th>金额影响</th><th>证据完整度</th><th>状态</th><th>更新</th></tr></thead>
+                <tbody id="riskRows"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="riskEmpty" hidden><strong>没有匹配的风险事项</strong><span>调整筛选条件后重试。</span></div>
+          </section>
+        </section>
+
+        <section class="page" id="page-outputs" aria-labelledby="outputsTitle">
+          <div class="page-heading">
+            <div><p class="breadcrumb">输出中心</p><h1 id="outputsTitle">审计材料与报告导出</h1><p>仅使用已核实风险及其必要证据生成草稿。</p></div>
+            <div class="heading-actions"><button class="button button-primary api-dependent" id="generateOutput">生成新材料</button></div>
+          </div>
+          <div class="output-layout">
+            <section class="panel template-panel">
+              <div class="panel-heading"><div><h2>选择输出模板</h2><p>模板字段与证据编号会随项目快照保存</p></div></div>
+              <div class="template-list" id="templateList">
+                <button class="template-item is-selected" data-template="风险清单"><strong>风险清单</strong><span>结构化风险、状态、金额和证据索引</span><small>适合 Excel 与 Word</small></button>
+                <button class="template-item" data-template="访谈提纲"><strong>访谈提纲</strong><span>按风险分组的问题与补充资料要求</span><small>适合 Word 与 PDF</small></button>
+                <button class="template-item" data-template="管理层材料"><strong>管理层材料</strong><span>已核实事项、影响和整改建议</span><small>适合 Word 与 PDF</small></button>
+                <button class="template-item" data-template="证据包索引"><strong>证据包索引</strong><span>文档、页码、片段与风险映射</span><small>适合 Excel 与 PDF</small></button>
+              </div>
+            </section>
+            <aside class="panel generation-panel">
+              <div class="panel-heading"><div><h2>生成设置</h2><p>当前选择：<span id="selectedTemplate">风险清单</span></p></div></div>
+              <label><span>风险范围</span><select><option>已核实且证据完整</option><option>全部已核实风险</option><option>手动选择</option></select></label>
+              <label><span>输出格式</span><select id="outputFormat"><option>Word (.docx)</option><option>Excel (.xlsx)</option><option>PDF (.pdf)</option></select></label>
+              <label><span>文字模型</span><select id="outputModel"><option>使用当前主模型</option><option>DeepSeek V3.2</option><option>GLM-4.6</option><option>Kimi K2</option><option>Qwen3 Max</option></select></label>
+              <div class="validation-box"><strong>生成前检查</strong><span>16 项风险可用，3 项缺少人工意见，1 项证据不完整</span></div>
+              <button class="button button-primary button-full api-dependent" id="generateFromPanel">生成风险清单</button>
+            </aside>
+          </div>
+          <section class="panel">
+            <div class="panel-heading"><div><h2>导出历史</h2><p>每次导出保留模板版本、风险快照和模型来源</p></div></div>
+            <div class="table-wrap"><table><thead><tr><th>文件</th><th>模板</th><th>风险快照</th><th>生成方式</th><th>时间</th><th>操作</th></tr></thead><tbody id="exportRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="page" id="page-settings" aria-labelledby="settingsTitle">
+          <div class="page-heading"><div><p class="breadcrumb">系统设置</p><h1 id="settingsTitle">模型、资源与隐私</h1><p>更换模型不需要修改程序代码，密钥仅保存在本机系统凭据中。</p></div></div>
+          <div class="settings-layout">
+            <div class="settings-nav" role="tablist" aria-label="设置分类">
+              <button class="is-active" data-settings-tab="models">模型服务</button>
+              <button data-settings-tab="routing">任务路由</button>
+              <button data-settings-tab="resources">资源限制</button>
+              <button data-settings-tab="privacy">隐私与离线</button>
+            </div>
+            <div>
+              <section class="settings-pane is-active" id="settings-models">
+                <div class="panel settings-panel">
+                  <div class="panel-heading"><div><h2>模型服务商</h2><p>支持 OpenAI 兼容接口及各厂商原生接口</p></div><button class="button button-primary" id="addProvider">新增服务商</button></div>
+                  <div class="provider-list" id="providerList"></div>
+                </div>
+              </section>
+              <section class="settings-pane" id="settings-routing">
+                <div class="panel settings-panel">
+                  <div class="panel-heading"><div><h2>任务路由</h2><p>每类任务可指定主模型与失败回退模型</p></div><button class="button button-secondary" id="saveRouting">保存路由</button></div>
+                  <div class="routing-grid" id="routingGrid"></div>
+                </div>
+              </section>
+              <section class="settings-pane" id="settings-resources">
+                <div class="panel settings-panel">
+                  <div class="panel-heading"><div><h2>资源限制</h2><p>默认采用轻薄本安全配置</p></div><span class="badge badge-ok">已启用保护</span></div>
+                  <div class="slider-setting"><label for="cpuLimit"><strong>应用 CPU 峰值上限</strong><span>避免后台任务长时间占用整机性能</span></label><output id="cpuLimitValue">45%</output><input id="cpuLimit" type="range" min="25" max="50" value="45"></div>
+                  <div class="slider-setting"><label for="memoryLimit"><strong>常规任务内存上限</strong><span>超过上限时停止加载新的页面图像</span></label><output id="memoryLimitValue">5.0 GB</output><input id="memoryLimit" type="range" min="2" max="8" step="0.5" value="5"></div>
+                  <div class="slider-setting"><label for="apiConcurrency"><strong>外部 API 并发</strong><span>视觉识别与文本任务共享并发配额</span></label><output id="apiConcurrencyValue">2</output><input id="apiConcurrency" type="range" min="1" max="4" value="2"></div>
+                  <div class="setting-row"><div><strong>整机保护</strong><span>整机 CPU 超过 50% 持续 10 秒时暂停任务</span></div><label class="switch"><input type="checkbox" checked><span aria-hidden="true"></span><em>已开启</em></label></div>
+                </div>
+              </section>
+              <section class="settings-pane" id="settings-privacy">
+                <div class="panel settings-panel">
+                  <div class="panel-heading"><div><h2>隐私与离线</h2><p>控制证据外发范围与本地日志记录</p></div></div>
+                  <div class="setting-row critical-setting"><div><strong>严格离线模式</strong><span>阻止模型、OCR、Embedding、Rerank 和远端文件请求</span></div><label class="switch"><input id="offlineSwitch" type="checkbox"><span aria-hidden="true"></span><em>未开启</em></label></div>
+                  <div class="setting-row"><div><strong>最小证据外发</strong><span>每次请求仅发送当前任务需要的证据片段和结构化指标</span></div><label class="switch"><input type="checkbox" checked><span aria-hidden="true"></span><em>已开启</em></label></div>
+                  <div class="setting-row"><div><strong>保存调用摘要</strong><span>保存服务商、模型、页码、Token、费用和错误，不保存完整敏感正文</span></div><label class="switch"><input type="checkbox" checked><span aria-hidden="true"></span><em>已开启</em></label></div>
+                  <div class="data-location"><strong>本地数据位置</strong><code>D:\AuditProjects\Huadong_2019_2025</code><button class="button button-secondary" id="openLocation">打开目录</button></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="drawer" id="riskDrawer" aria-labelledby="drawerTitle" aria-hidden="true">
+    <div class="drawer-header"><div><span class="drawer-id" id="drawerId">R-2025-018</span><h2 id="drawerTitle">应收账款期末异常增长</h2></div><button class="icon-button" id="closeDrawer" aria-label="关闭风险详情">×</button></div>
+    <div class="drawer-body">
+      <div class="drawer-meta"><span class="badge badge-danger" id="drawerLevel">高风险</span><span class="badge badge-warn" id="drawerStatusBadge">待复核</span><span>版本 3</span></div>
+      <section><h3>风险摘要</h3><p id="drawerSummary">2025 年末应收账款余额同比增长 47.3%，显著高于营业收入 8.6% 的增幅。异常主要集中于三家经销商，账龄均超过 180 天。</p></section>
+      <section class="calculation-box"><h3>本地计算结果</h3><dl><div><dt>期末余额</dt><dd>¥ 8,426.7 万</dd></div><div><dt>同比增长</dt><dd>47.3%</dd></div><div><dt>收入增幅</dt><dd>8.6%</dd></div><div><dt>稳健 Z-score</dt><dd>3.14</dd></div></dl><small>规则：AR-GROWTH-02，版本 1.4</small></section>
+      <section><div class="section-heading"><h3>支持证据</h3><span>5 项</span></div><button class="evidence-item"><strong>2025 年应收账款明细.xlsx</strong><span>工作表“账龄分析”，第 426-438 行</span><p>三家经销商期末余额合计 4,913.6 万元，其中 2,087.4 万元账龄超过 180 天。</p></button><button class="evidence-item"><strong>2025 年度财务报表附注.pdf</strong><span>第 38 页，证据块 E-2025-0841</span><p>期末应收账款账面余额 84,267,315.42 元，较上年期末增加 27,067,902.18 元。</p></button></section>
+      <section><div class="section-heading"><h3>反证与不确定性</h3><span>2 项</span></div><div class="counter-evidence"><strong>期后回款记录尚未完整取得</strong><p>现有银行流水显示其中一家客户已在次年 1 月回款 620 万元，仍需取得完整回款清单。</p></div></section>
+      <section><h3>人工处理</h3><label><span>风险状态</span><select id="drawerStatus"><option>待复核</option><option>已核实</option><option>已排除</option><option>待补证</option><option>已关闭</option></select></label><label><span>人工意见</span><textarea id="drawerNote" rows="4" placeholder="状态变更时请记录判断依据"></textarea></label></section>
+    </div>
+    <div class="drawer-footer"><button class="button button-secondary" id="viewEvidence">在阅读器中查看证据</button><button class="button button-primary" id="saveRisk">保存处理结果</button></div>
+  </aside>
+
+  <dialog id="providerDialog">
+    <form method="dialog" id="providerForm">
+      <div class="dialog-header"><div><h2>配置模型服务商</h2><p>密钥只写入本机系统凭据，不保存在项目文件中。</p></div><button class="icon-button" value="cancel" aria-label="关闭">×</button></div>
+      <div class="dialog-body">
+        <label><span>服务商名称</span><input name="name" value="自定义服务" required></label>
+        <label><span>Base URL</span><input name="url" type="url" value="https://api.example.com/v1" required><small>支持 OpenAI 兼容接口</small></label>
+        <label><span>API Key</span><input name="key" type="password" placeholder="输入后将安全保存" required></label>
+        <div class="form-grid"><label><span>请求超时</span><input name="timeout" type="number" value="60" min="10"><small>秒</small></label><label><span>重试次数</span><input name="retry" type="number" value="2" min="0" max="5"></label></div>
+        <label><span>模型名称</span><input name="model" value="model-name" required></label>
+        <div class="capability-list"><label><input type="checkbox" checked> 文本</label><label><input type="checkbox"> 视觉</label><label><input type="checkbox" checked> JSON Schema</label><label><input type="checkbox"> Embedding</label></div>
+        <div class="connection-result" id="connectionResult" hidden></div>
+      </div>
+      <div class="dialog-footer"><button class="button button-secondary" type="button" id="testConnection">测试连接</button><button class="button button-primary" value="save">保存配置</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+  <script src="app.js"></script>
+</body>
+</html>

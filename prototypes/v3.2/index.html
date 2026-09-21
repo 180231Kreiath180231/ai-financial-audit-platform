@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="衡鉴 AI 财务审计分析平台交互原型">
+  <title>衡鉴审计工作台 V3.2</title>
+  <style>
+    :root {
+      --primary: #0f172a;
+      --accent: #22c55e;
+      --accent-strong: #16a34a;
+      --accent-soft: rgb(34 197 94 / .12);
+      --bg: #020617;
+      --panel: #080d1d;
+      --panel-raised: #0e1426;
+      --panel-soft: #151b2d;
+      --text: #f8fafc;
+      --muted: #a9b6ca;
+      --quiet: #75839a;
+      --line: #2c374d;
+      --line-strong: #46536b;
+      --danger: #fb7185;
+      --danger-soft: rgb(251 113 133 / .12);
+      --warning: #fbbf24;
+      --warning-soft: rgb(251 191 36 / .12);
+      --info: #60a5fa;
+      --info-soft: rgb(96 165 250 / .12);
+      --shadow: 0 20px 48px rgb(1 8 24 / .30);
+      --r-sm: 6px;
+      --r-md: 10px;
+      --header: 64px;
+      --tabs: 44px;
+      --composer: 76px;
+      color-scheme: dark;
+    }
+
+    html[data-theme="light"] {
+      --primary: #0f172a;
+      --accent: #168a46;
+      --accent-strong: #087435;
+      --accent-soft: rgb(22 138 70 / .11);
+      --bg: #eef2f1;
+      --panel: #f9fbfa;
+      --panel-raised: #fbfcfb;
+      --panel-soft: #e9efed;
+      --text: #111827;
+      --muted: #4b5b6e;
+      --quiet: #68778a;
+      --line: #ccd6d3;
+      --line-strong: #9eaea9;
+      --danger: #b4233a;
+      --danger-soft: #fae8ec;
+      --warning: #8a5b00;
+      --warning-soft: #fff1c7;
+      --info: #1d62a7;
+      --info-soft: #e1effd;
+      --shadow: 0 18px 42px rgb(30 48 43 / .14);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { min-width: 320px; min-height: 100%; scroll-padding-top: calc(var(--header) + var(--tabs)); }
+    body { margin: 0; min-height: 100dvh; overflow: hidden; color: var(--text); background: var(--bg); font: 14px/1.5 "IBM Plex Sans", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif; }
+    button, input, select, textarea { color: inherit; font: inherit; }
+    button, select { cursor: pointer; touch-action: manipulation; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity: .5; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 4px; font-size: clamp(22px, 2.2vw, 32px); line-height: 1.16; letter-spacing: -.03em; }
+    h2 { margin-bottom: 4px; font-size: 16px; line-height: 1.25; }
+    h3 { margin-bottom: 3px; font-size: 13px; }
+    p { color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; }
+    th { color: var(--quiet); font-size: 11px; font-weight: 600; text-align: left; }
+    th, td { padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    tbody tr:hover { background: var(--panel-soft); }
+    .mono { font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace; font-variant-numeric: tabular-nums; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .skip-link { position: fixed; top: 8px; left: 8px; z-index: 999; transform: translateY(-150%); padding: 8px 12px; border-radius: var(--r-sm); color: var(--on-accent, #07110b); background: var(--accent); font-weight: 700; }
+    .skip-link:focus { transform: none; }
+
+    .app-header { position: fixed; inset: 0 0 auto; z-index: 50; display: grid; grid-template-columns: minmax(240px, 1fr) auto minmax(280px, 1fr); height: var(--header); align-items: center; gap: 18px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .brand { display: flex; min-width: 0; align-items: center; gap: 11px; }
+    .brand-mark { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border: 1px solid var(--accent); border-radius: var(--r-sm); color: var(--on-accent, #07110b); background: var(--accent); font-weight: 800; letter-spacing: -.05em; }
+    .brand-copy { min-width: 0; }
+    .brand-copy strong, .brand-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brand-copy strong { font-size: 14px; }
+    .brand-copy span { color: var(--quiet); font-size: 10px; }
+    .project-switch { min-width: 250px; border: 0; color: var(--text); background: transparent; text-align: center; }
+    .project-switch strong, .project-switch span { display: block; }
+    .project-switch strong { font-size: 13px; }
+    .project-switch span { color: var(--quiet); font-size: 10px; }
+    .header-actions { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 8px; }
+    .status-cluster { display: flex; align-items: center; gap: 8px; padding-right: 10px; border-right: 1px solid var(--line); }
+    .status-text { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .status-text b { color: var(--text); font-family: "Cascadia Mono", Consolas, monospace; }
+    .state-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .compact-select, .icon-button, .text-button { min-height: 34px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-raised); }
+    .compact-select { max-width: 150px; padding: 5px 28px 5px 9px; }
+    .icon-button { min-width: 36px; padding: 5px 9px; color: var(--muted); font-weight: 700; }
+    .text-button { padding: 5px 10px; color: var(--muted); }
+    .icon-button:hover, .text-button:hover, .compact-select:hover { border-color: var(--line-strong); color: var(--text); }
+
+    .top-tabs { position: fixed; inset: var(--header) 0 auto; z-index: 45; display: flex; height: var(--tabs); align-items: stretch; gap: 6px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .top-tab { position: relative; min-width: 76px; border: 0; color: var(--muted); background: transparent; font-weight: 600; }
+    .top-tab:hover { color: var(--text); background: var(--panel-soft); }
+    .top-tab.is-active { color: var(--text); }
+    .top-tab.is-active::after { content: ""; position: absolute; right: 10px; bottom: -1px; left: 10px; height: 2px; background: var(--accent); }
+    .tab-count { display: inline-grid; min-width: 18px; height: 18px; margin-left: 5px; place-items: center; border-radius: 4px; color: var(--text); background: var(--panel-soft); font-size: 10px; }
+    .top-tab.is-active .tab-count { color: var(--on-accent, #07110b); background: var(--accent); }
+
+    .app-main { position: fixed; inset: calc(var(--header) + var(--tabs)) 0 var(--composer); min-width: 0; overflow: hidden; }
+    .view { height: 100%; min-width: 0; }
+    .workbench { display: grid; grid-template-columns: 284px minmax(430px, 1fr) 344px; height: 100%; min-width: 0; }
+    .pane { min-width: 0; overflow: auto; background: var(--panel); scrollbar-color: var(--line-strong) transparent; scrollbar-width: thin; }
+    .pane + .pane { border-left: 1px solid var(--line); }
+    .pane-head { position: sticky; top: 0; z-index: 5; padding: 14px 16px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .pane-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .pane-head p { margin-bottom: 0; font-size: 11px; }
+    .section-label { margin-bottom: 3px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 11px; }
+    .filter-button { min-height: 30px; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--muted); background: transparent; padding: 4px 8px; font-size: 11px; }
+    .filter-button:hover, .filter-button.is-active { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+
+    .queue-list { display: grid; }
+    .case-row { position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 9px; width: 100%; min-height: 84px; padding: 12px 14px; border: 0; border-bottom: 1px solid var(--line); color: var(--text); background: transparent; text-align: left; }
+    .case-row:hover { background: var(--panel-soft); }
+    .case-row.is-active { background: var(--accent-soft); }
+    .case-row.is-active::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--accent); }
+    .case-rank { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--muted); background: var(--panel-raised); font-size: 11px; }
+    .case-row strong, .case-row small { display: block; }
+    .case-row strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .case-row small { margin-top: 4px; color: var(--quiet); font-size: 10px; }
+    .case-side { text-align: right; }
+    .case-side b { display: block; font: 700 11px/1.4 "Cascadia Mono", Consolas, monospace; }
+    .case-side span { color: var(--quiet); font-size: 9px; }
+    .risk-high { color: var(--danger); }
+    .risk-medium { color: var(--warning); }
+    .risk-low { color: var(--info); }
+
+    .canvas { background: var(--bg); }
+    .canvas-head { position: sticky; top: 0; z-index: 6; display: flex; min-height: 64px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 95%, transparent); }
+    .crumbs { color: var(--quiet); font-size: 10px; }
+    .canvas-title { margin-top: 2px; font-size: 14px; font-weight: 700; }
+    .canvas-actions { display: flex; gap: 7px; }
+    .primary-button, .secondary-button { min-height: 36px; border-radius: var(--r-sm); padding: 7px 12px; font-weight: 700; white-space: nowrap; }
+    .primary-button { border: 1px solid var(--accent); color: var(--on-accent, #07110b); background: var(--accent); }
+    .primary-button:hover { border-color: var(--accent-strong); background: var(--accent-strong); }
+    .secondary-button { border: 1px solid var(--line-strong); color: var(--text); background: var(--panel-raised); }
+    .secondary-button:hover { border-color: var(--accent); }
+    .canvas-body { display: grid; gap: 12px; padding: 14px 16px 30px; }
+    .insight-strip { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); overflow: hidden; }
+    .insight { min-width: 0; padding: 12px 14px; }
+    .insight + .insight { border-left: 1px solid var(--line); }
+    .insight span, .insight small { display: block; }
+    .insight span { color: var(--quiet); font-size: 10px; }
+    .insight strong { display: block; margin: 3px 0; font: 700 20px/1.25 "Cascadia Mono", Consolas, monospace; }
+    .insight:first-child strong { font-family: inherit; font-size: 13px; }
+    .insight small { color: var(--muted); font-size: 10px; }
+
+    .surface { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); }
+    .surface-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    .surface-head p { margin-bottom: 0; font-size: 10px; }
+    .segmented { display: flex; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
+    .segmented button { min-height: 28px; border: 0; color: var(--muted); background: transparent; padding: 3px 8px; font-size: 10px; }
+    .segmented button + button { border-left: 1px solid var(--line); }
+    .segmented button.is-active { color: var(--on-accent, #07110b); background: var(--accent); }
+    .chart-wrap { padding: 14px; }
+    .chart-summary { margin-bottom: 10px; color: var(--muted); font-size: 11px; }
+    .chart { position: relative; display: grid; height: 212px; grid-template-columns: 48px 1fr; grid-template-rows: 1fr 26px; }
+    .y-axis { display: flex; grid-row: 1; flex-direction: column; justify-content: space-between; padding-right: 8px; color: var(--quiet); font: 9px/1 "Cascadia Mono", Consolas, monospace; text-align: right; }
+    .plot { position: relative; grid-row: 1; border-bottom: 1px solid var(--line-strong); border-left: 1px solid var(--line-strong); background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(25% - 1px), var(--line) 25%); }
+    .plot-bars { position: absolute; inset: 12px 14px 0; display: grid; grid-template-columns: repeat(6, 1fr); align-items: end; gap: clamp(8px, 2vw, 24px); }
+    .bar-group { display: grid; height: 100%; grid-template-columns: 1fr 1fr; align-items: end; gap: 4px; }
+    .bar { position: relative; min-height: 4px; border-radius: 3px 3px 0 0; background: var(--info); }
+    .bar.audit { background: var(--accent); }
+    .bar.anomaly::after { content: "异常"; position: absolute; top: -20px; left: 50%; transform: translateX(-50%); border: 1px solid var(--danger); border-radius: 3px; color: var(--danger); background: var(--panel); padding: 1px 3px; font-size: 8px; white-space: nowrap; }
+    .x-axis { display: grid; grid-column: 2; grid-row: 2; grid-template-columns: repeat(6, 1fr); align-items: end; color: var(--quiet); font: 9px/1 "Cascadia Mono", Consolas, monospace; text-align: center; }
+    .chart-legend { display: flex; gap: 14px; margin-top: 10px; color: var(--muted); font-size: 10px; }
+    .legend-key::before { content: ""; display: inline-block; width: 12px; height: 3px; margin: 0 5px 2px 0; border-radius: 2px; background: var(--info); }
+    .legend-key.audit::before { background: var(--accent); }
+    .evidence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .evidence-item { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 62px; padding: 10px; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text); background: var(--panel-raised); text-align: left; }
+    .evidence-item:hover { border-color: var(--accent); }
+    .file-type { display: grid; width: 30px; height: 34px; place-items: center; border: 1px solid var(--line-strong); border-radius: 3px; color: var(--muted); font: 700 8px/1 "Cascadia Mono", Consolas, monospace; }
+    .evidence-item strong, .evidence-item small { display: block; }
+    .evidence-item strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .evidence-item small { color: var(--quiet); font-size: 9px; }
+    .evidence-item b { color: var(--accent); font-size: 10px; }
+
+    .decision-pane { background: var(--panel-raised); }
+    .risk-score { display: grid; grid-template-columns: 74px 1fr; gap: 12px; margin: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+    .score-block { display: grid; height: 70px; place-items: center; border: 1px solid var(--danger); border-radius: var(--r-sm); background: var(--danger-soft); }
+    .score-block strong { color: var(--danger); font: 700 25px/1 "Cascadia Mono", Consolas, monospace; }
+    .score-block span { margin-top: -14px; color: var(--danger); font-size: 9px; }
+    .score-copy strong, .score-copy span { display: block; }
+    .score-copy span { margin-top: 5px; color: var(--muted); font-size: 10px; }
+    .decision-section { padding: 0 14px 14px; }
+    .decision-section + .decision-section { padding-top: 14px; border-top: 1px solid var(--line); }
+    .decision-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; font-size: 11px; font-weight: 700; }
+    .decision-title span { color: var(--quiet); font-weight: 400; }
+    .reason-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+    .reason-list li { position: relative; padding-left: 14px; color: var(--muted); font-size: 11px; }
+    .reason-list li::before { content: ""; position: absolute; top: 7px; left: 1px; width: 5px; height: 5px; border: 1px solid var(--danger); border-radius: 50%; }
+    .citation { border-bottom: 1px dotted var(--accent); color: var(--text); background: transparent; }
+    .model-note { padding: 9px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); color: var(--muted); font-size: 10px; }
+    .model-note strong { color: var(--text); }
+    .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .status-option { min-height: 40px; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--muted); background: transparent; font-size: 10px; }
+    .status-option:hover, .status-option.is-active { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+    .note-input { width: 100%; min-height: 70px; resize: vertical; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text); background: var(--panel); padding: 9px; }
+    .note-input::placeholder { color: var(--quiet); }
+
+    .page-view { height: 100%; overflow: auto; padding: 20px clamp(16px, 3vw, 38px) 44px; background: var(--bg); }
+    .page-shell { width: min(1320px, 100%); margin: 0 auto; }
+    .page-title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+    .page-title-row p { max-width: 680px; margin-bottom: 0; }
+    .page-actions { display: flex; gap: 8px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); overflow: hidden; }
+    .metric-cell { min-width: 0; padding: 14px 16px; }
+    .metric-cell + .metric-cell { border-left: 1px solid var(--line); }
+    .metric-cell span, .metric-cell small { display: block; }
+    .metric-cell span { color: var(--quiet); font-size: 10px; }
+    .metric-cell strong { display: block; margin: 4px 0 2px; font: 700 22px/1.25 "Cascadia Mono", Consolas, monospace; }
+    .metric-cell small { color: var(--muted); font-size: 10px; }
+    .page-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .7fr); gap: 12px; margin-top: 12px; }
+    .page-card { min-width: 0; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); }
+    .page-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--line); }
+    .page-card-head p { margin-bottom: 0; font-size: 10px; }
+    .table-scroll { overflow-x: auto; }
+    .file-row { display: grid; grid-template-columns: 44px minmax(160px, 1fr) 100px 92px 110px; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+    .file-row:last-child { border-bottom: 0; }
+    .file-row strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .file-row span { color: var(--muted); font-size: 10px; }
+    .tag { display: inline-flex; min-height: 22px; align-items: center; border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; color: var(--muted); background: var(--panel-soft); font-size: 9px; font-weight: 700; white-space: nowrap; }
+    .tag.good { border-color: rgb(34 197 94 / .35); color: var(--accent); background: var(--accent-soft); }
+    .tag.warn { border-color: rgb(251 191 36 / .35); color: var(--warning); background: var(--warning-soft); }
+    .tag.bad { border-color: rgb(251 113 133 / .35); color: var(--danger); background: var(--danger-soft); }
+    .upload-zone { margin: 14px; padding: 24px; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); color: var(--muted); background: var(--panel-raised); text-align: center; }
+    .upload-zone strong, .upload-zone span { display: block; }
+    .upload-zone strong { color: var(--text); }
+    .upload-zone span { margin: 5px 0 12px; font-size: 10px; }
+    .checklist { display: grid; gap: 0; }
+    .check-row { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 8px; min-height: 42px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+    .check-row:last-child { border-bottom: 0; }
+    .check-mark { display: grid; width: 18px; height: 18px; place-items: center; border: 1px solid var(--accent); border-radius: 3px; color: var(--on-accent, #07110b); background: var(--accent); font-size: 10px; font-weight: 800; }
+    .check-row span { color: var(--muted); font-size: 10px; }
+
+    .analysis-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 12px; }
+    .analysis-menu { align-self: start; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); overflow: hidden; }
+    .analysis-menu button { display: grid; width: 100%; grid-template-columns: 24px 1fr; gap: 8px; min-height: 50px; align-items: center; border: 0; border-bottom: 1px solid var(--line); color: var(--muted); background: transparent; padding: 8px 11px; text-align: left; }
+    .analysis-menu button:last-child { border-bottom: 0; }
+    .analysis-menu button:hover, .analysis-menu button.is-active { color: var(--text); background: var(--accent-soft); }
+    .analysis-menu b { display: grid; width: 24px; height: 24px; place-items: center; border: 1px solid var(--line); border-radius: 4px; font: 700 9px/1 "Cascadia Mono", Consolas, monospace; }
+    .analysis-menu small { display: block; color: var(--quiet); font-size: 9px; }
+    .analysis-panel { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); }
+    .analysis-form { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 10px; padding: 14px; border-bottom: 1px solid var(--line); }
+    .field label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 10px; }
+    .field select, .field input { width: 100%; min-height: 38px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-raised); padding: 6px 9px; }
+    .analysis-result { min-height: 420px; padding: 14px; }
+    .loading-state { display: grid; min-height: 390px; place-items: center; text-align: center; }
+    .loading-box { width: min(420px, 100%); }
+    .loading-track { height: 5px; margin: 14px 0; overflow: hidden; border-radius: 3px; background: var(--panel-soft); }
+    .loading-track span { display: block; width: 0; height: 100%; background: var(--accent); transition: width .2s ease; }
+    .empty-state { display: grid; min-height: 340px; place-items: center; padding: 32px; color: var(--muted); text-align: center; }
+    .empty-state strong { display: block; margin-bottom: 6px; color: var(--text); }
+
+    .risk-table button { border: 0; color: var(--accent); background: transparent; font-weight: 700; }
+    .risk-table td:first-child { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+    .report-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 14px; }
+    .report-template { min-height: 190px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-raised); padding: 14px; }
+    .report-preview { height: 78px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 3px; background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 12px); opacity: .7; }
+    .report-template p { min-height: 42px; font-size: 10px; }
+    .report-template button { width: 100%; }
+    .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .settings-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); }
+    .provider-list { display: grid; }
+    .provider-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 60px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+    .provider-row:last-child { border-bottom: 0; }
+    .provider-mark { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--line-strong); border-radius: var(--r-sm); font: 700 10px/1 "Cascadia Mono", Consolas, monospace; }
+    .provider-row strong, .provider-row small { display: block; }
+    .provider-row small { color: var(--quiet); font-size: 9px; }
+
+    .composer { position: fixed; inset: auto 0 0; z-index: 48; display: grid; grid-template-columns: minmax(260px, 1fr) minmax(480px, 860px) minmax(260px, 1fr); height: var(--composer); align-items: center; gap: 16px; padding: 10px 18px; border-top: 1px solid var(--line); background: var(--panel); }
+    .composer-context { min-width: 0; }
+    .composer-context strong, .composer-context span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .composer-context strong { font-size: 11px; }
+    .composer-context span { color: var(--quiet); font-size: 9px; }
+    .composer-box { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; min-width: 0; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--panel-raised); padding: 6px; }
+    .composer-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .composer-box select, .composer-box input { min-width: 0; min-height: 40px; border: 0; background: transparent; }
+    .composer-box select { max-width: 118px; color: var(--muted); border-right: 1px solid var(--line); padding: 0 8px; }
+    .composer-box input { width: 100%; outline: 0; }
+    .composer-box input::placeholder { color: var(--quiet); }
+    .ask-button { min-width: 62px; min-height: 38px; border: 1px solid var(--accent); border-radius: var(--r-sm); color: var(--on-accent, #07110b); background: var(--accent); font-weight: 800; }
+    .composer-guard { justify-self: end; min-width: 0; text-align: right; }
+    .composer-guard strong, .composer-guard span { display: block; }
+    .composer-guard strong { color: var(--accent); font: 700 11px/1.4 "Cascadia Mono", Consolas, monospace; }
+    .composer-guard span { color: var(--quiet); font-size: 9px; }
+
+    .mobile-nav, .more-sheet { display: none; }
+    .toast { position: fixed; right: 18px; bottom: calc(var(--composer) + 16px); z-index: 100; width: min(340px, calc(100vw - 32px)); transform: translateY(18px); border: 1px solid var(--line-strong); border-radius: var(--r-md); color: var(--text); background: var(--panel-raised); box-shadow: var(--shadow); padding: 12px 14px; opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
+    .toast.is-visible { transform: none; opacity: 1; }
+    .toast strong, .toast span { display: block; }
+    .toast span { margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 18px; background: rgb(1 8 24 / .72); }
+    .modal { width: min(520px, 100%); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--panel-raised); box-shadow: var(--shadow); }
+    .modal-head, .modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; }
+    .modal-head { border-bottom: 1px solid var(--line); }
+    .modal-foot { border-top: 1px solid var(--line); }
+    .modal-body { padding: 15px; }
+    .modal-body p { margin-bottom: 0; }
+
+    @media (max-width: 1180px) {
+      .workbench { grid-template-columns: 248px minmax(420px, 1fr) 308px; }
+      .status-cluster { display: none; }
+      .app-header { grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr); }
+      .composer { grid-template-columns: 180px minmax(420px, 1fr) 170px; }
+      .evidence-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 940px) {
+      :root { --composer: 78px; }
+      body { overflow: auto; padding-bottom: 64px; }
+      .app-header { grid-template-columns: 1fr auto; height: 58px; padding: 0 12px; }
+      .project-switch, .status-cluster, .header-actions .compact-select { display: none; }
+      .top-tabs { display: none; }
+      .app-main { inset: 58px 0 calc(var(--composer) + 58px); }
+      .workbench { display: block; }
+      .queue-pane, .decision-pane { display: none; }
+      .canvas { height: 100%; }
+      .canvas-head { padding: 9px 12px; }
+      .canvas-body { padding: 10px 10px 24px; }
+      .insight-strip { grid-template-columns: 1fr 1fr; }
+      .insight:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
+      .insight:nth-child(4) { border-top: 1px solid var(--line); }
+      .page-view { padding: 14px 10px 28px; }
+      .page-title-row { align-items: flex-start; }
+      .page-title-row p { font-size: 11px; }
+      .metric-grid { grid-template-columns: 1fr 1fr; }
+      .metric-cell:nth-child(3) { border-top: 1px solid var(--line); border-left: 0; }
+      .metric-cell:nth-child(4) { border-top: 1px solid var(--line); }
+      .page-grid, .settings-grid { grid-template-columns: 1fr; }
+      .analysis-layout { grid-template-columns: 1fr; }
+      .analysis-menu { display: flex; overflow-x: auto; }
+      .analysis-menu button { min-width: 160px; border-right: 1px solid var(--line); border-bottom: 0; }
+      .analysis-form { grid-template-columns: 1fr 1fr; }
+      .report-list { grid-template-columns: 1fr; }
+      .composer { inset: auto 0 58px; grid-template-columns: 1fr; height: var(--composer); padding: 8px 10px; }
+      .composer-context, .composer-guard { display: none; }
+      .primary-button, .secondary-button, .ask-button, .filter-button, .segmented button, .icon-button, .text-button, .status-option { min-height: 44px; }
+      .field select, .field input, .composer-box input { min-height: 44px; }
+      .mobile-nav { position: fixed; inset: auto 0 0; z-index: 55; display: grid; width: 100vw; height: 58px; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--line); background: var(--panel); padding-bottom: env(safe-area-inset-bottom); }
+      .mobile-nav button { min-width: 0; min-height: 48px; border: 0; color: var(--quiet); background: transparent; font-size: 11px; }
+      .mobile-nav button.is-active { color: var(--accent); background: var(--accent-soft); }
+      .more-sheet { position: fixed; right: 10px; bottom: 66px; z-index: 70; width: 220px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--panel-raised); box-shadow: var(--shadow); padding: 8px; }
+      .more-sheet.is-open { display: grid; }
+      .more-sheet button { min-height: 46px; border: 0; border-radius: var(--r-sm); color: var(--text); background: transparent; text-align: left; padding: 8px 12px; }
+      .more-sheet button:hover { background: var(--panel-soft); }
+      .toast { bottom: calc(var(--composer) + 72px); }
+    }
+
+    @media (max-width: 620px) {
+      body { font-size: 13px; }
+      .brand-copy span, .header-actions .text-button { display: none; }
+      .canvas-actions .secondary-button { display: none; }
+      .canvas-title { max-width: 58vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .insight strong { font-size: 17px; }
+      .surface-head { flex-wrap: wrap; align-items: flex-start; }
+      .surface-head > div:first-child { min-width: 0; }
+      .chart { height: 188px; }
+      .evidence-grid { grid-template-columns: 1fr; }
+      .page-title-row { display: block; }
+      .page-actions { margin-top: 12px; }
+      .file-row { grid-template-columns: 38px minmax(140px, 1fr) 80px; }
+      .file-row > :nth-child(4), .file-row > :nth-child(5) { display: none; }
+      .analysis-form { grid-template-columns: 1fr; }
+      .report-list { padding: 10px; }
+      .settings-grid { grid-template-columns: 1fr; }
+      .composer-box { grid-template-columns: 1fr auto; }
+      .composer-box select { display: none; }
+      .modal { max-height: calc(100dvh - 36px); overflow: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+    /* V3.2 targeted evolution: fewer generic cards, calmer accent, clearer inspector. */
+    :root {
+      --accent: #48c78e;
+      --on-accent: #07110b;
+      --accent-strong: #2dab72;
+      --accent-soft: rgb(72 199 142 / .11);
+      --panel: #090e1c;
+      --panel-raised: #0d1424;
+      --panel-soft: #141c2d;
+      --line: #27334a;
+      --line-strong: #42516c;
+      --muted: #b2bdd0;
+      --quiet: #8390a6;
+      --shadow: 0 20px 52px rgb(1 8 24 / .34);
+      --r-sm: 5px;
+      --r-md: 8px;
+    }
+
+    html[data-theme="light"] {
+      --accent: #147d53;
+      --accent-strong: #0f7149;
+      --on-accent: #f8faf9;
+      --accent-soft: rgb(22 134 90 / .10);
+      --bg: #edf1ef;
+      --panel: #f7f9f8;
+      --panel-raised: #fbfcfb;
+      --panel-soft: #e8eeeb;
+      --text: #131b27;
+      --muted: #46576a;
+      --quiet: #5f6f82;
+      --line: #cbd5d2;
+      --line-strong: #9caea8;
+      --shadow: 0 18px 42px rgb(28 54 45 / .13);
+    }
+
+    body { letter-spacing: .005em; }
+    button { transition: color .16s ease, background-color .16s ease, border-color .16s ease, opacity .16s ease, transform .08s ease; }
+    button:active { transform: translateY(1px); }
+    .section-label { display: none; }
+    .brand-mark { border-radius: 4px; }
+    .top-tab { min-width: 84px; }
+    .top-tab.is-active::after { right: 16px; left: 16px; }
+    .workbench { grid-template-columns: 286px minmax(470px, 1fr) 336px; transition: grid-template-columns .18s ease; }
+    body.inspector-collapsed .workbench { grid-template-columns: 286px minmax(470px, 1fr) 0; }
+    body.inspector-collapsed .decision-pane { visibility: hidden; opacity: 0; pointer-events: none; }
+    .decision-pane { transition: opacity .16s ease; }
+    .pane-head { padding-block: 16px 13px; }
+    .pane-head p, .surface-head p, .page-card-head p { font-size: 11px; }
+    .case-row { min-height: 88px; padding-block: 14px; }
+    .case-row small, .insight small, .score-copy span, .model-note, .reason-list li { font-size: 11px; }
+    .case-row.is-active { box-shadow: inset 3px 0 var(--accent); }
+    .case-row.is-active::before { display: none; }
+    .canvas-body { gap: 0; padding: 0 18px 28px; }
+    .insight-strip { margin: 14px 0 0; border: 0; border-block: 1px solid var(--line); border-radius: 0; background: transparent; }
+    .insight { padding: 14px 12px; }
+    .surface { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+    .surface + .surface { margin-top: 0; }
+    .surface-head { padding: 16px 0 12px; }
+    .chart-wrap { padding: 14px 0 18px; }
+    .evidence-grid { gap: 8px; padding: 12px 0 18px !important; }
+    .evidence-item { background: var(--panel); }
+    .decision-tabs { position: sticky; top: 0; z-index: 6; display: grid; grid-template-columns: repeat(3, 1fr); padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel-raised); }
+    .decision-tab { min-height: 36px; border: 0; border-bottom: 2px solid transparent; color: var(--quiet); background: transparent; font-size: 11px; font-weight: 700; }
+    .decision-tab:hover { color: var(--text); }
+    .decision-tab.is-active { border-bottom-color: var(--accent); color: var(--text); }
+    .decision-pane .inspector-panel { display: none; }
+    .decision-pane[data-inspector-tab="basis"] .inspector-basis,
+    .decision-pane[data-inspector-tab="explain"] .inspector-explain,
+    .decision-pane[data-inspector-tab="action"] .inspector-action { display: grid; }
+    .risk-score.inspector-panel { grid-template-columns: 74px 1fr; }
+    .decision-section.inspector-panel { display: none; }
+    .decision-section + .decision-section { padding-top: 14px; }
+    .model-note { line-height: 1.7; }
+    .page-card, .settings-card, .analysis-panel, .analysis-menu { border-radius: var(--r-md); box-shadow: none; }
+    .metric-grid { border-inline: 0; border-radius: 0; }
+    .report-template { border-radius: var(--r-sm); }
+    .command-button { min-height: 34px; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--muted); background: var(--panel-raised); padding: 5px 9px; white-space: nowrap; }
+    .command-button kbd { margin-left: 8px; color: var(--quiet); font: 10px/1 "Cascadia Mono", Consolas, monospace; }
+    .quick-list { display: grid; gap: 4px; }
+    .quick-action { display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 10px; min-height: 54px; border: 1px solid transparent; border-radius: var(--r-sm); color: var(--text); background: transparent; padding: 8px 10px; text-align: left; }
+    .quick-action:hover, .quick-action:focus-visible { border-color: var(--line); background: var(--panel-soft); }
+    .quick-action b { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--line-strong); border-radius: 4px; font: 700 10px/1 "Cascadia Mono", Consolas, monospace; }
+    .quick-action small { display: block; color: var(--quiet); font-size: 10px; }
+    .quick-action > span:last-child { color: var(--quiet); font-size: 10px; }
+    .mobile-workspace-switch { display: none; }
+    .ai-scope { display: inline-flex; min-height: 28px; align-items: center; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); background: transparent; padding: 3px 7px; font-size: 10px; }
+    .ai-scope[aria-pressed="true"] { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+
+    @media (max-width: 1240px) {
+      .workbench { grid-template-columns: 252px minmax(430px, 1fr) 316px; }
+      body.inspector-collapsed .workbench { grid-template-columns: 252px minmax(430px, 1fr) 0; }
+      .command-button { display: none; }
+    }
+
+    @media (max-width: 940px) {
+      body.inspector-collapsed .workbench, .workbench { display: block; }
+      .mobile-workspace-switch { position: sticky; top: 0; z-index: 12; display: grid; height: 48px; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); background: var(--panel); }
+      .mobile-workspace-switch button { min-height: 44px; border: 0; border-bottom: 2px solid transparent; color: var(--quiet); background: transparent; }
+      .mobile-workspace-switch button.is-active { border-bottom-color: var(--accent); color: var(--text); }
+      .workbench > .pane { display: none; height: calc(100% - 48px); }
+      body[data-mobile-pane="queue"] .queue-pane,
+      body[data-mobile-pane="canvas"] .canvas,
+      body[data-mobile-pane="decision"] .decision-pane { display: block; visibility: visible; opacity: 1; pointer-events: auto; }
+      .decision-pane .pane-head { position: relative; }
+      .command-button { display: none; }
+      .canvas-body { padding-inline: 12px; }
+    }
+
+    @media (max-width: 620px) {
+      .brand-copy strong { font-size: 13px; }
+      .insight-strip { grid-template-columns: 1fr 1fr; }
+      .insight { min-height: 90px; }
+      .composer-box { border-radius: var(--r-sm); }
+    }
+  </style>
+</head>
+<body data-mobile-pane="canvas">
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">衡</div>
+      <div class="brand-copy"><strong>衡鉴审计工作台</strong><span>本地优先 · 示例数据</span></div>
+    </div>
+    <button class="project-switch" type="button" id="projectSwitch"><strong>华东智造 2025 年度审计</strong><span>项目编号 HJ-2025-018 · 截止 12 月 31 日</span></button>
+    <div class="header-actions">
+      <div class="status-cluster"><span class="state-dot" aria-hidden="true"></span><span class="status-text">本机负载 <b id="cpuValue">31%</b></span></div>
+      <button class="command-button" type="button" id="quickFind">快速定位 <kbd>Ctrl K</kbd></button>
+      <label class="sr-only" for="topModel">当前模型</label>
+      <select class="compact-select" id="topModel"><option>DeepSeek V3.2</option><option>GLM-4.5</option><option>Kimi K2</option><option>Qwen3 Max</option></select>
+      <button class="text-button" type="button" id="offlineToggle" aria-pressed="false">在线安全模式</button>
+      <button class="text-button" type="button" id="themeToggle" aria-label="切换明暗主题" aria-pressed="false">浅色</button>
+    </div>
+  </header>
+
+  <nav class="top-tabs" aria-label="主功能">
+    <button class="top-tab is-active" type="button" data-view="home">项目</button>
+    <button class="top-tab" type="button" data-view="docs">资料<span class="tab-count">28</span></button>
+    <button class="top-tab" type="button" data-view="analysis">分析</button>
+    <button class="top-tab" type="button" data-view="risks">风险<span class="tab-count">12</span></button>
+    <button class="top-tab" type="button" data-view="outputs">输出</button>
+    <button class="top-tab" type="button" data-view="settings">设置</button>
+  </nav>
+
+  <main class="app-main" id="main-content" tabindex="-1">
+    <section class="view" data-page="home">
+      <div class="workbench">
+        <nav class="mobile-workspace-switch" aria-label="项目工作区"><button type="button" data-mobile-pane="queue">线索</button><button class="is-active" type="button" data-mobile-pane="canvas">证据</button><button type="button" data-mobile-pane="decision">处置</button></nav>
+        <aside class="pane queue-pane" aria-label="审计线索队列">
+          <div class="pane-head">
+            <div class="pane-head-row"><div><div class="section-label">Review queue</div><h2>审计线索</h2><p>按证据充分度与金额影响排序</p></div><span class="tag bad">12 待处理</span></div>
+            <div class="filter-row"><button class="filter-button is-active" type="button" data-filter="all">全部 12</button><button class="filter-button" type="button" data-filter="high">高风险 4</button><button class="filter-button" type="button" data-filter="unread">未复核 7</button></div>
+          </div>
+          <div class="queue-list" id="caseList">
+            <button class="case-row is-active" type="button" data-case="revenue" data-risk="high"><span class="case-rank mono">01</span><span><strong>第四季度收入跨期确认</strong><small>主营收入 · 凭证 48 笔 · 证据 6 份</small></span><span class="case-side"><b class="risk-high">¥ 2.86M</b><span>影响额</span></span></button>
+            <button class="case-row" type="button" data-case="vendor" data-risk="high"><span class="case-rank mono">02</span><span><strong>同一收款账户对应多家供应商</strong><small>应付账款 · 供应商 3 家 · 证据 4 份</small></span><span class="case-side"><b class="risk-high">¥ 1.42M</b><span>交易额</span></span></button>
+            <button class="case-row" type="button" data-case="expense" data-risk="medium"><span class="case-rank mono">03</span><span><strong>销售费用月末集中入账</strong><small>销售费用 · 凭证 31 笔 · 证据 5 份</small></span><span class="case-side"><b class="risk-medium">¥ 0.78M</b><span>交易额</span></span></button>
+            <button class="case-row" type="button" data-case="inventory" data-risk="medium"><span class="case-rank mono">04</span><span><strong>存货库龄与跌价准备不匹配</strong><small>存货 · SKU 217 项 · 证据 7 份</small></span><span class="case-side"><b class="risk-medium">¥ 0.64M</b><span>影响额</span></span></button>
+            <button class="case-row" type="button" data-case="cash" data-risk="low"><span class="case-rank mono">05</span><span><strong>银行流水摘要与凭证备注差异</strong><small>货币资金 · 流水 18 笔 · 证据 3 份</small></span><span class="case-side"><b class="risk-low">¥ 0.21M</b><span>交易额</span></span></button>
+          </div>
+        </aside>
+
+        <section class="pane canvas" aria-label="证据分析画布">
+          <div class="canvas-head">
+            <div><div class="crumbs">项目 / 收入循环 / 线索详情</div><div class="canvas-title" id="canvasTitle">第四季度收入跨期确认</div></div>
+            <div class="canvas-actions"><button class="secondary-button" type="button" id="toggleInspector" aria-pressed="false">专注查看</button><button class="secondary-button" type="button" id="openSource">打开原始凭证</button><button class="primary-button" type="button" id="addWorkpaper">加入底稿</button></div>
+          </div>
+          <div class="canvas-body">
+            <div class="insight-strip">
+              <div class="insight"><span>审计判断</span><strong id="judgement">建议扩大截止性测试范围</strong><small id="judgementSub">模型解释可复核，结论需人工确认</small></div>
+              <div class="insight"><span>风险评分</span><strong id="riskNumber">86</strong><small>高风险 · 规则与模型一致</small></div>
+              <div class="insight"><span>样本覆盖</span><strong>92.4%</strong><small>48 / 52 笔已关联证据</small></div>
+              <div class="insight"><span>本地计算</span><strong>0.37s</strong><small>确定性规则引擎完成</small></div>
+            </div>
+
+            <section class="surface" aria-labelledby="trendHeading">
+              <div class="surface-head"><div><h2 id="trendHeading">收入确认与发货节奏</h2><p>单位：百万元 · 2025 年 7 月至 12 月</p></div><div class="segmented" aria-label="图表时间范围"><button class="is-active" type="button">6 月</button><button type="button">12 月</button><button type="button">全年</button></div></div>
+              <div class="chart-wrap">
+                <div class="chart-summary" id="chartSummary">12 月确认收入较发货金额高 26.8%，其中 6 笔在资产负债表日后完成签收。</div>
+                <div class="chart" role="img" aria-label="2025年7月至12月收入确认额和发货额柱状对比，12月收入确认额显著高于发货额">
+                  <div class="y-axis"><span>8.0</span><span>6.0</span><span>4.0</span><span>2.0</span><span>0</span></div>
+                  <div class="plot"><div class="plot-bars"><div class="bar-group"><span class="bar" style="height:48%"></span><span class="bar audit" style="height:46%"></span></div><div class="bar-group"><span class="bar" style="height:54%"></span><span class="bar audit" style="height:56%"></span></div><div class="bar-group"><span class="bar" style="height:62%"></span><span class="bar audit" style="height:59%"></span></div><div class="bar-group"><span class="bar" style="height:68%"></span><span class="bar audit" style="height:66%"></span></div><div class="bar-group"><span class="bar" style="height:72%"></span><span class="bar audit" style="height:70%"></span></div><div class="bar-group"><span class="bar" style="height:66%"></span><span class="bar audit anomaly" style="height:92%"></span></div></div></div>
+                  <div class="x-axis"><span>7 月</span><span>8 月</span><span>9 月</span><span>10 月</span><span>11 月</span><span>12 月</span></div>
+                </div>
+                <div class="chart-legend"><span class="legend-key">发货金额</span><span class="legend-key audit">账面确认收入</span></div>
+              </div>
+            </section>
+
+            <section class="surface" aria-labelledby="evidenceHeading">
+              <div class="surface-head"><div><h2 id="evidenceHeading">关键证据链</h2><p>证据编号可回溯到原文件页码与单元格</p></div><span class="tag good">完整度 92%</span></div>
+              <div class="evidence-grid" style="padding:12px">
+                <button class="evidence-item" type="button" data-evidence="E-019"><span class="file-type">XLSX</span><span><strong>2025 年收入明细表.xlsx</strong><small>Sheet 收入明细 · 行 2841 至 2888</small></span><b>E-019</b></button>
+                <button class="evidence-item" type="button" data-evidence="E-022"><span class="file-type">PDF</span><span><strong>12 月销售合同及签收单.pdf</strong><small>第 18 至 26 页 · OCR 置信度 96%</small></span><b>E-022</b></button>
+                <button class="evidence-item" type="button" data-evidence="E-024"><span class="file-type">CSV</span><span><strong>物流签收记录.csv</strong><small>运单号 77391 至 77422</small></span><b>E-024</b></button>
+                <button class="evidence-item" type="button" data-evidence="E-031"><span class="file-type">PDF</span><span><strong>期后红字发票清单.pdf</strong><small>第 3 页 · 发票 6 张</small></span><b>E-031</b></button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <aside class="pane decision-pane" aria-label="风险处置面板" data-inspector-tab="basis">
+          <div class="pane-head"><div class="section-label">Decision panel</div><h2>复核与处置</h2><p>模型提供解释，审计人员保留最终判断</p></div>
+          <nav class="decision-tabs" aria-label="处置面板内容"><button class="decision-tab is-active" type="button" data-inspector-tab="basis">判断依据</button><button class="decision-tab" type="button" data-inspector-tab="explain">AI 解释</button><button class="decision-tab" type="button" data-inspector-tab="action">人工处置</button></nav>
+          <div class="risk-score inspector-panel inspector-basis"><div class="score-block"><strong id="scoreDisplay">86</strong><span>高风险</span></div><div class="score-copy"><strong id="scoreTitle">截止性认定存在错报风险</strong><span id="scoreDesc">规则命中 3 项，模型补充 2 项，证据充分度较高。</span></div></div>
+          <section class="decision-section inspector-panel inspector-basis"><div class="decision-title">判断依据<span>5 项</span></div><ul class="reason-list" id="reasonList"><li>12 月 28 日至 31 日收入占月度收入 41.3%</li><li>6 笔签收日期晚于收入确认日期</li><li>相关发票存在期后红冲记录</li><li>2 笔退货未在年末调整收入</li><li><button class="citation" type="button" data-evidence="E-019">证据 E-019</button> 与 <button class="citation" type="button" data-evidence="E-024">E-024</button> 可交叉验证</li></ul></section>
+          <section class="decision-section inspector-panel inspector-explain"><div class="decision-title">AI 解释<span id="modelLabel">DeepSeek V3.2</span></div><div class="model-note"><strong>分析结论：</strong>异常并非仅由季节性波动造成。签收日、红冲记录与账面确认日形成同向证据，建议将期后 15 日内的相关交易全部纳入截止性测试。</div><div class="model-note" style="margin-top:8px"><strong>使用边界：</strong>模型未直接计算金额，也未替代审计判断。金额来自本地规则引擎，结论需由项目人员确认。</div></section>
+          <section class="decision-section inspector-panel inspector-action"><div class="decision-title">处置状态<span>必填</span></div><div class="status-grid"><button class="status-option is-active" type="button">待复核</button><button class="status-option" type="button">需调整</button><button class="status-option" type="button">已排除</button></div></section>
+          <section class="decision-section inspector-panel inspector-action"><label class="decision-title" for="auditNote">审计备注<span>保存后进入底稿</span></label><textarea class="note-input" id="auditNote" placeholder="记录判断过程、补充证据或复核意见"></textarea><button class="primary-button" type="button" id="saveDecision" style="width:100%;margin-top:8px">保存处置意见</button></section>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view page-view" data-page="docs" hidden>
+      <div class="page-shell"><div class="page-title-row"><div><div class="section-label">Evidence intake</div><h1>资料与证据</h1><p>本地解析结构化文件，扫描件调用已配置的外部 OCR。上传前可脱敏，原文件不离开项目目录。</p></div><div class="page-actions"><button class="secondary-button" type="button" id="newFolder">新建资料夹</button><button class="primary-button" type="button" id="uploadButton">导入资料</button></div></div>
+      <div class="metric-grid"><div class="metric-cell"><span>项目资料</span><strong>28</strong><small>共 486.2 MB</small></div><div class="metric-cell"><span>已完成解析</span><strong>24</strong><small>2 份正在处理</small></div><div class="metric-cell"><span>证据引用</span><strong>93</strong><small>关联 12 个风险点</small></div><div class="metric-cell"><span>OCR 费用估算</span><strong>¥ 7.84</strong><small>本月累计</small></div></div>
+      <div class="page-grid"><section class="page-card"><div class="page-card-head"><div><h2>资料清单</h2><p>文件状态、解析方式和证据引用可追溯</p></div><button class="text-button" type="button">筛选</button></div><div id="fileList"><div class="file-row"><span class="file-type">XLSX</span><strong>2025 年总账及明细账.xlsx</strong><span>84.7 MB</span><span class="tag good">本地解析</span><span>引用 31 次</span></div><div class="file-row"><span class="file-type">PDF</span><strong>12 月销售合同及签收单.pdf</strong><span>118.2 MB</span><span class="tag good">OCR 完成</span><span>引用 12 次</span></div><div class="file-row"><span class="file-type">PDF</span><strong>供应商询证函回函.pdf</strong><span>42.1 MB</span><span class="tag warn">需复核</span><span>引用 7 次</span></div><div class="file-row"><span class="file-type">CSV</span><strong>银行流水_全年.csv</strong><span>16.4 MB</span><span class="tag good">本地解析</span><span>引用 18 次</span></div><div class="file-row"><span class="file-type">PDF</span><strong>存货盘点表_扫描件.pdf</strong><span>76.8 MB</span><span class="tag warn">OCR 中</span><span>暂未引用</span></div></div></section><aside class="page-card"><div class="page-card-head"><div><h2>导入队列</h2><p>本地任务并发数固定为 1</p></div><span class="tag good">负载受控</span></div><div class="upload-zone"><strong>拖放文件到这里</strong><span>支持 XLSX、CSV、PDF、图片，单文件不超过 500 MB</span><button class="secondary-button" type="button" id="chooseFile">选择文件</button></div><div class="checklist"><div class="check-row"><span class="check-mark">✓</span><div><strong>文件完整性校验</strong><span>SHA-256 已记录</span></div><span class="tag good">完成</span></div><div class="check-row"><span class="check-mark">✓</span><div><strong>敏感字段识别</strong><span>身份证与银行卡可脱敏</span></div><span class="tag good">完成</span></div><div class="check-row"><span class="check-mark">3</span><div><strong>扫描件 OCR</strong><span>预计剩余 48 秒</span></div><span class="tag warn">处理中</span></div></div></aside></div></div>
+    </section>
+
+    <section class="view page-view" data-page="analysis" hidden>
+      <div class="page-shell"><div class="page-title-row"><div><div class="section-label">Deterministic analysis</div><h1>财务分析</h1><p>金额计算和规则命中由本地引擎完成，大模型负责解释、归纳和生成可复核的审计建议。</p></div><div class="page-actions"><button class="secondary-button" type="button" id="saveAnalysisTemplate">保存方案</button></div></div>
+      <div class="analysis-layout"><nav class="analysis-menu" aria-label="分析类型"><button class="is-active" type="button"><b>01</b><span>趋势与结构<small>同比、环比、构成变化</small></span></button><button type="button"><b>02</b><span>异常波动<small>阈值与离群点检测</small></span></button><button type="button"><b>03</b><span>往来分析<small>账龄、集中度、关联方</small></span></button><button type="button"><b>04</b><span>舞弊线索<small>重复、拆分与整数交易</small></span></button></nav><section class="analysis-panel"><div class="analysis-form"><div class="field"><label for="analysisSubject">分析科目</label><select id="analysisSubject"><option>主营业务收入</option><option>应收账款</option><option>销售费用</option><option>存货</option></select></div><div class="field"><label for="analysisPeriod">分析期间</label><select id="analysisPeriod"><option>2025 年度</option><option>2025 年第四季度</option><option>自定义期间</option></select></div><div class="field"><label for="materiality">重要性水平</label><input id="materiality" value="500,000" inputmode="decimal"></div><div class="field" style="align-self:end"><button class="primary-button" type="button" id="runAnalysis">运行分析</button></div></div><div class="analysis-result" id="analysisResult"><div class="empty-state"><div><strong>选择参数后运行分析</strong><span>计算在本地完成，随后可调用当前模型生成解释。</span></div></div></div></section></div></div>
+    </section>
+
+    <section class="view page-view" data-page="risks" hidden>
+      <div class="page-shell"><div class="page-title-row"><div><div class="section-label">Risk register</div><h1>风险台账</h1><p>集中管理风险判断、证据、处置状态与复核记录。所有模型结论均标注来源和生成时间。</p></div><div class="page-actions"><button class="secondary-button" type="button">导出清单</button><button class="primary-button" type="button" id="newRisk">新增风险</button></div></div>
+      <div class="metric-grid"><div class="metric-cell"><span>全部风险</span><strong>12</strong><small>较上次增加 2 项</small></div><div class="metric-cell"><span>高风险</span><strong class="risk-high">4</strong><small>3 项待复核</small></div><div class="metric-cell"><span>证据不充分</span><strong class="risk-medium">3</strong><small>建议补充审计程序</small></div><div class="metric-cell"><span>已关闭</span><strong>5</strong><small>复核记录完整</small></div></div>
+      <section class="page-card" style="margin-top:12px"><div class="page-card-head"><div><h2>风险清单</h2><p>按评分降序，点击查看完整证据链</p></div><div class="filter-row" style="margin:0"><button class="filter-button is-active" type="button">全部</button><button class="filter-button" type="button">待复核</button><button class="filter-button" type="button">需调整</button><button class="filter-button" type="button">已关闭</button></div></div><div class="table-scroll"><table class="risk-table"><thead><tr><th scope="col">风险事项</th><th scope="col">循环</th><th scope="col">评分</th><th scope="col">影响额</th><th scope="col">证据</th><th scope="col">状态</th><th scope="col">操作</th></tr></thead><tbody><tr><td>第四季度收入跨期确认</td><td>收入</td><td class="mono risk-high">86</td><td class="mono">¥ 2.86M</td><td>6 份</td><td><span class="tag bad">待复核</span></td><td><button type="button" data-open-case="revenue">查看</button></td></tr><tr><td>同一收款账户对应多家供应商</td><td>采购</td><td class="mono risk-high">82</td><td class="mono">¥ 1.42M</td><td>4 份</td><td><span class="tag bad">需调整</span></td><td><button type="button" data-open-case="vendor">查看</button></td></tr><tr><td>销售费用月末集中入账</td><td>费用</td><td class="mono risk-medium">68</td><td class="mono">¥ 0.78M</td><td>5 份</td><td><span class="tag warn">待复核</span></td><td><button type="button" data-open-case="expense">查看</button></td></tr><tr><td>存货库龄与跌价准备不匹配</td><td>存货</td><td class="mono risk-medium">63</td><td class="mono">¥ 0.64M</td><td>7 份</td><td><span class="tag warn">补充证据</span></td><td><button type="button" data-open-case="inventory">查看</button></td></tr><tr><td>银行流水摘要与凭证备注差异</td><td>资金</td><td class="mono risk-low">45</td><td class="mono">¥ 0.21M</td><td>3 份</td><td><span class="tag good">已排除</span></td><td><button type="button" data-open-case="cash">查看</button></td></tr></tbody></table></div></section></div>
+    </section>
+
+    <section class="view page-view" data-page="outputs" hidden>
+      <div class="page-shell"><div class="page-title-row"><div><div class="section-label">Deliverables</div><h1>输出与归档</h1><p>从已复核风险和证据生成底稿、报告及管理层沟通材料，导出前自动执行引用完整性检查。</p></div><div class="page-actions"><button class="primary-button" type="button" id="batchGenerate">批量生成</button></div></div>
+      <div class="page-card"><div class="page-card-head"><div><h2>输出模板</h2><p>模板只引用已复核数据，生成内容保留模型与证据来源</p></div><span class="tag good">引用检查已开启</span></div><div class="report-list"><article class="report-template"><div class="report-preview" aria-hidden="true"></div><h2>审计分析底稿</h2><p>包含分析目标、数据来源、审计步骤、异常明细和复核签名。</p><button class="secondary-button generate-report" type="button">生成 DOCX</button></article><article class="report-template"><div class="report-preview" aria-hidden="true"></div><h2>风险事项汇总</h2><p>按循环和风险等级汇总事项、影响金额、证据充分度及处置状态。</p><button class="secondary-button generate-report" type="button">生成 XLSX</button></article><article class="report-template"><div class="report-preview" aria-hidden="true"></div><h2>管理层沟通稿</h2><p>将专业审计判断转化为清晰的影响说明和整改建议。</p><button class="secondary-button generate-report" type="button">生成 PDF</button></article></div></div></div>
+    </section>
+
+    <section class="view page-view" data-page="settings" hidden>
+      <div class="page-shell"><div class="page-title-row"><div><div class="section-label">System controls</div><h1>模型与本机设置</h1><p>统一管理大模型、OCR、数据安全和资源上限。密钥仅保存在本机系统凭据库。</p></div><div class="page-actions"><button class="primary-button" type="button" id="saveSettings">保存设置</button></div></div>
+      <div class="settings-grid"><section class="settings-card"><div class="page-card-head"><div><h2>大模型提供商</h2><p>支持 OpenAI 兼容接口，可按任务手动切换</p></div><button class="text-button" type="button">添加接口</button></div><div class="provider-list"><div class="provider-row"><span class="provider-mark">DS</span><span><strong>DeepSeek</strong><small>deepseek-chat · 连接正常</small></span><span class="tag good">默认</span></div><div class="provider-row"><span class="provider-mark">GLM</span><span><strong>智谱 GLM</strong><small>glm-4.5 · 连接正常</small></span><span class="tag good">可用</span></div><div class="provider-row"><span class="provider-mark">KM</span><span><strong>Kimi</strong><small>kimi-k2 · 连接正常</small></span><span class="tag good">可用</span></div><div class="provider-row"><span class="provider-mark">QW</span><span><strong>通义千问</strong><small>qwen3-max · 尚未测试</small></span><button class="text-button" type="button">测试</button></div></div></section><section class="settings-card"><div class="page-card-head"><div><h2>OCR 服务</h2><p>扫描件按需调用，结构化文件不经过 OCR</p></div><span class="tag good">已启用</span></div><div class="provider-list"><div class="provider-row"><span class="provider-mark">OCR</span><span><strong>通用文字识别 API</strong><small>自动路由 · 平均置信度 96.2%</small></span><button class="text-button" type="button">配置</button></div><div class="provider-row"><span class="provider-mark">SAFE</span><span><strong>上传前脱敏</strong><small>身份证、手机号、银行卡号</small></span><span class="tag good">开启</span></div></div></section><section class="settings-card"><div class="page-card-head"><div><h2>轻薄本资源保护</h2><p>超过阈值自动暂停本地任务，不影响文档编辑</p></div><span class="tag good">保护中</span></div><div style="padding:14px"><div class="field"><label for="cpuLimit">整机 CPU 暂停阈值</label><input id="cpuLimit" type="range" min="30" max="70" value="50" style="width:100%"><span class="mono" id="cpuLimitValue">50%</span></div><div class="field" style="margin-top:12px"><label for="workerCount">本地任务并发数</label><select id="workerCount"><option>1 个任务</option></select></div><p style="margin:12px 0 0;font-size:10px">当前策略：应用持续 CPU 不超过 35%，短时峰值不超过 45%。不使用本地大模型、GPU、Docker 或 WSL。</p></div></section><section class="settings-card"><div class="page-card-head"><div><h2>数据与安全</h2><p>项目级隔离、审计日志与离线模式</p></div></div><div class="checklist"><div class="check-row"><span class="check-mark">✓</span><div><strong>本地项目隔离</strong><span>不同项目数据不可交叉检索</span></div><span class="tag good">开启</span></div><div class="check-row"><span class="check-mark">✓</span><div><strong>调用日志</strong><span>记录模型、时间、输入摘要与输出</span></div><span class="tag good">开启</span></div><div class="check-row"><span class="check-mark">✓</span><div><strong>严格离线模式</strong><span>开启后禁用大模型与 OCR</span></div><button class="text-button" type="button" id="offlineSetting">切换</button></div></div></section></div></div>
+    </section>
+  </main>
+
+  <section class="composer" aria-label="AI 审计助手">
+    <div class="composer-context"><strong>当前上下文：第四季度收入跨期确认</strong><span>已选择 4 份证据 · 不自动执行审计结论</span><button class="ai-scope" type="button" id="scopeToggle" aria-pressed="true">仅使用已选证据</button></div>
+    <form class="composer-box" id="aiForm"><label class="sr-only" for="composerModel">模型</label><select id="composerModel"><option>DeepSeek</option><option>GLM</option><option>Kimi</option><option>Qwen</option></select><label class="sr-only" for="aiQuestion">向 AI 审计助手提问</label><input id="aiQuestion" autocomplete="off" placeholder="基于已选证据提问，例如：解释 12 月收入异常的审计影响"><button class="ask-button" type="submit">发送</button></form>
+    <div class="composer-guard"><strong>CPU 31% / 内存 42%</strong><span>本地工作线程 1 · 安全范围内</span></div>
+  </section>
+
+  <nav class="mobile-nav" aria-label="移动端主功能"><button class="is-active" type="button" data-view="home">项目</button><button type="button" data-view="docs">资料</button><button type="button" data-view="analysis">分析</button><button type="button" data-view="risks">风险</button><button type="button" id="moreButton" aria-expanded="false">更多</button></nav>
+  <div class="more-sheet" id="moreSheet"><button type="button" data-view="outputs">输出与归档</button><button type="button" data-view="settings">模型与本机设置</button></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"><strong id="toastTitle">操作已完成</strong><span id="toastText">数据已保存在本地项目中。</span></div>
+
+  <div class="modal-backdrop" id="modal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-head"><h2 id="modalTitle" style="margin:0">证据详情</h2><button class="icon-button" type="button" id="closeModal" aria-label="关闭对话框">关闭</button></div><div class="modal-body" id="modalBody"><p>正在加载证据定位信息。</p></div><div class="modal-foot"><button class="secondary-button" type="button" id="modalCancel">返回</button><button class="primary-button" type="button" id="modalConfirm">在资料中打开</button></div></section>
+  </div>
+
+  <script>
+    const pages = [...document.querySelectorAll('[data-page]')];
+    const navButtons = [...document.querySelectorAll('[data-view]')];
+    const toast = document.getElementById('toast');
+    const modal = document.getElementById('modal');
+    const decisionPane = document.querySelector('.decision-pane');
+    const cases = {
+      revenue: { title: '第四季度收入跨期确认', score: 86, judgement: '建议扩大截止性测试范围', sub: '模型解释可复核，结论需人工确认', scoreTitle: '截止性认定存在错报风险', scoreDesc: '规则命中 3 项，模型补充 2 项，证据充分度较高。', summary: '12 月确认收入较发货金额高 26.8%，其中 6 笔在资产负债表日后完成签收。' },
+      vendor: { title: '同一收款账户对应多家供应商', score: 82, judgement: '建议核验供应商实质关系', sub: '银行账户一致，工商关系仍需外部证据', scoreTitle: '供应商独立性存在疑点', scoreDesc: '3 家供应商共享同一收款账户，累计交易额较高。', summary: '三个供应商在 19 笔付款中使用同一银行账户，付款审批人存在重合。' },
+      expense: { title: '销售费用月末集中入账', score: 68, judgement: '建议抽查月末大额费用', sub: '波动显著，但暂未形成充分错报证据', scoreTitle: '费用完整性与期间归属待确认', scoreDesc: '月末三日入账金额占全月 47.6%，高于历史范围。', summary: '销售费用在月末集中度明显上升，需结合合同和受益期间判断。' },
+      inventory: { title: '存货库龄与跌价准备不匹配', score: 63, judgement: '建议重算跌价准备', sub: '库龄数据已核对，售价证据尚未齐全', scoreTitle: '存货计价可能存在偏差', scoreDesc: '217 项长库龄存货未计提或计提比例偏低。', summary: '超过 360 天存货余额 0.64M，现有跌价准备覆盖率仅 18.2%。' },
+      cash: { title: '银行流水摘要与凭证备注差异', score: 45, judgement: '建议保留抽样复核记录', sub: '差异可由摘要简化解释，风险较低', scoreTitle: '资金用途描述存在差异', scoreDesc: '18 笔流水摘要与凭证备注不一致，金额影响有限。', summary: '差异主要来自银行摘要截断，已取得合同与审批单支持。' }
+    };
+
+    function showToast(title, text) {
+      document.getElementById('toastTitle').textContent = title;
+      document.getElementById('toastText').textContent = text;
+      toast.classList.add('is-visible');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove('is-visible'), 3200);
+    }
+
+    function switchView(view, updateHash = true) {
+      const target = pages.find(page => page.dataset.page === view) || pages[0];
+      pages.forEach(page => { page.hidden = page !== target; });
+      navButtons.forEach(button => button.classList.toggle('is-active', button.dataset.view === view));
+      if (updateHash) history.replaceState(null, '', '#' + view);
+      document.getElementById('moreSheet').classList.remove('is-open');
+      document.getElementById('moreButton').setAttribute('aria-expanded', 'false');
+      document.getElementById('main-content').focus({ preventScroll: true });
+    }
+
+    navButtons.forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
+    document.getElementById('moreButton').addEventListener('click', event => {
+      const sheet = document.getElementById('moreSheet');
+      const open = sheet.classList.toggle('is-open');
+      event.currentTarget.setAttribute('aria-expanded', String(open));
+    });
+
+    function setMobilePane(name) {
+      document.body.dataset.mobilePane = name;
+      document.querySelectorAll('[data-mobile-pane]').forEach(button => button.classList.toggle('is-active', button.dataset.mobilePane === name));
+    }
+    document.querySelectorAll('.mobile-workspace-switch [data-mobile-pane]').forEach(button => button.addEventListener('click', () => setMobilePane(button.dataset.mobilePane)));
+
+    document.querySelectorAll('.decision-tab').forEach(button => button.addEventListener('click', () => {
+      decisionPane.dataset.inspectorTab = button.dataset.inspectorTab;
+      document.querySelectorAll('.decision-tab').forEach(item => item.classList.toggle('is-active', item === button));
+    }));
+
+    document.getElementById('toggleInspector').addEventListener('click', event => {
+      const collapsed = document.body.classList.toggle('inspector-collapsed');
+      event.currentTarget.setAttribute('aria-pressed', String(collapsed));
+      event.currentTarget.textContent = collapsed ? '显示处置' : '专注查看';
+    });
+
+    document.querySelectorAll('.case-row').forEach(button => button.addEventListener('click', () => {
+      document.querySelectorAll('.case-row').forEach(item => item.classList.remove('is-active'));
+      button.classList.add('is-active');
+      const item = cases[button.dataset.case];
+      document.getElementById('canvasTitle').textContent = item.title;
+      document.getElementById('judgement').textContent = item.judgement;
+      document.getElementById('judgementSub').textContent = item.sub;
+      document.getElementById('riskNumber').textContent = item.score;
+      document.getElementById('scoreDisplay').textContent = item.score;
+      document.getElementById('scoreTitle').textContent = item.scoreTitle;
+      document.getElementById('scoreDesc').textContent = item.scoreDesc;
+      document.getElementById('chartSummary').textContent = item.summary;
+      document.querySelector('.composer-context strong').textContent = '当前上下文：' + item.title;
+      if (matchMedia('(max-width: 940px)').matches) setMobilePane('canvas');
+    }));
+
+    document.querySelectorAll('.filter-button[data-filter]').forEach(button => button.addEventListener('click', () => {
+      document.querySelectorAll('.filter-button[data-filter]').forEach(item => item.classList.remove('is-active'));
+      button.classList.add('is-active');
+      document.querySelectorAll('.case-row').forEach((row, index) => {
+        row.hidden = button.dataset.filter === 'high' ? row.dataset.risk !== 'high' : button.dataset.filter === 'unread' ? index > 3 : false;
+      });
+    }));
+
+    document.querySelectorAll('.segmented button').forEach(button => button.addEventListener('click', () => {
+      button.parentElement.querySelectorAll('button').forEach(item => item.classList.remove('is-active'));
+      button.classList.add('is-active');
+      showToast('时间范围已更新', '图表已切换到' + button.textContent + '范围。');
+    }));
+
+    document.querySelectorAll('.status-option').forEach(button => button.addEventListener('click', () => {
+      button.parentElement.querySelectorAll('button').forEach(item => item.classList.remove('is-active'));
+      button.classList.add('is-active');
+    }));
+
+    function openEvidence(id) {
+      document.getElementById('modalTitle').textContent = '证据 ' + id;
+      document.getElementById('modalBody').innerHTML = '<p><strong>' + id + '</strong> 已定位到原始文件。该证据包含来源文件、页码或单元格坐标、提取时间和校验值，可用于复核模型解释。</p>';
+      document.getElementById('modalConfirm').hidden = false;
+      document.getElementById('modalCancel').textContent = '返回';
+      modal.hidden = false;
+      document.getElementById('closeModal').focus();
+    }
+    document.querySelectorAll('[data-evidence]').forEach(button => button.addEventListener('click', () => openEvidence(button.dataset.evidence)));
+    function closeModal() { modal.hidden = true; }
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    document.getElementById('modalCancel').addEventListener('click', closeModal);
+    document.getElementById('modalConfirm').addEventListener('click', () => { closeModal(); switchView('docs'); showToast('已定位资料', '文件详情已在资料清单中打开。'); });
+    modal.addEventListener('click', event => { if (event.target === modal) closeModal(); });
+    function openQuickFind() {
+      document.getElementById('modalTitle').textContent = '快速定位';
+      document.getElementById('modalBody').innerHTML = '<div class="quick-list"><button class="quick-action" type="button" data-quick-target="risks"><b>风</b><span><strong>打开风险台账</strong><small>查看全部风险及复核状态</small></span><span>风险</span></button><button class="quick-action" type="button" data-quick-target="docs"><b>证</b><span><strong>查找项目证据</strong><small>定位原文件、页码和单元格</small></span><span>资料</span></button><button class="quick-action" type="button" data-quick-target="analysis"><b>析</b><span><strong>运行财务分析</strong><small>本地计算趋势和异常波动</small></span><span>分析</span></button></div>';
+      document.getElementById('modalConfirm').hidden = true;
+      document.getElementById('modalCancel').textContent = '关闭';
+      modal.hidden = false;
+      document.querySelectorAll('.quick-action').forEach(button => button.addEventListener('click', () => { closeModal(); switchView(button.dataset.quickTarget); }));
+      document.querySelector('.quick-action').focus();
+    }
+    document.getElementById('quickFind').addEventListener('click', openQuickFind);
+    document.addEventListener('keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openQuickFind(); return; }
+      if (event.key === 'Escape' && !modal.hidden) closeModal();
+    });
+
+    document.getElementById('scopeToggle').addEventListener('click', event => {
+      const selectedOnly = event.currentTarget.getAttribute('aria-pressed') !== 'true';
+      event.currentTarget.setAttribute('aria-pressed', String(selectedOnly));
+      event.currentTarget.textContent = selectedOnly ? '仅使用已选证据' : '使用项目全部资料';
+      showToast('回答范围已更新', selectedOnly ? '助手只会引用当前选择的 4 份证据。' : '助手可检索当前项目内全部已解析资料。');
+    });
+
+    document.getElementById('themeToggle').addEventListener('click', event => {
+      const light = document.documentElement.dataset.theme !== 'light';
+      document.documentElement.dataset.theme = light ? 'light' : 'dark';
+      event.currentTarget.textContent = light ? '深色' : '浅色';
+      event.currentTarget.setAttribute('aria-pressed', String(light));
+    });
+
+    let offline = false;
+    function toggleOffline() {
+      offline = !offline;
+      const button = document.getElementById('offlineToggle');
+      button.textContent = offline ? '严格离线模式' : '在线安全模式';
+      button.setAttribute('aria-pressed', String(offline));
+      document.getElementById('aiQuestion').disabled = offline;
+      document.querySelector('.ask-button').disabled = offline;
+      showToast(offline ? '已进入严格离线模式' : '已恢复在线安全模式', offline ? '大模型与 OCR 调用已停用，本地分析仍可使用。' : '外部 API 已恢复，可按配置调用。');
+    }
+    document.getElementById('offlineToggle').addEventListener('click', toggleOffline);
+    document.getElementById('offlineSetting').addEventListener('click', toggleOffline);
+
+    document.getElementById('topModel').addEventListener('change', event => {
+      document.getElementById('modelLabel').textContent = event.target.value;
+      showToast('模型已切换', '后续解释任务将使用 ' + event.target.value + '。');
+    });
+
+    document.getElementById('aiForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const input = document.getElementById('aiQuestion');
+      if (!input.value.trim()) { input.focus(); showToast('请输入问题', '助手将只基于当前选择的证据回答。'); return; }
+      const question = input.value.trim();
+      input.value = '';
+      showToast('问题已提交', '正在基于 4 份证据分析：“' + question.slice(0, 22) + (question.length > 22 ? '…' : '') + '”');
+    });
+
+    document.getElementById('runAnalysis').addEventListener('click', event => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = '分析中';
+      const result = document.getElementById('analysisResult');
+      result.innerHTML = '<div class="loading-state"><div class="loading-box"><strong>正在执行本地确定性计算</strong><p>校验数据范围、计算趋势并识别异常点</p><div class="loading-track"><span id="analysisProgress"></span></div><small id="analysisStep" class="mono">步骤 1 / 4</small></div></div>';
+      let step = 1;
+      const progress = document.getElementById('analysisProgress');
+      const stepText = document.getElementById('analysisStep');
+      const timer = setInterval(() => {
+        step += 1;
+        progress.style.width = Math.min(step * 25, 100) + '%';
+        stepText.textContent = '步骤 ' + Math.min(step, 4) + ' / 4';
+        if (step >= 4) {
+          clearInterval(timer);
+          setTimeout(() => {
+            result.innerHTML = '<div class="surface"><div class="surface-head"><div><h2>主营业务收入趋势分析</h2><p>本地计算完成 · 1,284 条记录 · 耗时 0.42 秒</p></div><span class="tag good">可复核</span></div><div style="padding:16px"><h3>发现 3 个需要关注的波动</h3><p>第四季度收入占全年 38.7%，较过去三年均值高 9.4 个百分点。12 月最后四个工作日集中确认 2.86M，建议执行截止性测试。</p><div class="chart-legend"><span class="legend-key audit">账面数据</span><span class="legend-key">历史基线</span></div></div></div>';
+            button.disabled = false;
+            button.textContent = '重新运行';
+          }, 250);
+        }
+      }, 260);
+    });
+
+    document.querySelectorAll('[data-open-case]').forEach(button => button.addEventListener('click', () => {
+      switchView('home');
+      const row = document.querySelector('.case-row[data-case="' + button.dataset.openCase + '"]');
+      if (row) row.click();
+    }));
+
+    document.getElementById('cpuLimit').addEventListener('input', event => { document.getElementById('cpuLimitValue').textContent = event.target.value + '%'; });
+    document.getElementById('saveDecision').addEventListener('click', () => {
+      if (!document.getElementById('auditNote').value.trim()) { document.getElementById('auditNote').focus(); showToast('请填写审计备注', '处置意见需要保留可复核的判断过程。'); return; }
+      showToast('处置意见已保存', '记录已写入本地底稿并生成审计日志。');
+    });
+    document.getElementById('addWorkpaper').addEventListener('click', () => showToast('已加入底稿', '风险摘要和 4 份证据引用已加入当前工作底稿。'));
+    document.getElementById('openSource').addEventListener('click', () => openEvidence('E-019'));
+    ['uploadButton', 'chooseFile'].forEach(id => document.getElementById(id).addEventListener('click', () => showToast('文件选择器已模拟打开', '正式版将支持批量导入与上传前脱敏。')));
+    document.querySelectorAll('.generate-report').forEach(button => button.addEventListener('click', () => { button.disabled = true; const old = button.textContent; button.textContent = '生成中'; setTimeout(() => { button.disabled = false; button.textContent = old; showToast('文档已生成', '已完成引用检查并保存到本地输出目录。'); }, 900); }));
+    document.getElementById('batchGenerate').addEventListener('click', () => showToast('批量任务已开始', '3 份输出文档将依次生成，本地并发数为 1。'));
+    document.getElementById('saveSettings').addEventListener('click', () => showToast('设置已保存', '密钥和服务地址已写入本机安全凭据库。'));
+    document.getElementById('newRisk').addEventListener('click', () => showToast('新风险草稿已创建', '请补充风险描述、认定和证据范围。'));
+    document.getElementById('newFolder').addEventListener('click', () => showToast('资料夹已创建', '新资料夹仅保存在当前项目中。'));
+    document.getElementById('saveAnalysisTemplate').addEventListener('click', () => showToast('分析方案已保存', '参数已保存为项目模板。'));
+
+    const queryParams = new URLSearchParams(location.search);
+    const requestedTheme = queryParams.get('theme');
+    if (requestedTheme === 'light' || requestedTheme === 'dark') {
+      document.documentElement.dataset.theme = requestedTheme;
+      const lightRequested = requestedTheme === 'light';
+      document.getElementById('themeToggle').textContent = lightRequested ? '深色' : '浅色';
+      document.getElementById('themeToggle').setAttribute('aria-pressed', String(lightRequested));
+    }
+    const requestedPane = queryParams.get('pane');
+    if (['queue', 'canvas', 'decision'].includes(requestedPane)) setMobilePane(requestedPane);
+    const initialView = location.hash.replace('#', '');
+    switchView(['home', 'docs', 'analysis', 'risks', 'outputs', 'settings'].includes(initialView) ? initialView : 'home', false);
+  </script>
+</body>
+</html>
