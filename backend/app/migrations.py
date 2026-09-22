@@ -32,6 +32,86 @@ def _registry_v1(db: sqlite3.Connection) -> None:
     )
 
 
+def _registry_v2(db: sqlite3.Connection) -> None:
+    project_columns = {
+        row[1] for row in db.execute("PRAGMA table_info(projects)").fetchall()
+    }
+    if "external_access_enabled" not in project_columns:
+        db.execute(
+            "ALTER TABLE projects ADD COLUMN external_access_enabled INTEGER NOT NULL DEFAULT 0"
+        )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS model_providers (
+            id TEXT PRIMARY KEY,
+            provider_kind TEXT NOT NULL,
+            display_name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+            base_url TEXT NOT NULL,
+            api_key_ref TEXT,
+            default_headers_json TEXT NOT NULL DEFAULT '{}',
+            timeout_seconds INTEGER NOT NULL,
+            max_retries INTEGER NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS model_profiles (
+            id TEXT PRIMARY KEY,
+            provider_id TEXT NOT NULL REFERENCES model_providers(id),
+            display_name TEXT NOT NULL,
+            model_name TEXT NOT NULL,
+            supports_text INTEGER NOT NULL DEFAULT 0,
+            supports_vision INTEGER NOT NULL DEFAULT 0,
+            supports_json_schema INTEGER NOT NULL DEFAULT 0,
+            supports_tools INTEGER NOT NULL DEFAULT 0,
+            supports_embedding INTEGER NOT NULL DEFAULT 0,
+            supports_file_upload INTEGER NOT NULL DEFAULT 0,
+            context_window INTEGER NOT NULL,
+            max_output_tokens INTEGER NOT NULL,
+            input_cost_per_million TEXT NOT NULL DEFAULT '0',
+            output_cost_per_million TEXT NOT NULL DEFAULT '0',
+            is_fallback INTEGER NOT NULL DEFAULT 0,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(provider_id, model_name)
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS model_calls (
+            id TEXT PRIMARY KEY,
+            project_id TEXT,
+            task_id TEXT,
+            provider_id TEXT,
+            model_profile_id TEXT,
+            capability TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            completed_at TEXT,
+            duration_ms INTEGER,
+            evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+            request_summary TEXT NOT NULL,
+            input_tokens INTEGER NOT NULL DEFAULT 0,
+            output_tokens INTEGER NOT NULL DEFAULT 0,
+            estimated_cost TEXT NOT NULL DEFAULT '0',
+            cache_hit INTEGER NOT NULL DEFAULT 0,
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL,
+            error_code TEXT
+        )"""
+    )
+    db.execute(
+        "INSERT OR IGNORE INTO app_settings(key, value_json, updated_at) VALUES ('strict_offline', 'true', CURRENT_TIMESTAMP)"
+    )
+
+
 def _project_v1(db: sqlite3.Connection) -> None:
     db.execute(
         """CREATE TABLE IF NOT EXISTS documents (
@@ -101,7 +181,10 @@ def _project_v1(db: sqlite3.Connection) -> None:
     )
 
 
-REGISTRY_MIGRATIONS: Sequence[Migration] = ((1, "initial_registry", _registry_v1),)
+REGISTRY_MIGRATIONS: Sequence[Migration] = (
+    (1, "initial_registry", _registry_v1),
+    (2, "model_gateway", _registry_v2),
+)
 PROJECT_MIGRATIONS: Sequence[Migration] = ((1, "initial_project", _project_v1),)
 
 

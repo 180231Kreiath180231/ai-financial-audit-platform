@@ -74,3 +74,15 @@ test('mobile workspace exposes all three panes', async ({ page }) => {
   await expect(decisionPanel).toBeVisible()
   await expect(decisionPanel.getByRole('button', { name: '判断依据' })).toBeVisible()
 })
+
+test('settings exposes audited local model routing without external requests', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop', 'desktop settings acceptance path')
+  await page.goto('/')
+
+  await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '设置' }).click()
+  await expect(page.getByRole('heading', { name: '模型与外发设置' })).toBeVisible()
+  await expect(page.getByText('严格离线', { exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: '授权当前项目' })).toBeDisabled()
+  await page.getByRole('button', { name: '运行本地自检' }).click()
+  await expect(page.getByRole('status')).toContainText('外部请求 0 次')
+})

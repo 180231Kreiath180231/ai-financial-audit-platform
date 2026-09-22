@@ -5,7 +5,6 @@ import {
   CheckCircle,
   FilePdf,
   Files,
-  Gear,
   HardDrives,
   ListMagnifyingGlass,
   Moon,
@@ -19,9 +18,10 @@ import {
   X,
 } from '@phosphor-icons/react'
 import { api } from './api'
+import { GatewaySettings } from './components/GatewaySettings'
 import { ProjectDialog } from './components/ProjectDialog'
 import { StatusMark } from './components/StatusMark'
-import type { DocumentRecord, Project, ProjectPayload, ResourceSnapshot, TaskRecord } from './types'
+import type { DocumentRecord, GatewayOverview, Project, ProjectPayload, ResourceSnapshot, TaskRecord } from './types'
 
 type View = 'project' | 'documents' | 'analysis' | 'risks' | 'outputs' | 'settings'
 type MobilePane = 'queue' | 'canvas' | 'decision'
@@ -40,11 +40,10 @@ const PdfViewer = lazy(() =>
   import('./components/PdfViewer').then((module) => ({ default: module.PdfViewer })),
 )
 
-const laterViews: Record<Exclude<View, 'project' | 'documents'>, { title: string; phase: string; description: string }> = {
+const laterViews: Record<Exclude<View, 'project' | 'documents' | 'settings'>, { title: string; phase: string; description: string }> = {
   analysis: { title: '分析', phase: '迭代四', description: '确定性财务规则、趋势、MAD 与结构占比将在规则口径确认后启用。' },
   risks: { title: '风险', phase: '迭代四', description: '风险卡片必须同时包含规则版本、支持证据、反证、不确定性与人工状态。' },
   outputs: { title: '输出', phase: '迭代五', description: '固定模板与 Word、Excel、PDF 优先级确认后接入历史快照导出。' },
-  settings: { title: '设置', phase: '迭代二', description: '服务商、密钥引用、能力档案和外发审计将在模型政策确认后启用。' },
 }
 
 const emptyResources: ResourceSnapshot = {
@@ -82,6 +81,7 @@ export function App() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>('')
   const [selectedTaskId, setSelectedTaskId] = useState<string>('')
   const [resources, setResources] = useState<ResourceSnapshot>(emptyResources)
+  const [gatewayOverview, setGatewayOverview] = useState<GatewayOverview | null>(null)
   const [view, setView] = useState<View>('project')
   const [mobilePane, setMobilePane] = useState<MobilePane>('canvas')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('basis')
@@ -103,8 +103,9 @@ export function App() {
     setBootError(null)
     try {
       await api.createSession()
-      const nextProjects = await api.listProjects()
+      const [nextProjects, gateway] = await Promise.all([api.listProjects(), api.gatewayOverview()])
       setProjects(nextProjects)
+      setGatewayOverview(gateway)
       setSelectedProjectId((current) => current || nextProjects[0]?.id || '')
       setReady(true)
     } catch (reason) {
@@ -239,6 +240,10 @@ export function App() {
     }
   }
 
+  function updateProject(changed: Project) {
+    setProjects((current) => current.map((project) => project.id === changed.id ? { ...project, ...changed } : project))
+  }
+
   if (bootError) return <AppShellError message={bootError} retry={() => void bootstrap()} />
   if (!ready) return <main className="boot-screen" aria-live="polite"><div className="boot-mark">衡</div><div className="skeleton-line wide" /><div className="skeleton-line" /><p>正在连接本地工作台…</p></main>
 
@@ -256,7 +261,7 @@ export function App() {
         <div className="header-tools">
           <span className="local-status"><i />本机负载 <b>{resources.cpu_percent}%</b></span>
           <button className="quick-button" type="button" onClick={() => document.getElementById('project-selector')?.focus()}>快速定位 <kbd>Ctrl K</kbd></button>
-          <span className="offline-badge"><ShieldCheck aria-hidden="true" />严格离线</span>
+          <span className={`offline-badge ${gatewayOverview?.strict_offline === false ? 'warning' : ''}`}><ShieldCheck aria-hidden="true" />{gatewayOverview?.strict_offline === false ? '外发总开关已开' : '严格离线'}</span>
           <button className="icon-button theme-button" type="button" aria-label={theme === 'dark' ? '切换为浅色主题' : '切换为深色主题'} onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
           </button>
@@ -405,9 +410,18 @@ export function App() {
           </>
         )}
 
-        {view !== 'project' && view !== 'documents' && (
+        {view === 'settings' && (
+          <GatewaySettings
+            overview={gatewayOverview}
+            project={selectedProject}
+            onOverviewChange={setGatewayOverview}
+            onProjectChange={updateProject}
+          />
+        )}
+
+        {view !== 'project' && view !== 'documents' && view !== 'settings' && (
           <section className="future-page">
-            <div className="future-icon">{view === 'settings' ? <Gear aria-hidden="true" /> : view === 'outputs' ? <Files aria-hidden="true" /> : <ListMagnifyingGlass aria-hidden="true" />}</div>
+            <div className="future-icon">{view === 'outputs' ? <Files aria-hidden="true" /> : <ListMagnifyingGlass aria-hidden="true" />}</div>
             <span className="section-kicker">{laterViews[view].phase}</span><h1>{laterViews[view].title}</h1><p>{laterViews[view].description}</p>
             <div className="scope-guard"><ShieldCheck aria-hidden="true" /><span><b>范围保护</b>当前页面是禁用态，不伪造分析、风险或导出成功。已确认的文档链路仍可在“项目”和“资料”中使用。</span></div>
           </section>
@@ -416,7 +430,7 @@ export function App() {
 
       <footer className="status-bar">
         <div><span>当前上下文</span><b>{selectedDocument?.filename ?? selectedProject?.name ?? '未选择项目'}</b></div>
-        <div className="status-center"><ShieldCheck aria-hidden="true" /><span>仅使用本地资料 · 外部 API 已阻断</span></div>
+        <div className="status-center"><ShieldCheck aria-hidden="true" /><span>{gatewayOverview?.strict_offline === false ? '外发总开关已开启 · 当前真实连接仍禁用' : '仅使用本地资料 · 外部 API 已阻断'}</span></div>
         <div className="resource-brief"><span>CPU <b>{resources.cpu_percent}%</b></span><span>内存 <b>{resources.memory_percent}%</b></span><small>本地工作线程 {resources.worker_limit}</small></div>
       </footer>
 

@@ -15,10 +15,20 @@ from fastapi.responses import FileResponse
 
 from .config import load_settings
 from .db import Database, ProjectStorageUnavailable, utc_now
+from .gateway import GatewayError, ModelGateway
 from .logging_config import configure_logging
 from .schemas import (
     ApiError,
     DocumentRecord,
+    ExternalAccessUpdate,
+    GatewayOverview,
+    GatewayProbe,
+    GatewayProbeResult,
+    ModelProfileCreate,
+    ModelProfileRecord,
+    ModelProviderCreate,
+    ModelProviderRecord,
+    OfflineModeUpdate,
     ProjectCreate,
     ProjectSummary,
     ResourceSnapshot,
@@ -34,6 +44,7 @@ logger = logging.getLogger("hengjian.api")
 database = Database(settings.data_dir)
 session_guard = LocalSessionGuard()
 worker = LocalTaskWorker(database)
+model_gateway = ModelGateway(database)
 
 
 def seed_synthetic_project() -> None:
@@ -131,6 +142,17 @@ def list_projects() -> list[dict]:
     return database.list_projects()
 
 
+@app.post(
+    "/api/v1/projects/{project_id}/external-access",
+    response_model=ProjectSummary,
+    dependencies=[Depends(require_session)],
+)
+def set_project_external_access(project_id: str, payload: ExternalAccessUpdate) -> dict:
+    project_or_404(project_id)
+    database.set_project_external_access(project_id, payload.enabled)
+    return next(project for project in database.list_projects() if project["id"] == project_id)
+
+
 @app.post("/api/v1/projects", response_model=ProjectSummary, status_code=201, dependencies=[Depends(require_session)])
 def create_project(payload: ProjectCreate) -> dict:
     try:
@@ -147,6 +169,127 @@ def create_project(payload: ProjectCreate) -> dict:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "STORAGE_NOT_WRITABLE", "message": str(exc), "action": "选择可写的本地目录"},
+        ) from exc
+
+
+@app.get(
+    "/api/v1/gateway",
+    response_model=GatewayOverview,
+    dependencies=[Depends(require_session)],
+)
+def gateway_overview() -> GatewayOverview:
+    return GatewayOverview(
+        strict_offline=database.strict_offline(),
+        providers=database.list_model_providers(),
+        models=database.list_model_profiles(),
+        recent_calls=database.recent_model_calls(),
+    )
+
+
+@app.post(
+    "/api/v1/settings/offline",
+    response_model=GatewayOverview,
+    dependencies=[Depends(require_session)],
+)
+def set_offline_mode(payload: OfflineModeUpdate) -> GatewayOverview:
+    database.set_strict_offline(payload.strict_offline)
+    logger.info("gateway.offline_changed", extra={"strict_offline": payload.strict_offline})
+    return gateway_overview()
+
+
+@app.post(
+    "/api/v1/model-providers",
+    response_model=ModelProviderRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_model_provider(payload: ModelProviderCreate) -> dict:
+    try:
+        provider = database.create_model_provider(payload)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "MODEL_PROVIDER_CONFLICT",
+                "message": "服务商显示名称已存在",
+                "action": "更换显示名称后重试",
+            },
+        ) from exc
+    logger.info("gateway.provider_created", extra={"provider_id": provider["id"]})
+    return provider
+
+
+@app.post(
+    "/api/v1/model-providers/{provider_id}/toggle",
+    response_model=ModelProviderRecord,
+    dependencies=[Depends(require_session)],
+)
+def toggle_model_provider(provider_id: str) -> dict:
+    try:
+        return database.toggle_model_provider(provider_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="服务商不存在") from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "FAKE_PROVIDER_REQUIRED", "message": str(exc), "action": "保留本地验收通道"},
+        ) from exc
+
+
+@app.post(
+    "/api/v1/model-profiles",
+    response_model=ModelProfileRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_model_profile(payload: ModelProfileCreate) -> dict:
+    try:
+        model = database.create_model_profile(payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="服务商不存在") from exc
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "MODEL_PROFILE_CONFLICT",
+                "message": "该服务商下已存在相同模型标识",
+                "action": "检查模型名称后重试",
+            },
+        ) from exc
+    logger.info("gateway.model_created", extra={"model_profile_id": model["id"]})
+    return model
+
+
+@app.post(
+    "/api/v1/model-profiles/{model_id}/toggle",
+    response_model=ModelProfileRecord,
+    dependencies=[Depends(require_session)],
+)
+def toggle_model_profile(model_id: str) -> dict:
+    try:
+        return database.toggle_model_profile(model_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="模型档案不存在") from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "FAKE_MODEL_REQUIRED", "message": str(exc), "action": "保留本地验收通道"},
+        ) from exc
+
+
+@app.post(
+    "/api/v1/model-gateway/probe",
+    response_model=GatewayProbeResult,
+    dependencies=[Depends(require_session)],
+)
+def probe_model_gateway(payload: GatewayProbe) -> dict:
+    project_or_404(payload.project_id)
+    try:
+        return model_gateway.probe(payload.project_id, payload.capability, payload.prompt)
+    except GatewayError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
         ) from exc
 
 

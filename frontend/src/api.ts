@@ -1,5 +1,10 @@
 import type {
   DocumentRecord,
+  GatewayOverview,
+  ModelProfile,
+  ModelProfilePayload,
+  ModelProvider,
+  ModelProviderPayload,
   Project,
   ProjectPayload,
   ResourceSnapshot,
@@ -38,6 +43,44 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }),
+  gatewayOverview: () => request<GatewayOverview>('/api/v1/gateway'),
+  setOfflineMode: (strictOffline: boolean) =>
+    request<GatewayOverview>('/api/v1/settings/offline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strict_offline: strictOffline }),
+    }),
+  setProjectExternalAccess: (projectId: string, enabled: boolean) =>
+    request<Project>(`/api/v1/projects/${projectId}/external-access`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    }),
+  createModelProvider: (payload: ModelProviderPayload) =>
+    request<ModelProvider>('/api/v1/model-providers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  toggleModelProvider: (providerId: string) =>
+    request<ModelProvider>(`/api/v1/model-providers/${providerId}/toggle`, { method: 'POST' }),
+  createModelProfile: (payload: ModelProfilePayload) =>
+    request<ModelProfile>('/api/v1/model-profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  toggleModelProfile: (modelId: string) =>
+    request<ModelProfile>(`/api/v1/model-profiles/${modelId}/toggle`, { method: 'POST' }),
+  probeGateway: (projectId: string) =>
+    request<{ actual_model: string; provider: string; output: string; external_request: boolean }>(
+      '/api/v1/model-gateway/probe',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId, capability: 'json_schema' }),
+      },
+    ),
   listDocuments: (projectId: string) =>
     request<DocumentRecord[]>(`/api/v1/projects/${projectId}/documents`),
   listTasks: (projectId: string) => request<TaskRecord[]>(`/api/v1/projects/${projectId}/tasks`),

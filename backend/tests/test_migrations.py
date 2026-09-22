@@ -1,6 +1,8 @@
+import sqlite3
 from pathlib import Path
 
 from backend.app.db import Database
+from backend.app.migrations import REGISTRY_MIGRATIONS, apply_migrations
 from backend.tests.helpers import create_project
 
 
@@ -26,7 +28,10 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
             for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
 
-    assert [tuple(row) for row in registry_versions] == [(1, "initial_registry")]
+    assert [tuple(row) for row in registry_versions] == [
+        (1, "initial_registry"),
+        (2, "model_gateway"),
+    ]
     assert [tuple(row) for row in project_versions] == [(1, "initial_project")]
     assert {"documents", "pages", "tasks", "audit_events", "schema_migrations"} <= tables
 
@@ -51,3 +56,30 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
     assert [row["version"] for row in versions] == [1]
+
+
+def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:
+    data_dir = tmp_path / "registry"
+    data_dir.mkdir()
+    connection = sqlite3.connect(data_dir / "registry.db", isolation_level=None)
+    try:
+        apply_migrations(connection, "registry", REGISTRY_MIGRATIONS[:1])
+    finally:
+        connection.close()
+
+    upgraded = Database(data_dir)
+
+    with upgraded.connect(upgraded.registry_path) as db:
+        versions = db.execute(
+            "SELECT version FROM schema_migrations WHERE scope='registry' ORDER BY version"
+        ).fetchall()
+        columns = {
+            row["name"] for row in db.execute("PRAGMA table_info(projects)").fetchall()
+        }
+        tables = {
+            row["name"]
+            for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+    assert [row["version"] for row in versions] == [1, 2]
+    assert "external_access_enabled" in columns
+    assert {"app_settings", "model_providers", "model_profiles", "model_calls"} <= tables
