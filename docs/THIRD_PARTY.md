@@ -15,6 +15,7 @@
 | pypdf | 6.19.0 | PDF 完整性检查与原生文本提取 | BSD-3-Clause | 纯 Python，低集成风险 |
 | python-multipart | 0.0.32 | 多文件上传解析 | Apache-2.0 | 仅本地请求 |
 | psutil | 7.2.2 | CPU、内存与磁盘状态 | BSD-3-Clause | 提供 Windows wheel |
+| DuckDB Python | 1.5.5 | 科目余额表明细与确定性规则结果的嵌入式分析存储 | MIT | Python 3.12 Windows x64 wheel 约 13 MB；无独立服务 |
 
 ## 开发与测试依赖
 

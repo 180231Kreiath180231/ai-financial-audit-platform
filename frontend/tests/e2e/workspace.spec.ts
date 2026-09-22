@@ -106,6 +106,43 @@ test('creates and reviews a versioned risk from resolved evidence', async ({ pag
   await expect(page.getByRole('button', { name: '支持证据' })).toBeVisible()
 })
 
+test('imports a trial balance and traces a deterministic risk to CSV rows', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop', 'desktop financial-data acceptance path')
+  await page.goto('/')
+  await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '分析' }).click()
+  await expect(page.getByRole('heading', { name: '财务数据' })).toBeVisible()
+
+  const csv = [
+    '年度,期间,科目编码,科目名称,期初借方,期初贷方,本期借方,本期贷方,期末借方,期末贷方,币种,是否末级',
+    '2024,FY,001001,库存现金,0,0,1000,0,1000,0,CNY,1',
+    '2024,FY,004001,实收资本,0,0,0,1000,0,1000,CNY,1',
+    '2025,FY,001001,库存现金,900,0,200,0,1100,0,CNY,1',
+    '2025,FY,004001,实收资本,0,1000,0,150,0,1150,CNY,1',
+  ].join('\r\n')
+  await page.getByLabel('选择科目余额表 CSV').setInputFiles({
+    name: 'synthetic-trial-balance.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(`\ufeff${csv}`, 'utf8'),
+  })
+  await expect(page.getByRole('heading', { name: '结构校验完成' })).toBeVisible()
+  await expect(page.getByText('001001').first()).toBeVisible()
+  await page.getByRole('button', { name: '确认导入并运行规则' }).click()
+  await expect(page.getByRole('status')).toContainText('本地单工作器')
+
+  await expect(page.getByRole('heading', { name: 'synthetic-trial-balance.csv' })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText('2025-FY 期初借贷总额不平衡')).toBeVisible()
+  await page.getByRole('button', { name: /2025-FY 期初借贷总额不平衡/ }).click()
+  await expect(page.getByText('difference：-100.00')).toBeVisible()
+  await expect(page.getByText('汇总计算范围').first()).toBeVisible()
+
+  await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '风险' }).click()
+  await expect(page.getByText('2025-FY 期初借贷总额不平衡').first()).toBeVisible()
+  await page.getByText('2025-FY 期初借贷总额不平衡').first().click()
+  await page.getByRole('button', { name: /synthetic-trial-balance\.csv · CSV 行/ }).click()
+  await expect(page.getByRole('heading', { name: '财务数据' })).toBeVisible()
+  await expect(page.getByText('汇总计算范围').first()).toBeVisible()
+})
+
 test('mobile workspace exposes all three panes', async ({ page }) => {
   test.skip(test.info().project.name !== 'mobile', 'mobile-only assertion')
   await page.goto('/')

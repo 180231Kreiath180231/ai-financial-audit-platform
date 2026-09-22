@@ -271,14 +271,20 @@ class RiskTransition(BaseModel):
 
 class RiskEvidenceRecord(BaseModel):
     id: str
-    document_id: str
+    kind: Literal["document", "financial"] = "document"
+    document_id: str | None = None
     document_name: str
-    page_number: int
-    block_number: int
+    page_number: int | None = None
+    block_number: int | None = None
+    dataset_id: str | None = None
+    line_start: int | None = None
+    line_end: int | None = None
+    period_key: str | None = None
+    account_code: str | None = None
     quote: str
     direction: EvidenceDirection
-    parse_method: str
-    parse_version: str
+    parse_method: str | None = None
+    parse_version: str | None = None
 
 
 class RiskVersionRecord(BaseModel):
@@ -332,6 +338,7 @@ TaskStatus = Literal[
 
 class TaskRecord(BaseModel):
     id: str
+    task_type: str
     filename: str
     status: TaskStatus
     progress: int
@@ -341,6 +348,7 @@ class TaskRecord(BaseModel):
     next_action: str | None = None
     result_kind: str | None = None
     document_id: str | None = None
+    dataset_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -359,6 +367,117 @@ class DocumentRecord(BaseModel):
 class UploadResult(BaseModel):
     accepted: list[TaskRecord]
     rejected: list[ApiError]
+
+
+class FinancialPreviewIssue(BaseModel):
+    code: str
+    message: str
+    action: str
+    line_number: int | None = None
+    field: str | None = None
+
+
+class FinancialPreview(BaseModel):
+    preview_id: str | None
+    duplicate_dataset_id: str | None
+    valid: bool
+    encoding: str
+    size_bytes: int
+    row_count: int
+    currency: str
+    amount_unit: str
+    period_type: Literal["monthly", "annual"]
+    period_start: str
+    period_end: str
+    extra_columns: list[str]
+    warnings: list[FinancialPreviewIssue]
+    errors: list[FinancialPreviewIssue]
+    sample_rows: list[dict[str, str]]
+
+
+class FinancialPreviewConfirm(BaseModel):
+    preview_id: str = Field(min_length=1, max_length=80)
+
+
+class FinancialConfirmResult(BaseModel):
+    reused_dataset_id: str | None = None
+    task: TaskRecord | None = None
+
+
+RuleResultStatus = Literal["pass", "fail", "unavailable"]
+
+
+class FinancialRuleResult(BaseModel):
+    id: str
+    rule_id: str
+    rule_version: str
+    period_key: str
+    status: RuleResultStatus
+    summary: str
+    input_values: dict
+    baseline_values: dict
+    calculation_result: dict
+    scope: dict
+    affected_count: int
+    line_start: int | None = None
+    line_end: int | None = None
+    created_at: datetime
+
+
+class FinancialDataset(BaseModel):
+    id: str
+    filename: str
+    sha256: str
+    size_bytes: int
+    encoding: str
+    period_type: Literal["monthly", "annual"]
+    period_start: str
+    period_end: str
+    row_count: int
+    currency: str
+    amount_unit: str
+    status: Literal["active", "archived"]
+    created_at: datetime
+    archived_at: datetime | None = None
+    rule_run_id: str | None = None
+    rule_set_version: str | None = None
+    rule_run_status: str | None = None
+    passed_count: int | None = None
+    failed_count: int | None = None
+    unavailable_count: int | None = None
+    completed_at: datetime | None = None
+    import_warnings: list[FinancialPreviewIssue] = Field(default_factory=list)
+    rule_results: list[FinancialRuleResult] = Field(default_factory=list)
+
+
+class FinancialResultRow(BaseModel):
+    line_number: int
+    year: int
+    period: str
+    account_code: str
+    account_name: str
+    opening_debit: str
+    opening_credit: str
+    period_debit: str
+    period_credit: str
+    closing_debit: str
+    closing_credit: str
+    currency: str
+    reason: str
+
+
+class FinancialResultRows(BaseModel):
+    total: int
+    offset: int
+    limit: int
+    rows: list[FinancialResultRow]
+
+
+class FinancialRuleRunReuse(BaseModel):
+    reused: bool = True
+    run_id: str
+    rule_set_version: str
+    message: str
 
 
 class ResourceSnapshot(BaseModel):

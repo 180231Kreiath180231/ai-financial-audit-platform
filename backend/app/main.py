@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import codecs
+import csv
+import io
 import logging
 import shutil
 import sqlite3
@@ -12,9 +15,17 @@ import psutil
 from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.responses import Response as FastAPIResponse
 
 from .config import load_settings
 from .db import Database, ProjectStorageUnavailable, utc_now
+from .financial_data import (
+    MAX_CSV_BYTES,
+    REQUIRED_COLUMNS,
+    FinancialDataError,
+    FinancialDataService,
+    sha256_file,
+)
 from .gateway import GatewayError, ModelGateway
 from .logging_config import configure_logging
 from .risks import RiskError, RiskRepository
@@ -23,6 +34,12 @@ from .schemas import (
     DocumentRecord,
     ExternalAccessUpdate,
     FakeRiskDraftResult,
+    FinancialConfirmResult,
+    FinancialDataset,
+    FinancialPreview,
+    FinancialPreviewConfirm,
+    FinancialResultRows,
+    FinancialRuleRunReuse,
     GatewayOverview,
     GatewayProbe,
     GatewayProbeResult,
@@ -55,6 +72,7 @@ session_guard = LocalSessionGuard()
 worker = LocalTaskWorker(database)
 model_gateway = ModelGateway(database)
 risk_repository = RiskRepository(database)
+financial_data = FinancialDataService(database)
 
 
 def seed_synthetic_project() -> None:
@@ -504,12 +522,20 @@ def create_fake_risk_explanation(project_id: str, risk_id: str) -> dict:
     try:
         risk = risk_repository.get(project_id, risk_id)
         support_refs = [
-            f"{item['document_id']}:{item['page_number']}:{item['block_number']}"
+            (
+                f"{item['document_id']}:{item['page_number']}:{item['block_number']}"
+                if item["kind"] == "document"
+                else f"dataset:{item['dataset_id']}:lines:{item['line_start']}-{item['line_end']}"
+            )
             for item in risk["evidence"]
             if item["direction"] == "support"
         ]
         counter_refs = [
-            f"{item['document_id']}:{item['page_number']}:{item['block_number']}"
+            (
+                f"{item['document_id']}:{item['page_number']}:{item['block_number']}"
+                if item["kind"] == "document"
+                else f"dataset:{item['dataset_id']}:lines:{item['line_start']}-{item['line_end']}"
+            )
             for item in risk["evidence"]
             if item["direction"] == "counter"
         ]
@@ -556,6 +582,198 @@ def list_tasks(project_id: str) -> list[TaskRecord]:
     with database.connect(root / "app.db") as db:
         rows = db.execute("SELECT * FROM tasks ORDER BY created_at DESC").fetchall()
     return [task_from_row(row) for row in rows]
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/financial-data/preview",
+    response_model=FinancialPreview,
+    dependencies=[Depends(require_session)],
+)
+async def preview_financial_data(project_id: str, file: UploadFile = File(...)) -> dict:
+    root = project_root_or_error(project_id)
+    filename = Path(file.filename or "trial-balance.csv").name
+    if Path(filename).suffix.lower() != ".csv":
+        raise HTTPException(
+            status_code=415,
+            detail={
+                "code": "FILE_TYPE_UNSUPPORTED",
+                "message": f"{filename} 不是 CSV",
+                "action": "下载模板并选择 CSV 文件",
+            },
+        )
+    preview_file_id = str(uuid.uuid4())
+    incoming = root / "incoming" / f"financial-preview-{preview_file_id}.csv"
+    size = 0
+    try:
+        with incoming.open("wb") as destination:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_CSV_BYTES:
+                    raise FinancialDataError(
+                        "CSV_SIZE_LIMIT_EXCEEDED",
+                        "CSV 超过 100 MB 上限",
+                        "拆分文件后重新上传",
+                    )
+                destination.write(chunk)
+    except FinancialDataError as exc:
+        incoming.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=413,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    finally:
+        await file.close()
+    try:
+        return financial_data.preview(project_id, filename, incoming, sha256_file(incoming))
+    except FinancialDataError as exc:
+        incoming.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=422,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/financial-data/confirm",
+    response_model=FinancialConfirmResult,
+    status_code=202,
+    dependencies=[Depends(require_session)],
+)
+def confirm_financial_data(
+    project_id: str, payload: FinancialPreviewConfirm
+) -> dict[str, object]:
+    project_root_or_error(project_id)
+    try:
+        return financial_data.confirm(project_id, payload.preview_id)
+    except FinancialDataError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/financial-data",
+    response_model=list[FinancialDataset],
+    dependencies=[Depends(require_session)],
+)
+def list_financial_datasets(project_id: str) -> list[dict]:
+    project_root_or_error(project_id)
+    return financial_data.list_datasets(project_id)
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/financial-data/{dataset_id}",
+    response_model=FinancialDataset,
+    dependencies=[Depends(require_session)],
+)
+def get_financial_dataset(project_id: str, dataset_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return financial_data.get_dataset(project_id, dataset_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="财务数据集不存在") from exc
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/financial-data/{dataset_id}/results/{result_id}/rows",
+    response_model=FinancialResultRows,
+    dependencies=[Depends(require_session)],
+)
+def financial_result_rows(
+    project_id: str,
+    dataset_id: str,
+    result_id: str,
+    offset: int = 0,
+    limit: int = 100,
+) -> dict:
+    project_root_or_error(project_id)
+    safe_offset = max(0, offset)
+    safe_limit = min(max(1, limit), 200)
+    try:
+        return financial_data.result_rows(
+            project_id,
+            dataset_id,
+            result_id,
+            offset=safe_offset,
+            limit=safe_limit,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="规则结果不存在") from exc
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/financial-data/{dataset_id}/archive",
+    response_model=FinancialDataset,
+    dependencies=[Depends(require_session)],
+)
+def archive_financial_dataset(project_id: str, dataset_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return financial_data.archive_dataset(project_id, dataset_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "DATASET_ARCHIVE_INVALID",
+                "message": "数据集不存在或已经归档",
+                "action": "刷新数据集列表",
+            },
+        ) from exc
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/financial-data/{dataset_id}/rule-runs",
+    response_model=FinancialRuleRunReuse,
+    dependencies=[Depends(require_session)],
+)
+def reuse_financial_rule_run(project_id: str, dataset_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        run = financial_data.existing_rule_run(project_id, dataset_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="数据集或规则运行不存在") from exc
+    return {
+        "reused": True,
+        "run_id": run["id"],
+        "rule_set_version": run["rule_set_version"],
+        "message": "同一数据集与规则版本已完成，已复用既有结果",
+    }
+
+
+def _csv_response(filename: str, rows: list[list[str]]) -> FastAPIResponse:
+    stream = io.StringIO(newline="")
+    writer = csv.writer(stream, lineterminator="\r\n")
+    writer.writerows(rows)
+    content = codecs.BOM_UTF8 + stream.getvalue().encode("utf-8")
+    return FastAPIResponse(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get(
+    "/api/v1/financial-data/template",
+    dependencies=[Depends(require_session)],
+)
+def download_financial_template() -> FastAPIResponse:
+    return _csv_response("trial-balance-template.csv", [list(REQUIRED_COLUMNS)])
+
+
+@app.get(
+    "/api/v1/financial-data/synthetic-demo",
+    dependencies=[Depends(require_session)],
+)
+def download_financial_demo() -> FastAPIResponse:
+    rows = [
+        list(REQUIRED_COLUMNS),
+        ["2024", "FY", "1001", "库存现金", "0", "0", "1000", "0", "1000", "0", "CNY", "1"],
+        ["2024", "FY", "4001", "实收资本", "0", "0", "0", "1000", "0", "1000", "CNY", "1"],
+        ["2025", "FY", "1001", "库存现金", "900", "0", "200", "0", "1100", "0", "CNY", "1"],
+        ["2025", "FY", "4001", "实收资本", "0", "1000", "0", "150", "0", "1150", "CNY", "1"],
+    ]
+    return _csv_response("synthetic-trial-balance-demo.csv", rows)
 
 
 @app.post("/api/v1/projects/{project_id}/documents", response_model=UploadResult, status_code=202, dependencies=[Depends(require_session)])

@@ -329,13 +329,25 @@ class RiskRepository:
     ) -> dict[str, Any]:
         result = self._risk_from_row(row)
         evidence = db.execute(
-            """SELECT e.id, e.document_id, d.filename document_name, e.page_number,
+            """SELECT e.id, 'document' kind, e.document_id, d.filename document_name, e.page_number,
             e.block_number, e.quote, e.direction, e.parse_method, e.parse_version
             FROM risk_evidence e JOIN documents d ON d.id=e.document_id
             WHERE e.risk_id=? ORDER BY e.direction DESC, e.page_number, e.block_number""",
             (row["id"],),
         ).fetchall()
-        result["evidence"] = [dict(item) for item in evidence]
+        financial_evidence = db.execute(
+            """SELECT e.id, 'financial' kind, NULL document_id, d.filename document_name,
+            NULL page_number, NULL block_number, e.dataset_id, e.line_start, e.line_end,
+            e.period_key, e.account_code, e.quote, e.direction, NULL parse_method,
+            NULL parse_version
+            FROM financial_risk_evidence e
+            JOIN financial_datasets d ON d.id=e.dataset_id
+            WHERE e.risk_id=? ORDER BY e.direction DESC, e.line_start""",
+            (row["id"],),
+        ).fetchall()
+        result["evidence"] = [dict(item) for item in evidence] + [
+            dict(item) for item in financial_evidence
+        ]
         result["versions"] = []
         if include_versions:
             versions = db.execute(

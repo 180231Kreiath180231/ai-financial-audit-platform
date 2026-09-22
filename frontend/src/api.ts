@@ -1,5 +1,8 @@
 import type {
   DocumentRecord,
+  FinancialDataset,
+  FinancialPreview,
+  FinancialResultRows,
   GatewayOverview,
   ModelProfile,
   ModelProfilePayload,
@@ -119,6 +122,47 @@ export const api = {
       { method: 'POST', body: form },
     )
   },
+  previewFinancialData: (projectId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<FinancialPreview>(`/api/v1/projects/${projectId}/financial-data/preview`, {
+      method: 'POST',
+      body: form,
+    })
+  },
+  confirmFinancialData: (projectId: string, previewId: string) =>
+    request<{ reused_dataset_id: string | null; task: TaskRecord | null }>(
+      `/api/v1/projects/${projectId}/financial-data/confirm`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preview_id: previewId }),
+      },
+    ),
+  listFinancialDatasets: (projectId: string) =>
+    request<FinancialDataset[]>(`/api/v1/projects/${projectId}/financial-data`),
+  getFinancialDataset: (projectId: string, datasetId: string) =>
+    request<FinancialDataset>(`/api/v1/projects/${projectId}/financial-data/${datasetId}`),
+  financialResultRows: (
+    projectId: string,
+    datasetId: string,
+    resultId: string,
+    offset = 0,
+    limit = 100,
+  ) =>
+    request<FinancialResultRows>(
+      `/api/v1/projects/${projectId}/financial-data/${datasetId}/results/${resultId}/rows?offset=${offset}&limit=${limit}`,
+    ),
+  archiveFinancialDataset: (projectId: string, datasetId: string) =>
+    request<FinancialDataset>(
+      `/api/v1/projects/${projectId}/financial-data/${datasetId}/archive`,
+      { method: 'POST' },
+    ),
+  reuseFinancialRuleRun: (projectId: string, datasetId: string) =>
+    request<{ reused: boolean; run_id: string; rule_set_version: string; message: string }>(
+      `/api/v1/projects/${projectId}/financial-data/${datasetId}/rule-runs`,
+      { method: 'POST' },
+    ),
   changeTask: (projectId: string, taskId: string, action: string) =>
     request<TaskRecord>(`/api/v1/projects/${projectId}/tasks/${taskId}/${action}`, {
       method: 'POST',

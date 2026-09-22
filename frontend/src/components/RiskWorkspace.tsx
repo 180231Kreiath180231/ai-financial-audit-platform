@@ -65,7 +65,7 @@ export function RiskWorkspace({
   return (
     <section className="risk-page" aria-labelledby="risk-page-title">
       <header className="risk-page-head">
-        <div><span className="section-kicker">迭代四基础 · 人工最终决策</span><h1 id="risk-page-title">风险台账</h1><p>当前仅支持人工证据草稿和 Fake Provider 合成解释；风险等级保持“待评估”，不执行未确认的财务规则。</p></div>
+        <div><span className="section-kicker">迭代四 · 人工最终决策</span><h1 id="risk-page-title">风险台账</h1><p>人工证据与确定性财务规则都只生成“待评估”草稿；最终风险判断和状态变更由复核人员完成。</p></div>
         <div className="risk-metrics" aria-label="风险状态统计">
           <span><b>{risks.length}</b>全部</span>
           <span><b>{risks.filter((risk) => risk.status === '待复核').length}</b>待复核</span>
@@ -99,7 +99,12 @@ export function RiskWorkspace({
                 </header>
 
                 <section className="risk-detail-section" aria-labelledby="basis-heading">
-                  <div className="risk-section-title"><FileText aria-hidden="true" /><div><h3 id="basis-heading">判断依据</h3><p>{selectedRisk.trigger_rule_id} / {selectedRisk.trigger_rule_version} · 当前为人工草稿</p></div></div>
+                  <div className="risk-section-title"><FileText aria-hidden="true" /><div><h3 id="basis-heading">判断依据</h3><p>{selectedRisk.trigger_rule_id} / {selectedRisk.trigger_rule_version} · {selectedRisk.trigger_rule_id === 'MANUAL-DRAFT' ? '人工证据草稿' : '本地确定性规则草稿'}</p></div></div>
+                  {selectedRisk.trigger_rule_id !== 'MANUAL-DRAFT' && <dl className="rule-calculation risk-rule-calculation">
+                    <div><dt>输入值</dt><dd>{formatValues(selectedRisk.input_values)}</dd></div>
+                    <div><dt>比较基准</dt><dd>{formatValues(selectedRisk.baseline_values)}</dd></div>
+                    <div><dt>计算结果</dt><dd>{formatValues(selectedRisk.calculation_result)}</dd></div>
+                  </dl>}
                   <div className="evidence-columns">
                     <EvidenceGroup title="支持证据" items={support} onOpen={onOpenEvidence} />
                     <EvidenceGroup title="反证" items={counter} onOpen={onOpenEvidence} />
@@ -138,11 +143,15 @@ function EvidenceGroup({ title, items, onOpen }: { title: string; items: RiskEvi
       <div className="list-heading"><span>{title}</span><b>{items.length}</b></div>
       {items.length === 0 ? <p className="evidence-empty">未关联</p> : items.map((item) => (
         <button key={item.id} type="button" onClick={() => onOpen(item)}>
-          <span>{item.document_name} · 第 {item.page_number} 页</span>
+          <span>{item.kind === 'financial' ? `${item.document_name} · CSV 行 ${item.line_start}${item.line_end !== item.line_start ? `–${item.line_end}` : ''}` : `${item.document_name} · 第 ${item.page_number} 页`}</span>
           <q>{item.quote}</q>
-          <small>{item.parse_method} / {item.parse_version} · 块 {item.block_number}</small>
+          <small>{item.kind === 'financial' ? `${item.period_key} · 点击查看规则行级证据` : `${item.parse_method} / ${item.parse_version} · 块 ${item.block_number}`}</small>
         </button>
       ))}
     </div>
   )
+}
+
+function formatValues(values: Record<string, unknown>) {
+  return Object.entries(values).map(([key, value]) => `${key}：${String(value)}`).join(' · ') || '无'
 }

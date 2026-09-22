@@ -128,6 +128,7 @@ export interface DocumentRecord {
 
 export interface TaskRecord {
   id: string
+  task_type: string
   filename: string
   status: TaskStatus
   progress: number
@@ -137,6 +138,7 @@ export interface TaskRecord {
   next_action: string | null
   result_kind: string | null
   document_id: string | null
+  dataset_id: string | null
   created_at: string
   updated_at: string
 }
@@ -177,14 +179,20 @@ export interface EvidenceSelection extends SearchHit {
 
 export interface RiskEvidence {
   id: string
-  document_id: string
+  kind: 'document' | 'financial'
+  document_id: string | null
   document_name: string
-  page_number: number
-  block_number: number
+  page_number: number | null
+  block_number: number | null
+  dataset_id: string | null
+  line_start: number | null
+  line_end: number | null
+  period_key: string | null
+  account_code: string | null
   quote: string
   direction: EvidenceDirection
-  parse_method: string
-  parse_version: string
+  parse_method: string | null
+  parse_version: string | null
 }
 
 export interface RiskVersion {
@@ -229,4 +237,106 @@ export interface RiskPayload {
     quote: string
     direction: EvidenceDirection
   }>
+}
+
+export interface FinancialPreviewIssue {
+  code: string
+  message: string
+  action: string
+  line_number: number | null
+  field: string | null
+}
+
+export interface FinancialPreview {
+  preview_id: string | null
+  duplicate_dataset_id: string | null
+  valid: boolean
+  encoding: string
+  size_bytes: number
+  row_count: number
+  currency: string
+  amount_unit: string
+  period_type: 'monthly' | 'annual'
+  period_start: string
+  period_end: string
+  extra_columns: string[]
+  warnings: FinancialPreviewIssue[]
+  errors: FinancialPreviewIssue[]
+  sample_rows: Array<Record<string, string>>
+}
+
+export type FinancialRuleStatus = 'pass' | 'fail' | 'unavailable'
+
+export interface FinancialRuleResult {
+  id: string
+  rule_id: string
+  rule_version: string
+  period_key: string
+  status: FinancialRuleStatus
+  summary: string
+  input_values: Record<string, unknown>
+  baseline_values: Record<string, unknown>
+  calculation_result: Record<string, unknown>
+  scope: Record<string, unknown>
+  affected_count: number
+  line_start: number | null
+  line_end: number | null
+  created_at: string
+}
+
+export interface FinancialDataset {
+  id: string
+  filename: string
+  sha256: string
+  size_bytes: number
+  encoding: string
+  period_type: 'monthly' | 'annual'
+  period_start: string
+  period_end: string
+  row_count: number
+  currency: string
+  amount_unit: string
+  status: 'active' | 'archived'
+  created_at: string
+  archived_at: string | null
+  rule_run_id: string | null
+  rule_set_version: string | null
+  rule_run_status: string | null
+  passed_count: number | null
+  failed_count: number | null
+  unavailable_count: number | null
+  completed_at: string | null
+  import_warnings: FinancialPreviewIssue[]
+  rule_results: FinancialRuleResult[]
+}
+
+export interface FinancialResultRow {
+  line_number: number
+  year: number
+  period: string
+  account_code: string
+  account_name: string
+  opening_debit: string
+  opening_credit: string
+  period_debit: string
+  period_credit: string
+  closing_debit: string
+  closing_credit: string
+  currency: string
+  reason: string
+}
+
+export interface FinancialResultRows {
+  total: number
+  offset: number
+  limit: number
+  rows: FinancialResultRow[]
+}
+
+export interface FinancialEvidenceTarget {
+  datasetId: string
+  lineStart: number | null
+  lineEnd: number | null
+  periodKey: string | null
+  token: number
 }

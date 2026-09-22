@@ -11,6 +11,7 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from .db import Database, utc_now
+from .financial_data import FinancialDataError, FinancialDataService
 
 logger = logging.getLogger("hengjian.worker")
 
@@ -20,6 +21,7 @@ class LocalTaskWorker:
 
     def __init__(self, database: Database) -> None:
         self.database = database
+        self.financial_data = FinancialDataService(database)
         self._stopping = False
 
     def stop(self) -> None:
@@ -47,7 +49,7 @@ class LocalTaskWorker:
                         project_root,
                         task_id,
                         "UNEXPECTED_PROCESSING_ERROR",
-                        "PDF 处理遇到未预期错误",
+                        "本地任务遇到未预期错误",
                         "保留原文件并重试；若问题持续，请查看本地日志",
                     )
                 except Exception:
@@ -61,17 +63,22 @@ class LocalTaskWorker:
             with self.database.connect(root / "app.db") as db:
                 db.execute("BEGIN IMMEDIATE")
                 row = db.execute(
-                    "SELECT id FROM tasks WHERE status='queued' ORDER BY created_at LIMIT 1"
+                    "SELECT id, task_type FROM tasks WHERE status='queued' ORDER BY created_at LIMIT 1"
                 ).fetchone()
                 if row is None:
                     db.execute("COMMIT")
                     continue
+                first_step = (
+                    "校验科目余额表"
+                    if row["task_type"] == "trial_balance_import"
+                    else "计算文件哈希"
+                )
                 changed = db.execute(
                     """UPDATE tasks SET status='running', progress=5,
-                    current_step='计算文件哈希', error_code=NULL, error_message=NULL,
+                    current_step=?, error_code=NULL, error_message=NULL,
                     next_action=NULL, result_kind=NULL, document_id=NULL, updated_at=?
                     WHERE id=? AND status='queued'""",
-                    (utc_now(), row["id"]),
+                    (first_step, utc_now(), row["id"]),
                 ).rowcount
                 db.execute("COMMIT")
                 if changed:
@@ -132,6 +139,36 @@ class LocalTaskWorker:
             task = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         if task is None:
             return
+        if task["task_type"] == "trial_balance_import":
+            try:
+                self.financial_data.process_import(
+                    root, task_id, self._safe_point, self._update_task
+                )
+            except FinancialDataError as exc:
+                self._fail(root, task_id, exc.code, exc.message, exc.action)
+            except OSError as exc:
+                self._fail(
+                    root,
+                    task_id,
+                    "LOCAL_IO_ERROR",
+                    f"本地文件处理失败：{exc}",
+                    "检查磁盘空间与目录权限后重试",
+                )
+            except Exception:
+                logger.exception(
+                    "task.unexpected_financial_processing_error", extra={"task_id": task_id}
+                )
+                self._fail(
+                    root,
+                    task_id,
+                    "UNEXPECTED_PROCESSING_ERROR",
+                    "财务数据处理遇到未预期错误",
+                    "原文件已保留；请重试，若问题持续请查看本地日志",
+                )
+            return
+        self._process_pdf(root, task_id, task)
+
+    def _process_pdf(self, root: Path, task_id: str, task) -> None:
         incoming = Path(task["incoming_path"])
         if not incoming.exists():
             self._fail(root, task_id, "FILE_MISSING", "待处理文件不存在", "重新选择该 PDF 上传")

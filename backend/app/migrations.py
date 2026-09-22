@@ -275,6 +275,99 @@ def _project_v2(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v3(db: sqlite3.Connection) -> None:
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS financial_datasets (
+            id TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            sha256 TEXT NOT NULL UNIQUE,
+            size_bytes INTEGER NOT NULL,
+            source_path TEXT NOT NULL,
+            encoding TEXT NOT NULL,
+            period_type TEXT NOT NULL CHECK(period_type IN ('monthly', 'annual')),
+            period_start TEXT NOT NULL,
+            period_end TEXT NOT NULL,
+            row_count INTEGER NOT NULL,
+            currency TEXT NOT NULL,
+            amount_unit TEXT NOT NULL DEFAULT '元',
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'archived')),
+            created_at TEXT NOT NULL,
+            archived_at TEXT
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS financial_import_previews (
+            id TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            sha256 TEXT NOT NULL,
+            size_bytes INTEGER NOT NULL,
+            stored_path TEXT NOT NULL,
+            encoding TEXT NOT NULL,
+            period_type TEXT NOT NULL,
+            period_start TEXT NOT NULL,
+            period_end TEXT NOT NULL,
+            row_count INTEGER NOT NULL,
+            currency TEXT NOT NULL,
+            extra_columns_json TEXT NOT NULL DEFAULT '[]',
+            warnings_json TEXT NOT NULL DEFAULT '[]',
+            sample_rows_json TEXT NOT NULL DEFAULT '[]',
+            duplicate_dataset_id TEXT REFERENCES financial_datasets(id),
+            created_at TEXT NOT NULL,
+            confirmed_at TEXT
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS financial_rule_runs (
+            id TEXT PRIMARY KEY,
+            dataset_id TEXT NOT NULL REFERENCES financial_datasets(id),
+            rule_set_version TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
+            passed_count INTEGER NOT NULL DEFAULT 0,
+            failed_count INTEGER NOT NULL DEFAULT 0,
+            unavailable_count INTEGER NOT NULL DEFAULT 0,
+            error_code TEXT,
+            created_at TEXT NOT NULL,
+            completed_at TEXT,
+            UNIQUE(dataset_id, rule_set_version)
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS financial_risk_evidence (
+            id TEXT PRIMARY KEY,
+            risk_id TEXT NOT NULL REFERENCES risk_items(id) ON DELETE CASCADE,
+            dataset_id TEXT NOT NULL REFERENCES financial_datasets(id),
+            line_start INTEGER NOT NULL,
+            line_end INTEGER NOT NULL,
+            period_key TEXT NOT NULL,
+            account_code TEXT,
+            quote TEXT NOT NULL,
+            direction TEXT NOT NULL DEFAULT 'support' CHECK(direction IN ('support', 'counter')),
+            created_at TEXT NOT NULL,
+            UNIQUE(risk_id, dataset_id, line_start, line_end, direction)
+        )"""
+    )
+    task_columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)").fetchall()}
+    if "dataset_id" not in task_columns:
+        db.execute("ALTER TABLE tasks ADD COLUMN dataset_id TEXT")
+    risk_columns = {
+        row[1] for row in db.execute("PRAGMA table_info(risk_items)").fetchall()
+    }
+    if "source_rule_result_id" not in risk_columns:
+        db.execute("ALTER TABLE risk_items ADD COLUMN source_rule_result_id TEXT")
+    db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_risk_source_rule_result ON risk_items(source_rule_result_id) WHERE source_rule_result_id IS NOT NULL"
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_financial_datasets_status_created ON financial_datasets(status, created_at DESC)"
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_financial_rule_runs_dataset ON financial_rule_runs(dataset_id, created_at DESC)"
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_financial_evidence_risk ON financial_risk_evidence(risk_id)"
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -283,6 +376,7 @@ REGISTRY_MIGRATIONS: Sequence[Migration] = (
 PROJECT_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_project", _project_v1),
     (2, "risk_evidence_versions", _project_v2),
+    (3, "financial_datasets_and_rules", _project_v3),
 )
 
 

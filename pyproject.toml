@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Local-first AI financial audit workbench"
 requires-python = ">=3.12"
 dependencies = [
+  "duckdb>=1.5,<2",
   "fastapi>=0.116,<1",
   "psutil>=7,<8",
   "pydantic>=2.11,<3",

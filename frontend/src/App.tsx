@@ -18,6 +18,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 import { api } from './api'
+import { FinancialDataWorkspace } from './components/FinancialDataWorkspace'
 import { GatewaySettings } from './components/GatewaySettings'
 import { ProjectDialog } from './components/ProjectDialog'
 import { RiskWorkspace } from './components/RiskWorkspace'
@@ -25,6 +26,7 @@ import { StatusMark } from './components/StatusMark'
 import type {
   DocumentRecord,
   EvidenceSelection,
+  FinancialEvidenceTarget,
   GatewayOverview,
   Project,
   ProjectPayload,
@@ -52,8 +54,7 @@ const PdfViewer = lazy(() =>
   import('./components/PdfViewer').then((module) => ({ default: module.PdfViewer })),
 )
 
-const laterViews: Record<Exclude<View, 'project' | 'documents' | 'risks' | 'settings'>, { title: string; phase: string; description: string }> = {
-  analysis: { title: '分析', phase: '迭代四', description: '确定性财务规则、趋势、MAD 与结构占比将在规则口径确认后启用。' },
+const laterViews: Record<Exclude<View, 'project' | 'documents' | 'analysis' | 'risks' | 'settings'>, { title: string; phase: string; description: string }> = {
   outputs: { title: '输出', phase: '迭代五', description: '固定模板与 Word、Excel、PDF 优先级确认后接入历史快照导出。' },
 }
 
@@ -102,6 +103,7 @@ export function App() {
   const [riskError, setRiskError] = useState<string | null>(null)
   const [riskNotice, setRiskNotice] = useState<string | null>(null)
   const [evidenceTarget, setEvidenceTarget] = useState<{ documentId: string; page: number; query: string; token: number } | null>(null)
+  const [financialEvidenceTarget, setFinancialEvidenceTarget] = useState<FinancialEvidenceTarget | null>(null)
   const [view, setView] = useState<View>('project')
   const [mobilePane, setMobilePane] = useState<MobilePane>('canvas')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('basis')
@@ -380,6 +382,18 @@ export function App() {
   }
 
   function openEvidence(evidence: RiskEvidence) {
+    if (evidence.kind === 'financial' && evidence.dataset_id) {
+      setFinancialEvidenceTarget({
+        datasetId: evidence.dataset_id,
+        lineStart: evidence.line_start,
+        lineEnd: evidence.line_end,
+        periodKey: evidence.period_key,
+        token: Date.now(),
+      })
+      setView('analysis')
+      return
+    }
+    if (!evidence.document_id || !evidence.page_number) return
     setSelectedDocumentId(evidence.document_id)
     setEvidenceTarget({
       documentId: evidence.document_id,
@@ -606,7 +620,16 @@ export function App() {
           />
         )}
 
-        {view !== 'project' && view !== 'documents' && view !== 'risks' && view !== 'settings' && (
+        {view === 'analysis' && (
+          <FinancialDataWorkspace
+            project={selectedProject}
+            tasks={tasks}
+            focusTarget={financialEvidenceTarget}
+            onRefreshProject={() => selectedProject ? refreshProjectData(selectedProject.id) : Promise.resolve()}
+          />
+        )}
+
+        {view !== 'project' && view !== 'documents' && view !== 'analysis' && view !== 'risks' && view !== 'settings' && (
           <section className="future-page">
             <div className="future-icon">{view === 'outputs' ? <Files aria-hidden="true" /> : <ListMagnifyingGlass aria-hidden="true" />}</div>
             <span className="section-kicker">{laterViews[view].phase}</span><h1>{laterViews[view].title}</h1><p>{laterViews[view].description}</p>
