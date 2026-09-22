@@ -24,6 +24,8 @@ from .schemas import (
     GatewayOverview,
     GatewayProbe,
     GatewayProbeResult,
+    ModelCacheClearResult,
+    ModelCacheUpdate,
     ModelProfileCreate,
     ModelProfileRecord,
     ModelProfileUpdate,
@@ -182,6 +184,8 @@ def create_project(payload: ProjectCreate) -> dict:
 def gateway_overview() -> GatewayOverview:
     return GatewayOverview(
         strict_offline=database.strict_offline(),
+        cache_enabled=database.model_cache_enabled(),
+        cache_entry_count=database.model_cache_entry_count(),
         providers=database.list_model_providers(),
         models=database.list_model_profiles(),
         recent_calls=database.recent_model_calls(),
@@ -197,6 +201,28 @@ def set_offline_mode(payload: OfflineModeUpdate) -> GatewayOverview:
     database.set_strict_offline(payload.strict_offline)
     logger.info("gateway.offline_changed", extra={"strict_offline": payload.strict_offline})
     return gateway_overview()
+
+
+@app.post(
+    "/api/v1/settings/model-cache",
+    response_model=GatewayOverview,
+    dependencies=[Depends(require_session)],
+)
+def set_model_cache(payload: ModelCacheUpdate) -> GatewayOverview:
+    database.set_model_cache_enabled(payload.enabled)
+    logger.info("gateway.cache_setting_changed", extra={"enabled": payload.enabled})
+    return gateway_overview()
+
+
+@app.delete(
+    "/api/v1/model-cache",
+    response_model=ModelCacheClearResult,
+    dependencies=[Depends(require_session)],
+)
+def clear_model_cache() -> ModelCacheClearResult:
+    deleted_entries = database.clear_model_cache()
+    logger.info("gateway.cache_cleared", extra={"entry_count": deleted_entries})
+    return ModelCacheClearResult(deleted_entries=deleted_entries)
 
 
 @app.post(
@@ -266,6 +292,29 @@ def toggle_model_provider(provider_id: str) -> dict:
         ) from exc
 
 
+@app.delete(
+    "/api/v1/model-providers/{provider_id}",
+    status_code=204,
+    dependencies=[Depends(require_session)],
+)
+def delete_model_provider(provider_id: str) -> Response:
+    try:
+        database.delete_model_provider(provider_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="服务商不存在") from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "MODEL_PROVIDER_DELETE_BLOCKED",
+                "message": str(exc),
+                "action": "先删除关联模型档案；本地验收配置不可删除",
+            },
+        ) from exc
+    logger.info("gateway.provider_deleted", extra={"provider_id": provider_id})
+    return Response(status_code=204)
+
+
 @app.post(
     "/api/v1/model-profiles",
     response_model=ModelProfileRecord,
@@ -333,6 +382,29 @@ def toggle_model_profile(model_id: str) -> dict:
             status_code=409,
             detail={"code": "FAKE_MODEL_REQUIRED", "message": str(exc), "action": "保留本地验收通道"},
         ) from exc
+
+
+@app.delete(
+    "/api/v1/model-profiles/{model_id}",
+    status_code=204,
+    dependencies=[Depends(require_session)],
+)
+def delete_model_profile(model_id: str) -> Response:
+    try:
+        database.delete_model_profile(model_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="模型档案不存在") from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "MODEL_PROFILE_DELETE_BLOCKED",
+                "message": str(exc),
+                "action": "保留本地验收配置",
+            },
+        ) from exc
+    logger.info("gateway.model_deleted", extra={"model_profile_id": model_id})
+    return Response(status_code=204)
 
 
 @app.post(

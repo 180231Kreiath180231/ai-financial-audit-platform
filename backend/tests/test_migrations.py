@@ -31,6 +31,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
     assert [tuple(row) for row in registry_versions] == [
         (1, "initial_registry"),
         (2, "model_gateway"),
+        (3, "model_gateway_fallback_cache"),
     ]
     assert [tuple(row) for row in project_versions] == [(1, "initial_project")]
     assert {"documents", "pages", "tasks", "audit_events", "schema_migrations"} <= tables
@@ -80,6 +81,12 @@ def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -
             row["name"]
             for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
-    assert [row["version"] for row in versions] == [1, 2]
+    assert [row["version"] for row in versions] == [1, 2, 3]
     assert "external_access_enabled" in columns
-    assert {"app_settings", "model_providers", "model_profiles", "model_calls"} <= tables
+    assert {
+        "app_settings",
+        "model_providers",
+        "model_profiles",
+        "model_calls",
+        "cache_entries",
+    } <= tables

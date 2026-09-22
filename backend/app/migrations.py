@@ -112,6 +112,41 @@ def _registry_v2(db: sqlite3.Connection) -> None:
     )
 
 
+def _registry_v3(db: sqlite3.Connection) -> None:
+    call_columns = {
+        row[1] for row in db.execute("PRAGMA table_info(model_calls)").fetchall()
+    }
+    if "route_role" not in call_columns:
+        db.execute(
+            "ALTER TABLE model_calls ADD COLUMN route_role TEXT NOT NULL DEFAULT 'primary'"
+        )
+    if "fallback_from_model_profile_id" not in call_columns:
+        db.execute(
+            "ALTER TABLE model_calls ADD COLUMN fallback_from_model_profile_id TEXT"
+        )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS cache_entries (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            model_profile_id TEXT NOT NULL REFERENCES model_profiles(id) ON DELETE CASCADE,
+            capability TEXT NOT NULL,
+            request_fingerprint TEXT NOT NULL UNIQUE,
+            prompt_hash TEXT NOT NULL,
+            evidence_hash TEXT NOT NULL,
+            response_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            last_hit_at TEXT,
+            hit_count INTEGER NOT NULL DEFAULT 0
+        )"""
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cache_project_created ON cache_entries(project_id, created_at DESC)"
+    )
+    db.execute(
+        "INSERT OR IGNORE INTO app_settings(key, value_json, updated_at) VALUES ('model_cache_enabled', 'true', CURRENT_TIMESTAMP)"
+    )
+
+
 def _project_v1(db: sqlite3.Connection) -> None:
     db.execute(
         """CREATE TABLE IF NOT EXISTS documents (
@@ -184,6 +219,7 @@ def _project_v1(db: sqlite3.Connection) -> None:
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
+    (3, "model_gateway_fallback_cache", _registry_v3),
 )
 PROJECT_MIGRATIONS: Sequence[Migration] = ((1, "initial_project", _project_v1),)
 

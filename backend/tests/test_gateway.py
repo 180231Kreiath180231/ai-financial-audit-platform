@@ -140,3 +140,49 @@ def test_provider_update_rotates_secret_and_removes_old_ciphertext(tmp_path: Pat
     assert database.secret_store.get(row["api_key_ref"]) == "second-credential-fixture"
     assert not (database.data_dir / "secrets" / f"{old_reference.removeprefix('dpapi:')}.bin").exists()
     assert '"secret_action": "rotated"' in event["details_json"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="DPAPI is a Windows security boundary")
+def test_provider_delete_requires_models_removed_and_deletes_secret(tmp_path: Path) -> None:
+    database = Database(tmp_path / "registry")
+    provider = database.create_model_provider(
+        ModelProviderCreate(
+            display_name="Delete Test",
+            base_url="https://delete.invalid/v1",
+            api_key=SecretStr("delete-credential-fixture"),
+        )
+    )
+    model = database.create_model_profile(
+        ModelProfileCreate(
+            provider_id=provider["id"],
+            display_name="Delete Model",
+            model_name="delete-model",
+            capabilities={"text"},
+        )
+    )
+    with database.connect(database.registry_path) as db:
+        reference = db.execute(
+            "SELECT api_key_ref FROM model_providers WHERE id=?", (provider["id"],)
+        ).fetchone()["api_key_ref"]
+
+    with pytest.raises(ValueError, match="关联的 1 个模型档案"):
+        database.delete_model_provider(provider["id"])
+
+    database.delete_model_profile(model["id"])
+    database.delete_model_provider(provider["id"])
+
+    assert not (
+        database.data_dir / "secrets" / f"{reference.removeprefix('dpapi:')}.bin"
+    ).exists()
+    with database.connect(database.registry_path) as db:
+        assert db.execute(
+            "SELECT 1 FROM model_providers WHERE id=?", (provider["id"],)
+        ).fetchone() is None
+        event_types = {
+            row["event_type"]
+            for row in db.execute(
+                """SELECT event_type FROM audit_events
+                WHERE event_type IN ('gateway.model_deleted', 'gateway.provider_deleted')"""
+            )
+        }
+    assert event_types == {"gateway.model_deleted", "gateway.provider_deleted"}

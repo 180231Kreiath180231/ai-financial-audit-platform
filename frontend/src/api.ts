@@ -50,6 +50,14 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ strict_offline: strictOffline }),
     }),
+  setModelCache: (enabled: boolean) =>
+    request<GatewayOverview>('/api/v1/settings/model-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    }),
+  clearModelCache: () =>
+    request<{ deleted_entries: number }>('/api/v1/model-cache', { method: 'DELETE' }),
   setProjectExternalAccess: (projectId: string, enabled: boolean) =>
     request<Project>(`/api/v1/projects/${projectId}/external-access`, {
       method: 'POST',
@@ -70,6 +78,8 @@ export const api = {
     }),
   toggleModelProvider: (providerId: string) =>
     request<ModelProvider>(`/api/v1/model-providers/${providerId}/toggle`, { method: 'POST' }),
+  deleteModelProvider: (providerId: string) =>
+    request<void>(`/api/v1/model-providers/${providerId}`, { method: 'DELETE' }),
   createModelProfile: (payload: ModelProfilePayload) =>
     request<ModelProfile>('/api/v1/model-profiles', {
       method: 'POST',
@@ -84,6 +94,8 @@ export const api = {
     }),
   toggleModelProfile: (modelId: string) =>
     request<ModelProfile>(`/api/v1/model-profiles/${modelId}/toggle`, { method: 'POST' }),
+  deleteModelProfile: (modelId: string) =>
+    request<void>(`/api/v1/model-profiles/${modelId}`, { method: 'DELETE' }),
   probeGateway: (projectId: string) =>
     request<{ actual_model: string; provider: string; output: string; external_request: boolean }>(
       '/api/v1/model-gateway/probe',

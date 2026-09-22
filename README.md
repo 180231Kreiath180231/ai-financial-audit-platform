@@ -63,13 +63,16 @@ scripts/              文档生成脚本
 - 本地服务只监听 `127.0.0.1`，通过随机 HttpOnly Cookie 建立本机会话。
 - 默认启用严格离线和 synthetic 演示项目，不调用任何外部模型、OCR、Embedding 或遥测服务。
 - 提供迭代二模型网关安全骨架：服务商与模型能力档案、Windows DPAPI 密钥轮换、全局与项目双重外发控制、Fake Provider 路由、OpenAI-compatible 适配器及调用审计。
+- 模型网关支持对超时、限流和服务不可用进行可审计的备用模型切换；本地响应缓存可启停、统计和二次确认清空。
+- 服务商与模型档案支持二次确认删除；有关联模型的服务商会拒绝删除，历史调用审计始终保留。
 
 真实外部模型连接、扫描件视觉解析、分析、风险和报告导出仍未启用，不代表功能已实现。
 
 迭代一的自动化验收、资源基线和已知边界记录在
 [验收记录](docs/acceptance/iteration-1-2026-09-22.md)；仓库同时提供 Windows GitHub Actions 质量门禁。
 模型网关安全骨架的范围和验证结果记录在
-[迭代二阶段验收](docs/acceptance/iteration-2-foundation-2026-09-22.md)。
+[迭代二阶段验收](docs/acceptance/iteration-2-foundation-2026-09-22.md)，备用路由、缓存和安全删除的增量验收记录在
+[迭代二网关闭环验收](docs/acceptance/iteration-2-routing-cache-2026-09-22.md)。
 
 ## 生产工程结构
 

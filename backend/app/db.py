@@ -217,6 +217,104 @@ class Database:
                 ),
             )
 
+    def model_cache_enabled(self) -> bool:
+        with self.connect(self.registry_path) as db:
+            row = db.execute(
+                "SELECT value_json FROM app_settings WHERE key='model_cache_enabled'"
+            ).fetchone()
+        return True if row is None else bool(json.loads(row["value_json"]))
+
+    def set_model_cache_enabled(self, enabled: bool) -> None:
+        now = utc_now()
+        with self.connect(self.registry_path) as db:
+            db.execute(
+                """INSERT INTO app_settings(key, value_json, updated_at) VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,
+                    updated_at=excluded.updated_at""",
+                ("model_cache_enabled", json.dumps(enabled), now),
+            )
+            db.execute(
+                "INSERT INTO audit_events VALUES (?, NULL, ?, ?, ?)",
+                (
+                    str(uuid.uuid4()),
+                    "gateway.cache_setting_changed",
+                    now,
+                    json.dumps({"enabled": enabled}),
+                ),
+            )
+
+    def model_cache_entry_count(self) -> int:
+        with self.connect(self.registry_path) as db:
+            return int(db.execute("SELECT COUNT(*) FROM cache_entries").fetchone()[0])
+
+    def get_model_cache(self, request_fingerprint: str) -> dict[str, Any] | None:
+        now = utc_now()
+        with self.connect(self.registry_path) as db:
+            row = db.execute(
+                "SELECT response_json FROM cache_entries WHERE request_fingerprint=?",
+                (request_fingerprint,),
+            ).fetchone()
+            if row is None:
+                return None
+            db.execute(
+                """UPDATE cache_entries SET hit_count=hit_count+1, last_hit_at=?
+                WHERE request_fingerprint=?""",
+                (now, request_fingerprint),
+            )
+        return json.loads(row["response_json"])
+
+    def put_model_cache(
+        self,
+        *,
+        project_id: str,
+        model_profile_id: str,
+        capability: str,
+        request_fingerprint: str,
+        prompt_hash: str,
+        evidence_hash: str,
+        response: dict[str, Any],
+    ) -> None:
+        now = utc_now()
+        with self.connect(self.registry_path) as db:
+            db.execute(
+                """INSERT INTO cache_entries
+                (id, project_id, model_profile_id, capability, request_fingerprint,
+                 prompt_hash, evidence_hash, response_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(request_fingerprint) DO UPDATE SET
+                    response_json=excluded.response_json,
+                    created_at=excluded.created_at,
+                    last_hit_at=NULL,
+                    hit_count=0""",
+                (
+                    str(uuid.uuid4()),
+                    project_id,
+                    model_profile_id,
+                    capability,
+                    request_fingerprint,
+                    prompt_hash,
+                    evidence_hash,
+                    json.dumps(response, ensure_ascii=False),
+                    now,
+                ),
+            )
+
+    def clear_model_cache(self) -> int:
+        now = utc_now()
+        with self.connect(self.registry_path) as db:
+            count = int(db.execute("SELECT COUNT(*) FROM cache_entries").fetchone()[0])
+            db.execute("DELETE FROM cache_entries")
+            db.execute(
+                "INSERT INTO audit_events VALUES (?, NULL, ?, ?, ?)",
+                (
+                    str(uuid.uuid4()),
+                    "gateway.cache_cleared",
+                    now,
+                    json.dumps({"entry_count": count}),
+                ),
+            )
+        return count
+
     def set_project_external_access(self, project_id: str, enabled: bool) -> dict[str, Any]:
         now = utc_now()
         with self.connect(self.registry_path) as db:
@@ -398,6 +496,44 @@ class Database:
             self.secret_store.delete(old_reference)
         return self._provider_from_row(row)
 
+    def delete_model_provider(self, provider_id: str) -> None:
+        if provider_id == "fake-provider":
+            raise ValueError("Fake Provider cannot be deleted")
+        secret_reference: str | None = None
+        now = utc_now()
+        with self.connect(self.registry_path) as db:
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                provider = db.execute(
+                    "SELECT api_key_ref FROM model_providers WHERE id=?", (provider_id,)
+                ).fetchone()
+                if provider is None:
+                    raise KeyError(provider_id)
+                model_count = int(
+                    db.execute(
+                        "SELECT COUNT(*) FROM model_profiles WHERE provider_id=?",
+                        (provider_id,),
+                    ).fetchone()[0]
+                )
+                if model_count:
+                    raise ValueError(f"请先删除该服务商关联的 {model_count} 个模型档案")
+                secret_reference = provider["api_key_ref"]
+                db.execute("DELETE FROM model_providers WHERE id=?", (provider_id,))
+                db.execute(
+                    "INSERT INTO audit_events VALUES (?, NULL, ?, ?, ?)",
+                    (
+                        str(uuid.uuid4()),
+                        "gateway.provider_deleted",
+                        now,
+                        json.dumps({"provider_id": provider_id}),
+                    ),
+                )
+                db.execute("COMMIT")
+            except Exception:
+                db.execute("ROLLBACK")
+                raise
+        self.secret_store.delete(secret_reference)
+
     def list_model_profiles(self) -> list[dict[str, Any]]:
         with self.connect(self.registry_path) as db:
             rows = db.execute(
@@ -546,15 +682,42 @@ class Database:
             row = db.execute("SELECT * FROM model_profiles WHERE id=?", (model_id,)).fetchone()
         return self._model_from_row(row)
 
+    def delete_model_profile(self, model_id: str) -> None:
+        if model_id == "fake-structured-v1":
+            raise ValueError("Fake model cannot be deleted")
+        now = utc_now()
+        with self.connect(self.registry_path) as db:
+            model = db.execute(
+                "SELECT provider_id FROM model_profiles WHERE id=?", (model_id,)
+            ).fetchone()
+            if model is None:
+                raise KeyError(model_id)
+            db.execute("DELETE FROM model_profiles WHERE id=?", (model_id,))
+            db.execute(
+                "INSERT INTO audit_events VALUES (?, NULL, ?, ?, ?)",
+                (
+                    str(uuid.uuid4()),
+                    "gateway.model_deleted",
+                    now,
+                    json.dumps(
+                        {"model_profile_id": model_id, "provider_id": model["provider_id"]}
+                    ),
+                ),
+            )
+
     def recent_model_calls(self, limit: int = 20) -> list[dict[str, Any]]:
         with self.connect(self.registry_path) as db:
             rows = db.execute(
                 """SELECT id, project_id, provider_id, model_profile_id, capability,
-                started_at, completed_at, status, error_code
+                started_at, completed_at, status, error_code, cache_hit, route_role,
+                fallback_from_model_profile_id
                 FROM model_calls ORDER BY started_at DESC LIMIT ?""",
                 (limit,),
             ).fetchall()
-        return [dict(row) for row in rows]
+        result = [dict(row) for row in rows]
+        for call in result:
+            call["cache_hit"] = bool(call["cache_hit"])
+        return result
 
     @staticmethod
     def empty_project_counts() -> dict[str, int]:

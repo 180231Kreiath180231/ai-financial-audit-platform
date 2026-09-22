@@ -1,13 +1,15 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   CheckCircle,
   Cpu,
+  Database,
   Key,
   LockKey,
   PencilSimple,
   Plus,
   ShieldCheck,
   TestTube,
+  Trash,
   Warning,
 } from '@phosphor-icons/react'
 import { api } from '../api'
@@ -60,6 +62,60 @@ const initialModel: ModelProfilePayload = {
   enabled: true,
 }
 
+type ConfirmTarget =
+  | { kind: 'provider'; id: string; name: string }
+  | { kind: 'model'; id: string; name: string }
+  | { kind: 'cache'; name: string }
+
+interface ConfirmationDialogProps {
+  target: ConfirmTarget | null
+  busy: boolean
+  error: string | null
+  onCancel: () => void
+  onConfirm: () => void
+}
+
+function ConfirmationDialog({ target, busy, error, onCancel, onConfirm }: ConfirmationDialogProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (target && dialog && !dialog.open) {
+      if (typeof dialog.showModal === 'function') dialog.showModal()
+      else dialog.setAttribute('open', '')
+      cancelRef.current?.focus()
+    }
+    if (!target && dialog?.open) {
+      if (typeof dialog.close === 'function') dialog.close()
+      else dialog.removeAttribute('open')
+    }
+  }, [target])
+
+  const description = target?.kind === 'provider'
+    ? '将删除服务商配置和本机加密密钥。若仍有关联模型，系统会拒绝删除。历史调用审计不会被删除。'
+    : target?.kind === 'model'
+      ? '将删除模型能力档案及其本地缓存。历史调用审计不会被删除。'
+      : `将清除当前 ${target?.name ?? ''}，不会删除服务商、模型配置或调用审计。`
+
+  return (
+    <dialog ref={dialogRef} className="dialog confirm-dialog" aria-labelledby="confirm-title" onCancel={(event) => { event.preventDefault(); if (!busy) onCancel() }}>
+      <div className="dialog-head">
+        <div><span className="section-kicker">需要确认</span><h2 id="confirm-title">确认删除“{target?.name}”</h2></div>
+      </div>
+      <div className="confirm-body">
+        <Warning aria-hidden="true" />
+        <p>{description}</p>
+      </div>
+      {error && <p className="inline-error" role="alert">{error}</p>}
+      <div className="dialog-actions">
+        <button ref={cancelRef} className="button secondary" type="button" disabled={busy} onClick={onCancel}>取消</button>
+        <button className="button danger" type="button" disabled={busy} onClick={onConfirm}><Trash aria-hidden="true" />{busy ? '正在删除…' : '确认删除'}</button>
+      </div>
+    </dialog>
+  )
+}
+
 export function GatewaySettings({
   overview,
   project,
@@ -74,6 +130,7 @@ export function GatewaySettings({
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null)
   const [editingProviderHasSecret, setEditingProviderHasSecret] = useState(false)
   const [editingModelId, setEditingModelId] = useState<string | null>(null)
+  const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -89,11 +146,45 @@ export function GatewaySettings({
     setNotice(null)
     try {
       await operation()
+      return true
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '设置保存失败')
+      return false
     } finally {
       setBusy(null)
     }
+  }
+
+  function confirmDeletion() {
+    if (!confirmTarget) return
+    const target = confirmTarget
+    void (async () => {
+      const succeeded = await runOperation(`delete-${target.kind}`, async () => {
+        if (target.kind === 'provider') {
+          await api.deleteModelProvider(target.id)
+          if (editingProviderId === target.id) {
+            setEditingProviderId(null)
+            setEditingProviderHasSecret(false)
+            setProviderForm(initialProvider)
+          }
+          await refresh()
+          setNotice('服务商配置和本机密钥已删除；历史调用审计已保留。')
+        } else if (target.kind === 'model') {
+          await api.deleteModelProfile(target.id)
+          if (editingModelId === target.id) {
+            setEditingModelId(null)
+            setModelForm(initialModel)
+          }
+          await refresh()
+          setNotice('模型档案及其本地缓存已删除；历史调用审计已保留。')
+        } else {
+          const result = await api.clearModelCache()
+          await refresh()
+          setNotice(`已清除 ${result.deleted_entries} 条本地模型缓存。`)
+        }
+      })
+      if (succeeded) setConfirmTarget(null)
+    })()
   }
 
   function toggleCapability(capability: ModelCapability) {
@@ -184,7 +275,7 @@ export function GatewaySettings({
         <div>
           <span className="section-kicker">迭代二 · 多模型网关</span>
           <h1 id="settings-title">模型与外发设置</h1>
-          <p>配置可以先保存，但真实外部连接尚未启用。当前只运行可审计的 Fake Provider 验收路径。</p>
+          <p>配置可以先保存；真实连接仅能通过后端统一网关使用，目前尚未接入用户业务任务。</p>
         </div>
         <span className={`mode-badge ${overview.strict_offline ? 'safe' : 'warning'}`}>
           {overview.strict_offline ? <ShieldCheck aria-hidden="true" /> : <Warning aria-hidden="true" />}
@@ -254,6 +345,30 @@ export function GatewaySettings({
             ><TestTube aria-hidden="true" />运行本地自检</button>
           </div>
         </section>
+
+        <section className="settings-section settings-span-all" aria-labelledby="cache-title">
+          <div className="settings-section-head">
+            <Database aria-hidden="true" />
+            <div><h2 id="cache-title">本地模型缓存</h2><p>按项目、模型、提示摘要和证据摘要生成指纹；不保存原始提示文本。</p></div>
+          </div>
+          <div className="policy-row">
+            <div><b>{overview.cache_enabled ? '缓存已启用' : '缓存已停用'}</b><span>当前共 {overview.cache_entry_count} 条；命中时不产生外部请求或新增费用。</span></div>
+            <button
+              className="button secondary"
+              type="button"
+              disabled={busy !== null}
+              aria-pressed={overview.cache_enabled}
+              onClick={() => void runOperation('cache-setting', async () => {
+                onOverviewChange(await api.setModelCache(!overview.cache_enabled))
+                setNotice(overview.cache_enabled ? '本地模型缓存已停用；已有缓存仍保留。' : '本地模型缓存已启用。')
+              })}
+            >{overview.cache_enabled ? '停用缓存' : '启用缓存'}</button>
+          </div>
+          <div className="policy-row">
+            <div><b>清空缓存</b><span>只删除本地模型响应缓存，不影响配置和历史调用审计。</span></div>
+            <button className="button danger" type="button" disabled={busy !== null || overview.cache_entry_count === 0} onClick={() => { setError(null); setConfirmTarget({ kind: 'cache', name: `${overview.cache_entry_count} 条本地缓存` }) }}><Trash aria-hidden="true" />清空缓存</button>
+          </div>
+        </section>
       </div>
 
       <section className="settings-section settings-wide" aria-labelledby="providers-title">
@@ -269,6 +384,7 @@ export function GatewaySettings({
               <div className="config-actions">
                 <button className="button compact" type="button" disabled={provider.provider_kind === 'fake' || busy !== null} onClick={() => editProvider(provider)}><PencilSimple aria-hidden="true" />编辑</button>
                 <button className="button compact" type="button" disabled={provider.provider_kind === 'fake' || busy !== null} onClick={() => void runOperation(`provider-${provider.id}`, async () => { await api.toggleModelProvider(provider.id); await refresh() })}>{provider.enabled ? '停用' : '启用'}</button>
+                <button className="button compact danger-quiet" type="button" aria-label={`删除服务商 ${provider.display_name}`} disabled={provider.provider_kind === 'fake' || busy !== null} onClick={() => { setError(null); setConfirmTarget({ kind: 'provider', id: provider.id, name: provider.display_name }) }}><Trash aria-hidden="true" />删除</button>
               </div>
             </article>
           ))}
@@ -298,10 +414,11 @@ export function GatewaySettings({
           {overview.models.map((model) => (
             <article className="config-row model-row" key={model.id}>
               <div><b>{model.display_name}</b><span>{model.model_name}</span></div>
-              <div className="capability-list">{model.capabilities.map((item) => <span key={item}>{capabilityLabels[item]}</span>)}</div>
+              <div className="capability-list">{model.is_fallback && <span className="fallback-mark">备用</span>}{model.capabilities.map((item) => <span key={item}>{capabilityLabels[item]}</span>)}</div>
               <div className="config-actions">
                 <button className="button compact" type="button" disabled={model.id === 'fake-structured-v1' || busy !== null} onClick={() => editModel(model)}><PencilSimple aria-hidden="true" />编辑</button>
                 <button className="button compact" type="button" disabled={model.id === 'fake-structured-v1' || busy !== null} onClick={() => void runOperation(`model-${model.id}`, async () => { await api.toggleModelProfile(model.id); await refresh() })}>{model.enabled ? '停用' : '启用'}</button>
+                <button className="button compact danger-quiet" type="button" aria-label={`删除模型 ${model.display_name}`} disabled={model.id === 'fake-structured-v1' || busy !== null} onClick={() => { setError(null); setConfirmTarget({ kind: 'model', id: model.id, name: model.display_name }) }}><Trash aria-hidden="true" />删除</button>
               </div>
             </article>
           ))}
@@ -312,6 +429,7 @@ export function GatewaySettings({
           <label className="field"><span>显示名称</span><input required minLength={2} maxLength={80} value={modelForm.display_name} onChange={(event) => setModelForm({ ...modelForm, display_name: event.target.value })} /></label>
           <label className="field field-wide"><span>模型标识</span><input required maxLength={160} value={modelForm.model_name} onChange={(event) => setModelForm({ ...modelForm, model_name: event.target.value })} /></label>
           <fieldset className="capability-field field-wide"><legend>能力</legend><div>{(Object.keys(capabilityLabels) as ModelCapability[]).map((capability) => <label key={capability}><input type="checkbox" checked={modelForm.capabilities.includes(capability)} onChange={() => toggleCapability(capability)} />{capabilityLabels[capability]}</label>)}</div></fieldset>
+          <label className="secret-visibility field-wide"><input type="checkbox" checked={modelForm.is_fallback} onChange={(event) => setModelForm({ ...modelForm, is_fallback: event.target.checked })} />作为备用模型（主模型遇到超时、限流或服务不可用时使用）</label>
           <label className="field"><span>上下文长度</span><input required type="number" min={1024} value={modelForm.context_window} onChange={(event) => setModelForm({ ...modelForm, context_window: Number(event.target.value) })} /></label>
           <label className="field"><span>输出上限</span><input required type="number" min={1} value={modelForm.max_output_tokens} onChange={(event) => setModelForm({ ...modelForm, max_output_tokens: Number(event.target.value) })} /></label>
           <div className="config-form-actions">
@@ -320,6 +438,7 @@ export function GatewaySettings({
           </div>
         </form>
       </section>
+      <ConfirmationDialog target={confirmTarget} busy={busy?.startsWith('delete-') ?? false} error={confirmTarget ? error : null} onCancel={() => { if (!busy) { setConfirmTarget(null); setError(null) } }} onConfirm={confirmDeletion} />
     </section>
   )
 }

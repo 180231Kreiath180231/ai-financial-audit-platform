@@ -77,10 +77,15 @@ export interface ModelCallRecord {
   completed_at: string | null
   status: string
   error_code: string | null
+  cache_hit: boolean
+  route_role: 'primary' | 'fallback'
+  fallback_from_model_profile_id: string | null
 }
 
 export interface GatewayOverview {
   strict_offline: boolean
+  cache_enabled: boolean
+  cache_entry_count: number
   providers: ModelProvider[]
   models: ModelProfile[]
   recent_calls: ModelCallRecord[]

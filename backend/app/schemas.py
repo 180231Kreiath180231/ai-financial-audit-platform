@@ -183,6 +183,14 @@ class OfflineModeUpdate(BaseModel):
     strict_offline: bool
 
 
+class ModelCacheUpdate(BaseModel):
+    enabled: bool
+
+
+class ModelCacheClearResult(BaseModel):
+    deleted_entries: int
+
+
 class ModelCallRecord(BaseModel):
     id: str
     project_id: str | None
@@ -193,10 +201,15 @@ class ModelCallRecord(BaseModel):
     completed_at: datetime | None
     status: str
     error_code: str | None
+    cache_hit: bool = False
+    route_role: Literal["primary", "fallback"] = "primary"
+    fallback_from_model_profile_id: str | None = None
 
 
 class GatewayOverview(BaseModel):
     strict_offline: bool
+    cache_enabled: bool
+    cache_entry_count: int
     providers: list[ModelProviderRecord]
     models: list[ModelProfileRecord]
     recent_calls: list[ModelCallRecord]

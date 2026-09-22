@@ -6,6 +6,8 @@ import type { GatewayOverview, Project } from '../types'
 
 const overview: GatewayOverview = {
   strict_offline: true,
+  cache_enabled: true,
+  cache_entry_count: 0,
   providers: [{
     id: 'fake-provider',
     provider_kind: 'fake',
@@ -82,5 +84,29 @@ describe('GatewaySettings', () => {
     expect(screen.getByLabelText(/API Key（可稍后配置）/)).toHaveValue('')
     expect(screen.getByText('留空表示保留现有密钥；输入新值将执行轮换。')).toBeVisible()
     expect(screen.getByRole('checkbox', { name: '清除已保存的 API Key' })).not.toBeChecked()
+  })
+
+  it('requires an explicit confirmation before deleting a provider', async () => {
+    const user = userEvent.setup()
+    const editable: GatewayOverview = {
+      ...overview,
+      providers: [...overview.providers, {
+        ...overview.providers[0],
+        id: 'external-provider',
+        provider_kind: 'openai_compatible',
+        display_name: 'Synthetic Provider',
+        base_url: 'https://models.invalid/v1',
+      }],
+    }
+    render(<GatewaySettings overview={editable} project={project} onOverviewChange={vi.fn()} onProjectChange={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: '删除服务商 Synthetic Provider' }))
+
+    expect(screen.getByRole('dialog')).toBeVisible()
+    expect(screen.getByRole('heading', { name: '确认删除“Synthetic Provider”' })).toBeVisible()
+    expect(screen.getByText(/历史调用审计不会被删除/)).toBeVisible()
+    expect(screen.getByRole('button', { name: '取消' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

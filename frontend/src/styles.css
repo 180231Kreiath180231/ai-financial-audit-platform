@@ -130,6 +130,7 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .button.secondary { border-color: var(--line-strong); background: transparent; color: var(--text); }
 .button.secondary:hover:not(:disabled), .button.compact:hover:not(:disabled) { background: var(--panel-soft); }
 .button.danger { border-color: color-mix(in srgb, var(--danger) 60%, var(--line)); background: var(--danger-soft); color: var(--danger); }
+.button.danger-quiet { color: var(--danger); }
 .button.compact { min-height: 32px; margin-top: 5px; padding: 0 12px; border-color: var(--line-strong); background: var(--panel-raised); color: var(--text); font-size: 11px; }
 .notice.success { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
 .notice.error { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); background: var(--danger-soft); color: var(--text); }
@@ -250,6 +251,7 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .mode-badge.warning { color: var(--warning); background: var(--warning-soft); }
 .settings-notice { max-width: 760px; margin-top: 16px; }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+.settings-span-all { grid-column: 1 / -1; }
 .settings-section { min-width: 0; border: 1px solid var(--line); background: var(--panel); }
 .settings-wide { margin-top: 16px; }
 .settings-section-head { min-height: 76px; display: flex; align-items: flex-start; gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); }
@@ -279,6 +281,7 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .model-row { grid-template-columns: minmax(180px, .8fr) minmax(240px, 1.2fr) auto; }
 .capability-list { display: flex; flex-wrap: wrap; gap: 5px; }
 .capability-list span { padding: 3px 6px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); }
+.capability-list .fallback-mark { border-color: color-mix(in srgb, var(--warning) 45%, var(--line)); background: var(--warning-soft); color: var(--warning); }
 .config-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 16px; background: var(--panel-raised); }
 .form-title { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-height: 30px; color: var(--text); font-size: 12px; }
 .form-title svg { width: 17px; color: var(--accent); }
@@ -326,6 +329,10 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .field small { color: var(--quiet); font-size: 10px; }
 .inline-error { margin: 0 18px; padding: 10px 12px; border-left: 3px solid var(--danger); background: var(--danger-soft); color: var(--text); font-size: 11px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 15px 18px; border-top: 1px solid var(--line); }
+.confirm-dialog { width: min(520px, calc(100vw - 32px)); }
+.confirm-body { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; padding: 20px 18px; }
+.confirm-body > svg { width: 22px; height: 22px; color: var(--danger); }
+.confirm-body p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
 
 .boot-screen { min-height: 100dvh; display: grid; align-content: center; justify-items: center; gap: 12px; padding: 24px; background: var(--bg); color: var(--muted); text-align: center; }
 .boot-screen h1 { margin: 0; color: var(--text); font-size: 28px; }

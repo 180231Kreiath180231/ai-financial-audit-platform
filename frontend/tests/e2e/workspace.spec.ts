@@ -97,4 +97,22 @@ test('settings exposes audited local model routing without external requests', a
   await providers.getByLabel('显示名称').fill('Synthetic E2E Provider Updated')
   await providers.getByRole('button', { name: '保存修改' }).click()
   await expect(providers.getByText('Synthetic E2E Provider Updated')).toBeVisible()
+
+  const models = page.getByRole('region', { name: '模型能力档案' })
+  await models.getByLabel('服务商').selectOption({ label: 'Synthetic E2E Provider Updated' })
+  await models.getByLabel('显示名称').fill('Synthetic E2E Fallback')
+  await models.getByLabel('模型标识').fill('synthetic-e2e-fallback')
+  await models.getByRole('checkbox', { name: /作为备用模型/ }).check()
+  await models.getByRole('button', { name: '保存模型档案' }).click()
+  const modelRow = models.locator('article').filter({ hasText: 'Synthetic E2E Fallback' })
+  await expect(modelRow.getByText('备用', { exact: true })).toBeVisible()
+
+  await modelRow.getByRole('button', { name: '删除模型 Synthetic E2E Fallback' }).click()
+  await expect(page.getByRole('dialog')).toContainText('历史调用审计不会被删除')
+  await page.getByRole('dialog').getByRole('button', { name: '确认删除' }).click()
+  await expect(models.getByText('Synthetic E2E Fallback')).toHaveCount(0)
+
+  await providerRow.getByRole('button', { name: '删除服务商 Synthetic E2E Provider Updated' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: '确认删除' }).click()
+  await expect(providers.getByText('Synthetic E2E Provider Updated')).toHaveCount(0)
 })
