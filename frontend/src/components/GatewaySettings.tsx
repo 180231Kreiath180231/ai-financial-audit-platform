@@ -4,6 +4,7 @@ import {
   Cpu,
   Key,
   LockKey,
+  PencilSimple,
   Plus,
   ShieldCheck,
   TestTube,
@@ -13,7 +14,9 @@ import { api } from '../api'
 import type {
   GatewayOverview,
   ModelCapability,
+  ModelProfile,
   ModelProfilePayload,
+  ModelProvider,
   ModelProviderPayload,
   Project,
 } from '../types'
@@ -67,6 +70,10 @@ export function GatewaySettings({
   const [modelForm, setModelForm] = useState(initialModel)
   const [busy, setBusy] = useState<string | null>(null)
   const [showSecret, setShowSecret] = useState(false)
+  const [clearSecret, setClearSecret] = useState(false)
+  const [editingProviderId, setEditingProviderId] = useState<string | null>(null)
+  const [editingProviderHasSecret, setEditingProviderHasSecret] = useState(false)
+  const [editingModelId, setEditingModelId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -103,10 +110,16 @@ export function GatewaySettings({
     void runOperation('provider-create', async () => {
       const payload = { ...providerForm }
       if (!payload.api_key) delete payload.api_key
-      await api.createModelProvider(payload)
+      payload.clear_api_key = clearSecret
+      if (editingProviderId) await api.updateModelProvider(editingProviderId, payload)
+      else await api.createModelProvider(payload)
       setProviderForm(initialProvider)
+      setEditingProviderId(null)
+      setEditingProviderHasSecret(false)
+      setClearSecret(false)
+      setShowSecret(false)
       await refresh()
-      setNotice('服务商配置已保存在本机；密钥仅以 DPAPI 引用保存。')
+      setNotice(editingProviderId ? '服务商配置已更新；密钥操作已写入本地审计轨迹。' : '服务商配置已保存在本机；密钥仅以 DPAPI 引用保存。')
     })
   }
 
@@ -114,11 +127,49 @@ export function GatewaySettings({
     event.preventDefault()
     void runOperation('model-create', async () => {
       if (modelForm.capabilities.length === 0) throw new Error('至少选择一项模型能力。')
-      await api.createModelProfile(modelForm)
+      if (editingModelId) await api.updateModelProfile(editingModelId, modelForm)
+      else await api.createModelProfile(modelForm)
       setModelForm(initialModel)
+      setEditingModelId(null)
       await refresh()
-      setNotice('模型能力档案已保存。')
+      setNotice(editingModelId ? '模型能力档案已更新。' : '模型能力档案已保存。')
     })
+  }
+
+  function editProvider(provider: ModelProvider) {
+    setEditingProviderId(provider.id)
+    setEditingProviderHasSecret(provider.secret_configured)
+    setProviderForm({
+      provider_kind: 'openai_compatible',
+      display_name: provider.display_name,
+      base_url: provider.base_url,
+      api_key: '',
+      timeout_seconds: provider.timeout_seconds,
+      max_retries: provider.max_retries,
+      enabled: provider.enabled,
+    })
+    setClearSecret(false)
+    setShowSecret(false)
+    setError(null)
+    setNotice(null)
+  }
+
+  function editModel(model: ModelProfile) {
+    setEditingModelId(model.id)
+    setModelForm({
+      provider_id: model.provider_id,
+      display_name: model.display_name,
+      model_name: model.model_name,
+      capabilities: [...model.capabilities],
+      context_window: model.context_window,
+      max_output_tokens: model.max_output_tokens,
+      input_cost_per_million: model.input_cost_per_million,
+      output_cost_per_million: model.output_cost_per_million,
+      is_fallback: model.is_fallback,
+      enabled: model.enabled,
+    })
+    setError(null)
+    setNotice(null)
   }
 
   if (!overview) {
@@ -215,19 +266,26 @@ export function GatewaySettings({
             <article className="config-row" key={provider.id}>
               <div><b>{provider.display_name}</b><span>{provider.base_url}</span></div>
               <div className="config-meta"><span>{provider.provider_kind === 'fake' ? '本地验收' : provider.secret_configured ? '密钥已配置' : '未配置密钥'}</span><span>{provider.timeout_seconds}s · 重试 {provider.max_retries}</span></div>
-              <button className="button compact" type="button" disabled={provider.provider_kind === 'fake' || busy !== null} onClick={() => void runOperation(`provider-${provider.id}`, async () => { await api.toggleModelProvider(provider.id); await refresh() })}>{provider.enabled ? '停用' : '启用'}</button>
+              <div className="config-actions">
+                <button className="button compact" type="button" disabled={provider.provider_kind === 'fake' || busy !== null} onClick={() => editProvider(provider)}><PencilSimple aria-hidden="true" />编辑</button>
+                <button className="button compact" type="button" disabled={provider.provider_kind === 'fake' || busy !== null} onClick={() => void runOperation(`provider-${provider.id}`, async () => { await api.toggleModelProvider(provider.id); await refresh() })}>{provider.enabled ? '停用' : '启用'}</button>
+              </div>
             </article>
           ))}
         </div>
         <form className="config-form" onSubmit={submitProvider}>
-          <div className="form-title"><Plus aria-hidden="true" /><b>新增 OpenAI-compatible 服务商</b></div>
+          <div className="form-title"><Plus aria-hidden="true" /><b>{editingProviderId ? '编辑 OpenAI-compatible 服务商' : '新增 OpenAI-compatible 服务商'}</b></div>
           <label className="field"><span>显示名称</span><input required minLength={2} maxLength={80} value={providerForm.display_name} onChange={(event) => setProviderForm({ ...providerForm, display_name: event.target.value })} /></label>
           <label className="field field-wide"><span>Base URL</span><input required type="url" pattern="https://.*" value={providerForm.base_url} onChange={(event) => setProviderForm({ ...providerForm, base_url: event.target.value })} /><small>仅接受 HTTPS，例如 https://api.example.com/v1</small></label>
-          <label className="field field-wide"><span>API Key（可稍后配置）</span><input type={showSecret ? 'text' : 'password'} autoComplete="new-password" value={providerForm.api_key ?? ''} onChange={(event) => setProviderForm({ ...providerForm, api_key: event.target.value })} /><small>提交后不会再次显示完整值。</small></label>
+          <label className="field field-wide"><span>API Key（可稍后配置）</span><input type={showSecret ? 'text' : 'password'} autoComplete="new-password" disabled={clearSecret} value={providerForm.api_key ?? ''} onChange={(event) => setProviderForm({ ...providerForm, api_key: event.target.value })} /><small>{editingProviderId ? editingProviderHasSecret ? '留空表示保留现有密钥；输入新值将执行轮换。' : '当前未配置密钥；输入新值后将使用 DPAPI 保存。' : '提交后不会再次显示完整值。'}</small></label>
           <label className="secret-visibility field-wide"><input type="checkbox" checked={showSecret} onChange={(event) => setShowSecret(event.target.checked)} />显示本次输入</label>
+          {editingProviderId && editingProviderHasSecret && <label className="secret-visibility field-wide danger-choice"><input type="checkbox" checked={clearSecret} onChange={(event) => { setClearSecret(event.target.checked); if (event.target.checked) setProviderForm({ ...providerForm, api_key: '' }) }} />清除已保存的 API Key</label>}
           <label className="field"><span>超时（秒）</span><input required type="number" min={1} max={300} value={providerForm.timeout_seconds} onChange={(event) => setProviderForm({ ...providerForm, timeout_seconds: Number(event.target.value) })} /></label>
           <label className="field"><span>最大重试</span><input required type="number" min={0} max={3} value={providerForm.max_retries} onChange={(event) => setProviderForm({ ...providerForm, max_retries: Number(event.target.value) })} /></label>
-          <div className="config-form-actions"><button className="button secondary" type="submit" disabled={busy !== null}><LockKey aria-hidden="true" />保存服务商</button></div>
+          <div className="config-form-actions">
+            {editingProviderId && <button className="button secondary" type="button" onClick={() => { setEditingProviderId(null); setEditingProviderHasSecret(false); setProviderForm(initialProvider); setClearSecret(false) }}>取消编辑</button>}
+            <button className="button secondary" type="submit" disabled={busy !== null}><LockKey aria-hidden="true" />{editingProviderId ? '保存修改' : '保存服务商'}</button>
+          </div>
         </form>
       </section>
 
@@ -241,19 +299,25 @@ export function GatewaySettings({
             <article className="config-row model-row" key={model.id}>
               <div><b>{model.display_name}</b><span>{model.model_name}</span></div>
               <div className="capability-list">{model.capabilities.map((item) => <span key={item}>{capabilityLabels[item]}</span>)}</div>
-              <button className="button compact" type="button" disabled={model.id === 'fake-structured-v1' || busy !== null} onClick={() => void runOperation(`model-${model.id}`, async () => { await api.toggleModelProfile(model.id); await refresh() })}>{model.enabled ? '停用' : '启用'}</button>
+              <div className="config-actions">
+                <button className="button compact" type="button" disabled={model.id === 'fake-structured-v1' || busy !== null} onClick={() => editModel(model)}><PencilSimple aria-hidden="true" />编辑</button>
+                <button className="button compact" type="button" disabled={model.id === 'fake-structured-v1' || busy !== null} onClick={() => void runOperation(`model-${model.id}`, async () => { await api.toggleModelProfile(model.id); await refresh() })}>{model.enabled ? '停用' : '启用'}</button>
+              </div>
             </article>
           ))}
         </div>
         <form className="config-form" onSubmit={submitModel}>
-          <div className="form-title"><Plus aria-hidden="true" /><b>新增模型档案</b></div>
-          <label className="field"><span>服务商</span><select required value={modelForm.provider_id} onChange={(event) => setModelForm({ ...modelForm, provider_id: event.target.value })}><option value="">请选择</option>{externalProviders.filter((provider) => provider.enabled).map((provider) => <option key={provider.id} value={provider.id}>{provider.display_name}</option>)}</select></label>
+          <div className="form-title"><Plus aria-hidden="true" /><b>{editingModelId ? '编辑模型档案' : '新增模型档案'}</b></div>
+          <label className="field"><span>服务商</span><select required value={modelForm.provider_id} onChange={(event) => setModelForm({ ...modelForm, provider_id: event.target.value })}><option value="">请选择</option>{externalProviders.filter((provider) => provider.enabled || provider.id === modelForm.provider_id).map((provider) => <option key={provider.id} value={provider.id}>{provider.display_name}</option>)}</select></label>
           <label className="field"><span>显示名称</span><input required minLength={2} maxLength={80} value={modelForm.display_name} onChange={(event) => setModelForm({ ...modelForm, display_name: event.target.value })} /></label>
           <label className="field field-wide"><span>模型标识</span><input required maxLength={160} value={modelForm.model_name} onChange={(event) => setModelForm({ ...modelForm, model_name: event.target.value })} /></label>
           <fieldset className="capability-field field-wide"><legend>能力</legend><div>{(Object.keys(capabilityLabels) as ModelCapability[]).map((capability) => <label key={capability}><input type="checkbox" checked={modelForm.capabilities.includes(capability)} onChange={() => toggleCapability(capability)} />{capabilityLabels[capability]}</label>)}</div></fieldset>
           <label className="field"><span>上下文长度</span><input required type="number" min={1024} value={modelForm.context_window} onChange={(event) => setModelForm({ ...modelForm, context_window: Number(event.target.value) })} /></label>
           <label className="field"><span>输出上限</span><input required type="number" min={1} value={modelForm.max_output_tokens} onChange={(event) => setModelForm({ ...modelForm, max_output_tokens: Number(event.target.value) })} /></label>
-          <div className="config-form-actions"><button className="button secondary" type="submit" disabled={externalProviders.length === 0 || busy !== null}><Plus aria-hidden="true" />保存模型档案</button></div>
+          <div className="config-form-actions">
+            {editingModelId && <button className="button secondary" type="button" onClick={() => { setEditingModelId(null); setModelForm(initialModel) }}>取消编辑</button>}
+            <button className="button secondary" type="submit" disabled={externalProviders.length === 0 || busy !== null}><Plus aria-hidden="true" />{editingModelId ? '保存修改' : '保存模型档案'}</button>
+          </div>
         </form>
       </section>
     </section>

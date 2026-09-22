@@ -26,8 +26,10 @@ from .schemas import (
     GatewayProbeResult,
     ModelProfileCreate,
     ModelProfileRecord,
+    ModelProfileUpdate,
     ModelProviderCreate,
     ModelProviderRecord,
+    ModelProviderUpdate,
     OfflineModeUpdate,
     ProjectCreate,
     ProjectSummary,
@@ -81,7 +83,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_origin],
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT"],
     allow_headers=["Content-Type"],
 )
 
@@ -219,6 +221,34 @@ def create_model_provider(payload: ModelProviderCreate) -> dict:
     return provider
 
 
+@app.put(
+    "/api/v1/model-providers/{provider_id}",
+    response_model=ModelProviderRecord,
+    dependencies=[Depends(require_session)],
+)
+def update_model_provider(provider_id: str, payload: ModelProviderUpdate) -> dict:
+    try:
+        provider = database.update_model_provider(provider_id, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="服务商不存在") from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "MODEL_PROVIDER_PROTECTED", "message": str(exc), "action": "保留本地验收配置"},
+        ) from exc
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "MODEL_PROVIDER_CONFLICT",
+                "message": "服务商显示名称已存在",
+                "action": "更换显示名称后重试",
+            },
+        ) from exc
+    logger.info("gateway.provider_updated", extra={"provider_id": provider_id})
+    return provider
+
+
 @app.post(
     "/api/v1/model-providers/{provider_id}/toggle",
     response_model=ModelProviderRecord,
@@ -257,6 +287,34 @@ def create_model_profile(payload: ModelProfileCreate) -> dict:
             },
         ) from exc
     logger.info("gateway.model_created", extra={"model_profile_id": model["id"]})
+    return model
+
+
+@app.put(
+    "/api/v1/model-profiles/{model_id}",
+    response_model=ModelProfileRecord,
+    dependencies=[Depends(require_session)],
+)
+def update_model_profile(model_id: str, payload: ModelProfileUpdate) -> dict:
+    try:
+        model = database.update_model_profile(model_id, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="服务商或模型档案不存在") from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "FAKE_MODEL_REQUIRED", "message": str(exc), "action": "保留本地验收配置"},
+        ) from exc
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "MODEL_PROFILE_CONFLICT",
+                "message": "该服务商下已存在相同模型标识",
+                "action": "检查模型名称后重试",
+            },
+        ) from exc
+    logger.info("gateway.model_updated", extra={"model_profile_id": model_id})
     return model
 
 

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { GatewaySettings } from './GatewaySettings'
 import type { GatewayOverview, Project } from '../types'
@@ -58,5 +59,28 @@ describe('GatewaySettings', () => {
     expect(screen.getByText('文本', { selector: '.capability-list span' })).toBeVisible()
     expect(screen.getByText('视觉', { selector: '.capability-list span' })).toBeVisible()
     expect(screen.getByText('JSON Schema', { selector: '.capability-list span' })).toBeVisible()
+  })
+
+  it('enters an explicit credential rotation state without revealing the saved key', async () => {
+    const user = userEvent.setup()
+    const editable: GatewayOverview = {
+      ...overview,
+      providers: [...overview.providers, {
+        ...overview.providers[0],
+        id: 'external-provider',
+        provider_kind: 'openai_compatible',
+        display_name: 'Synthetic Provider',
+        base_url: 'https://models.invalid/v1',
+        secret_configured: true,
+      }],
+    }
+    render(<GatewaySettings overview={editable} project={project} onOverviewChange={vi.fn()} onProjectChange={vi.fn()} />)
+
+    await user.click(screen.getAllByRole('button', { name: '编辑' })[1])
+
+    expect(screen.getByText('编辑 OpenAI-compatible 服务商')).toBeVisible()
+    expect(screen.getByLabelText(/API Key（可稍后配置）/)).toHaveValue('')
+    expect(screen.getByText('留空表示保留现有密钥；输入新值将执行轮换。')).toBeVisible()
+    expect(screen.getByRole('checkbox', { name: '清除已保存的 API Key' })).not.toBeChecked()
   })
 })

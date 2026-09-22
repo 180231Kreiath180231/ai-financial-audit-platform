@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 
@@ -97,8 +98,28 @@ class ModelProviderCreate(BaseModel):
                 raise ValueError("Fake Provider 仅允许 local://fake")
             if self.api_key is not None:
                 raise ValueError("Fake Provider 不应配置 API Key")
-        elif not self.base_url.startswith("https://"):
-            raise ValueError("外部服务 Base URL 必须使用 HTTPS")
+        else:
+            parsed = urlsplit(self.base_url)
+            if (
+                parsed.scheme != "https"
+                or not parsed.hostname
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise ValueError("外部服务 Base URL 必须是无凭据、查询参数和片段的有效 HTTPS 地址")
+        return self
+
+
+class ModelProviderUpdate(ModelProviderCreate):
+    api_key: SecretStr | None = None
+    clear_api_key: bool = False
+
+    @model_validator(mode="after")
+    def validate_secret_update(self):
+        if self.api_key is not None and self.clear_api_key:
+            raise ValueError("不能同时轮换和清除 API Key")
         return self
 
 
@@ -132,6 +153,10 @@ class ModelProfileCreate(BaseModel):
     @classmethod
     def strip_model_text(cls, value: str) -> str:
         return value.strip()
+
+
+class ModelProfileUpdate(ModelProfileCreate):
+    pass
 
 
 class ModelProfileRecord(BaseModel):

@@ -10,7 +10,13 @@ from pathlib import Path
 from typing import Any
 
 from .migrations import PROJECT_MIGRATIONS, REGISTRY_MIGRATIONS, apply_migrations
-from .schemas import ModelProfileCreate, ModelProviderCreate, ProjectCreate
+from .schemas import (
+    ModelProfileCreate,
+    ModelProfileUpdate,
+    ModelProviderCreate,
+    ModelProviderUpdate,
+    ProjectCreate,
+)
 from .secret_store import DpapiSecretStore
 
 CAPABILITY_COLUMNS = {
@@ -317,6 +323,81 @@ class Database:
             )
         return self._provider_from_row(row)
 
+    def update_model_provider(
+        self, provider_id: str, payload: ModelProviderUpdate
+    ) -> dict[str, Any]:
+        if provider_id == "fake-provider":
+            raise ValueError("Fake Provider cannot be edited")
+        with self.connect(self.registry_path) as db:
+            existing = db.execute(
+                "SELECT * FROM model_providers WHERE id=?", (provider_id,)
+            ).fetchone()
+        if existing is None:
+            raise KeyError(provider_id)
+        old_reference = existing["api_key_ref"]
+        new_reference = old_reference
+        created_reference = None
+        if payload.api_key is not None:
+            created_reference = self.secret_store.put(payload.api_key.get_secret_value())
+            new_reference = created_reference
+        elif payload.clear_api_key:
+            new_reference = None
+        now = utc_now()
+        try:
+            with self.connect(self.registry_path) as db:
+                db.execute("BEGIN IMMEDIATE")
+                try:
+                    db.execute(
+                        """UPDATE model_providers SET provider_kind=?, display_name=?,
+                        base_url=?, api_key_ref=?, default_headers_json=?, timeout_seconds=?,
+                        max_retries=?, enabled=?, updated_at=? WHERE id=?""",
+                        (
+                            payload.provider_kind,
+                            payload.display_name,
+                            payload.base_url,
+                            new_reference,
+                            json.dumps(payload.default_headers, ensure_ascii=False),
+                            payload.timeout_seconds,
+                            payload.max_retries,
+                            int(payload.enabled),
+                            now,
+                            provider_id,
+                        ),
+                    )
+                    db.execute(
+                        "INSERT INTO audit_events VALUES (?, NULL, ?, ?, ?)",
+                        (
+                            str(uuid.uuid4()),
+                            "gateway.provider_updated",
+                            now,
+                            json.dumps(
+                                {
+                                    "provider_id": provider_id,
+                                    "secret_action": (
+                                        "rotated"
+                                        if payload.api_key is not None
+                                        else "cleared"
+                                        if payload.clear_api_key
+                                        else "preserved"
+                                    ),
+                                }
+                            ),
+                        ),
+                    )
+                    row = db.execute(
+                        "SELECT * FROM model_providers WHERE id=?", (provider_id,)
+                    ).fetchone()
+                    db.execute("COMMIT")
+                except Exception:
+                    db.execute("ROLLBACK")
+                    raise
+        except Exception:
+            self.secret_store.delete(created_reference)
+            raise
+        if old_reference != new_reference:
+            self.secret_store.delete(old_reference)
+        return self._provider_from_row(row)
+
     def list_model_profiles(self) -> list[dict[str, Any]]:
         with self.connect(self.registry_path) as db:
             rows = db.execute(
@@ -407,6 +488,62 @@ class Database:
                     json.dumps({"model_profile_id": model_id, "enabled": bool(row["enabled"])}),
                 ),
             )
+        return self._model_from_row(row)
+
+    def update_model_profile(
+        self, model_id: str, payload: ModelProfileUpdate
+    ) -> dict[str, Any]:
+        if model_id == "fake-structured-v1":
+            raise ValueError("Fake model cannot be edited")
+        flags = {
+            column: int(capability in payload.capabilities)
+            for capability, column in CAPABILITY_COLUMNS.items()
+        }
+        now = utc_now()
+        with self.connect(self.registry_path) as db:
+            provider = db.execute(
+                "SELECT 1 FROM model_providers WHERE id=?", (payload.provider_id,)
+            ).fetchone()
+            if provider is None:
+                raise KeyError(payload.provider_id)
+            changed = db.execute(
+                """UPDATE model_profiles SET provider_id=?, display_name=?, model_name=?,
+                supports_text=?, supports_vision=?, supports_json_schema=?, supports_tools=?,
+                supports_embedding=?, supports_file_upload=?, context_window=?,
+                max_output_tokens=?, input_cost_per_million=?, output_cost_per_million=?,
+                is_fallback=?, enabled=?, updated_at=? WHERE id=?""",
+                (
+                    payload.provider_id,
+                    payload.display_name,
+                    payload.model_name,
+                    flags["supports_text"],
+                    flags["supports_vision"],
+                    flags["supports_json_schema"],
+                    flags["supports_tools"],
+                    flags["supports_embedding"],
+                    flags["supports_file_upload"],
+                    payload.context_window,
+                    payload.max_output_tokens,
+                    str(payload.input_cost_per_million),
+                    str(payload.output_cost_per_million),
+                    int(payload.is_fallback),
+                    int(payload.enabled),
+                    now,
+                    model_id,
+                ),
+            )
+            if changed.rowcount == 0:
+                raise KeyError(model_id)
+            db.execute(
+                "INSERT INTO audit_events VALUES (?, NULL, ?, ?, ?)",
+                (
+                    str(uuid.uuid4()),
+                    "gateway.model_updated",
+                    now,
+                    json.dumps({"model_profile_id": model_id, "provider_id": payload.provider_id}),
+                ),
+            )
+            row = db.execute("SELECT * FROM model_profiles WHERE id=?", (model_id,)).fetchone()
         return self._model_from_row(row)
 
     def recent_model_calls(self, limit: int = 20) -> list[dict[str, Any]]:

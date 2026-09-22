@@ -62,11 +62,23 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }),
+  updateModelProvider: (providerId: string, payload: ModelProviderPayload) =>
+    request<ModelProvider>(`/api/v1/model-providers/${providerId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
   toggleModelProvider: (providerId: string) =>
     request<ModelProvider>(`/api/v1/model-providers/${providerId}/toggle`, { method: 'POST' }),
   createModelProfile: (payload: ModelProfilePayload) =>
     request<ModelProfile>('/api/v1/model-profiles', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  updateModelProfile: (modelId: string, payload: ModelProfilePayload) =>
+    request<ModelProfile>(`/api/v1/model-profiles/${modelId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }),

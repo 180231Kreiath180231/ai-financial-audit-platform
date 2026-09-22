@@ -91,6 +91,7 @@ export interface ModelProviderPayload {
   display_name: string
   base_url: string
   api_key?: string
+  clear_api_key?: boolean
   timeout_seconds: number
   max_retries: number
   enabled: boolean

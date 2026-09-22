@@ -274,6 +274,8 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .config-row b { font-size: 12px; }
 .config-row span { overflow: hidden; color: var(--quiet); font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
 .config-meta { display: flex; justify-content: flex-end; gap: 14px; }
+.config-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.config-actions .button { margin-top: 0; }
 .model-row { grid-template-columns: minmax(180px, .8fr) minmax(240px, 1.2fr) auto; }
 .capability-list { display: flex; flex-wrap: wrap; gap: 5px; }
 .capability-list span { padding: 3px 6px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); }
@@ -288,6 +290,7 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .capability-field input { width: 16px; height: 16px; accent-color: var(--accent); }
 .secret-visibility { min-height: 36px; display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
 .secret-visibility input { width: 16px; height: 16px; accent-color: var(--accent); }
+.secret-visibility.danger-choice { color: var(--danger); }
 .config-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 
 .future-page { height: 100%; display: grid; align-content: center; justify-items: center; padding: 24px; text-align: center; }
@@ -396,7 +399,8 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
   .policy-row .button, .probe-row .button { width: 100%; }
   .config-row, .model-row { grid-template-columns: 1fr auto; gap: 10px; }
   .config-meta, .capability-list { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
-  .config-row > .button { grid-column: 2; grid-row: 1; }
+  .config-row > .config-actions { grid-column: 2; grid-row: 1; }
+  .config-actions { align-items: flex-end; flex-direction: column; }
   .config-form { grid-template-columns: 1fr; }
   .config-form .field-wide, .config-form .form-title, .config-form-actions, .capability-field { grid-column: auto; }
   .config-form .field input, .config-form .field select { min-height: 44px; font-size: 16px; }

@@ -8,7 +8,7 @@ from pydantic import SecretStr
 
 from backend.app.db import Database
 from backend.app.gateway import GatewayError, ModelGateway
-from backend.app.schemas import ModelProfileCreate, ModelProviderCreate
+from backend.app.schemas import ModelProfileCreate, ModelProviderCreate, ModelProviderUpdate
 from backend.tests.helpers import create_project
 
 
@@ -66,7 +66,9 @@ def test_external_route_requires_both_global_and_project_consent(
         db.execute("UPDATE model_providers SET enabled=0 WHERE id='fake-provider'")
 
     with pytest.raises(GatewayError) as captured:
-        ModelGateway(database).probe(project["id"], "text", "must not leave device")
+        ModelGateway(database).complete_external(
+            project["id"], "text", "must not leave device"
+        )
 
     assert captured.value.code == expected_code
     with database.connect(database.registry_path) as db:
@@ -100,3 +102,41 @@ def test_api_key_uses_dpapi_reference_and_never_enters_sqlite(tmp_path: Path) ->
             "SELECT api_key_ref FROM model_providers WHERE id=?", (provider["id"],)
         ).fetchone()["api_key_ref"]
     assert database.secret_store.get(reference) == raw_secret
+
+
+@pytest.mark.skipif(os.name != "nt", reason="DPAPI is a Windows security boundary")
+def test_provider_update_rotates_secret_and_removes_old_ciphertext(tmp_path: Path) -> None:
+    database = Database(tmp_path / "registry")
+    provider = database.create_model_provider(
+        ModelProviderCreate(
+            display_name="Rotation Test",
+            base_url="https://rotation.invalid/v1",
+            api_key=SecretStr("first-credential-fixture"),
+        )
+    )
+    with database.connect(database.registry_path) as db:
+        old_reference = db.execute(
+            "SELECT api_key_ref FROM model_providers WHERE id=?", (provider["id"],)
+        ).fetchone()["api_key_ref"]
+
+    updated = database.update_model_provider(
+        provider["id"],
+        ModelProviderUpdate(
+            display_name="Rotation Test Updated",
+            base_url="https://rotation.invalid/v1",
+            api_key=SecretStr("second-credential-fixture"),
+        ),
+    )
+
+    with database.connect(database.registry_path) as db:
+        row = db.execute(
+            "SELECT api_key_ref FROM model_providers WHERE id=?", (provider["id"],)
+        ).fetchone()
+        event = db.execute(
+            "SELECT details_json FROM audit_events WHERE event_type='gateway.provider_updated'"
+        ).fetchone()
+    assert updated["display_name"] == "Rotation Test Updated"
+    assert row["api_key_ref"] != old_reference
+    assert database.secret_store.get(row["api_key_ref"]) == "second-credential-fixture"
+    assert not (database.data_dir / "secrets" / f"{old_reference.removeprefix('dpapi:')}.bin").exists()
+    assert '"secret_action": "rotated"' in event["details_json"]
