@@ -4,7 +4,7 @@ $runtimeRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot '.runtime'))
 $dataDir = [System.IO.Path]::GetFullPath((Join-Path $runtimeRoot 'e2e-data'))
 
 if ($dataDir -ne (Join-Path $runtimeRoot 'e2e-data')) {
-    throw "拒绝清理非预期的 E2E 目录：$dataDir"
+    throw "Refusing to clean unexpected E2E directory: $dataDir"
 }
 if (Test-Path -LiteralPath $dataDir) {
     Remove-Item -LiteralPath $dataDir -Recurse -Force
