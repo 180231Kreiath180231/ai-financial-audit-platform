@@ -12,6 +12,7 @@ class Settings:
     data_dir: Path
     frontend_origin: str
     seed_synthetic: bool
+    log_level: str
 
 
 def load_settings() -> Settings:
@@ -24,4 +25,5 @@ def load_settings() -> Settings:
         data_dir=data_dir,
         frontend_origin=os.getenv("AUDIT_FRONTEND_ORIGIN", "http://127.0.0.1:5173"),
         seed_synthetic=os.getenv("AUDIT_SEED_SYNTHETIC", "1") == "1",
+        log_level=os.getenv("AUDIT_LOG_LEVEL", "INFO"),
     )

@@ -15,6 +15,8 @@ try {
 
 Push-Location $repoRoot
 try {
+    uv run ruff check backend scripts/measure_baseline.py
+    if ($LASTEXITCODE -ne 0) { throw '后端 lint 失败' }
     uv run pytest
     if ($LASTEXITCODE -ne 0) { throw '后端测试失败' }
 } finally {

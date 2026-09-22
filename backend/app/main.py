@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import shutil
 import sqlite3
 import uuid
@@ -14,6 +15,7 @@ from fastapi.responses import FileResponse
 
 from .config import load_settings
 from .db import Database, utc_now
+from .logging_config import configure_logging
 from .schemas import (
     ApiError,
     DocumentRecord,
@@ -23,10 +25,12 @@ from .schemas import (
     TaskRecord,
     UploadResult,
 )
-from .security import LocalSessionGuard, SESSION_COOKIE
+from .security import SESSION_COOKIE, LocalSessionGuard
 from .worker import LocalTaskWorker
 
 settings = load_settings()
+configure_logging(settings.log_level)
+logger = logging.getLogger("hengjian.api")
 database = Database(settings.data_dir)
 session_guard = LocalSessionGuard()
 worker = LocalTaskWorker(database)
@@ -115,6 +119,7 @@ def list_projects() -> list[dict]:
 def create_project(payload: ProjectCreate) -> dict:
     try:
         project = database.create_project(payload)
+        logger.info("project.created", extra={"project_id": project["id"]})
         project.update(database.project_counts(Path(project["storage_path"])))
         return project
     except sqlite3.IntegrityError as exc:
@@ -172,6 +177,8 @@ async def upload_documents(project_id: str, files: list[UploadFile] = File(...))
                 (task_id, filename, str(incoming), now, now),
             )
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+        database.record_project_event(root, "task.queued", task_id=task_id)
+        logger.info("task.queued", extra={"project_id": project_id, "task_id": task_id})
         accepted.append(task_from_row(row))
     return UploadResult(accepted=accepted, rejected=rejected)
 
@@ -203,6 +210,16 @@ def change_task(project_id: str, task_id: str, action: str) -> TaskRecord:
             (new_status, step, utc_now(), task_id),
         )
         changed = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+    database.record_project_event(
+        root,
+        f"task.{new_status}",
+        task_id=task_id,
+        details={"action": action, "previous_status": row["status"]},
+    )
+    logger.info(
+        "task.state_changed",
+        extra={"project_id": project_id, "task_id": task_id, "status": new_status},
+    )
     if new_status == "cancelled":
         Path(row["incoming_path"]).unlink(missing_ok=True)
     return task_from_row(changed)

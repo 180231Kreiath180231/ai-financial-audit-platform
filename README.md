@@ -65,6 +65,9 @@ scripts/              文档生成脚本
 
 分析、风险、模型网关和报告导出仍是明确禁用态，不代表功能已实现。
 
+迭代一的自动化验收、资源基线和已知边界记录在
+[验收记录](docs/acceptance/iteration-1-2026-09-22.md)；仓库同时提供 Windows GitHub Actions 质量门禁。
+
 ## 生产工程结构
 
 ```text
@@ -101,6 +104,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
 ```powershell
 npm.cmd --prefix frontend exec playwright install chromium
 npm.cmd --prefix frontend run e2e
+```
+
+测量空闲前后端进程的 CPU 与内存基线：
+
+```powershell
+uv run python scripts/measure_baseline.py --duration 10
 ```
 
 锁文件 `uv.lock` 和 `frontend/package-lock.json` 是依赖版本的唯一可信来源。

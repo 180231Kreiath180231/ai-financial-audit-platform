@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 import shutil
 import uuid
 from pathlib import Path
@@ -10,6 +11,8 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from .db import Database, utc_now
+
+logger = logging.getLogger("hengjian.worker")
 
 
 class LocalTaskWorker:
@@ -83,6 +86,12 @@ class LocalTaskWorker:
             error_message=message,
             next_action=action,
         )
+        self.database.record_project_event(
+            root, "task.failed", task_id=task_id, details={"error_code": code}
+        )
+        logger.error(
+            "task.failed", extra={"task_id": task_id, "status": "failed", "error_code": code}
+        )
 
     def _process(self, root: Path, task_id: str) -> None:
         with self.database.connect(root / "app.db") as db:
@@ -118,6 +127,12 @@ class LocalTaskWorker:
                     current_step="已复用现有解析结果",
                     result_kind="duplicate",
                     document_id=duplicate["id"],
+                )
+                self.database.record_project_event(
+                    root, "task.completed", task_id=task_id, details={"result_kind": "duplicate"}
+                )
+                logger.info(
+                    "task.completed", extra={"task_id": task_id, "status": "completed"}
                 )
                 return
 
@@ -177,6 +192,13 @@ class LocalTaskWorker:
                 result_kind="imported",
                 document_id=document_id,
             )
+            self.database.record_project_event(
+                root,
+                "task.completed",
+                task_id=task_id,
+                details={"result_kind": "imported", "document_id": document_id},
+            )
+            logger.info("task.completed", extra={"task_id": task_id, "status": "completed"})
         except PermissionError:
             self._quarantine(root, incoming, task_id)
             self._fail(root, task_id, "PDF_PASSWORD_PROTECTED", "PDF 受密码保护", "移除密码后重试")
@@ -189,4 +211,6 @@ class LocalTaskWorker:
     def _quarantine(self, root: Path, incoming: Path, task_id: str) -> None:
         if incoming.exists():
             destination = root / "quarantine" / f"{task_id}.pdf"
-            shutil.move(str(incoming), destination)
+            if incoming.resolve() != destination.resolve():
+                shutil.move(str(incoming), destination)
+            self._update_task(root, task_id, incoming_path=str(destination))
