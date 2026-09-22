@@ -1,6 +1,6 @@
 # AI 财务审计分析平台
 
-面向财务、审计和内控人员的本地优先 AI 工作台方案。项目包含产品需求、技术架构、开源项目选型、开发计划以及四个阶段的可交互前端原型。
+面向财务、审计和内控人员的本地优先 AI 工作台。仓库包含产品资料、V3.2 视觉基准，以及正在开发的 React + FastAPI 生产工程。
 
 > 当前仓库用于产品设计和 MVP 开发准备。页面中的企业名称、金额、风险事项和文件均为示例数据。
 
@@ -54,4 +54,53 @@ scripts/              文档生成脚本
 
 ## 当前状态
 
-当前为可交互产品原型和开发资料集合，尚未包含生产级后端、身份认证、数据库迁移和正式模型网关。
+第一版实现了迭代零和迭代一的可运行纵向切片：
+
+- 创建、保存和重新打开隔离项目。
+- 批量导入 PDF，由持久化单工作器计算 SHA-256、识别重复文件、隔离损坏件并提取页级原文。
+- 通过 PDF.js 本地查看文档、跳转页码、缩放和搜索已提取原文。
+- 显示真实任务状态、错误码、暂停、继续、取消与重试动作。
+- 本地服务只监听 `127.0.0.1`，通过随机 HttpOnly Cookie 建立本机会话。
+- 默认启用严格离线和 synthetic 演示项目，不调用任何外部模型、OCR、Embedding 或遥测服务。
+
+分析、风险、模型网关和报告导出仍是明确禁用态，不代表功能已实现。
+
+## 生产工程结构
+
+```text
+frontend/       React + TypeScript + Vite + PDF.js
+backend/        FastAPI、SQLite 项目仓和本地单工作器
+tests/          前端端到端场景（位于 frontend/tests）
+data/           运行时本地数据（被 Git 忽略）
+scripts/        启动和验收入口
+design-system/  生产界面设计令牌与约束
+```
+
+## 安装与启动
+
+环境要求：Windows 10/11、Node.js 24、Python 3.12、npm 和 uv。
+
+```powershell
+uv sync
+npm.cmd --prefix frontend ci
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1
+```
+
+启动脚本会打开 `http://127.0.0.1:5173`。按 `Ctrl+C` 同时停止前端和后端。使用 `-NoOpen` 可以不自动打开浏览器。
+
+## 检查与测试
+
+运行完整的静态检查、单元测试和生产构建：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
+```
+
+运行浏览器端到端测试前需要安装 Playwright Chromium（首次一次）：
+
+```powershell
+npm.cmd --prefix frontend exec playwright install chromium
+npm.cmd --prefix frontend run e2e
+```
+
+锁文件 `uv.lock` 和 `frontend/package-lock.json` 是依赖版本的唯一可信来源。

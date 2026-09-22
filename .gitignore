@@ -15,8 +15,14 @@ credentials/
 # Generated and temporary files
 tmp/
 temp/
+_tmp_*
 work/
 outputs/
+.runtime/
+.npm-cache/
+frontend/dist/
+test-results/
+playwright-report/
 *.zip
 *.log
 **/.edge-*/
