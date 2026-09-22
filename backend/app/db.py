@@ -17,6 +17,10 @@ def utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+class ProjectStorageUnavailable(RuntimeError):
+    pass
+
+
 class Database:
     def __init__(self, data_dir: Path) -> None:
         self.data_dir = data_dir
@@ -68,6 +72,13 @@ class Database:
     def create_project(self, payload: ProjectCreate, *, is_synthetic: bool = False) -> dict[str, Any]:
         project_id = str(uuid.uuid4())
         root = Path(payload.storage_path).expanduser().resolve()
+        with self.connect(self.registry_path) as db:
+            conflict = db.execute(
+                "SELECT 1 FROM projects WHERE name = ? COLLATE NOCASE OR storage_path = ?",
+                (payload.name, str(root)),
+            ).fetchone()
+        if conflict is not None:
+            raise sqlite3.IntegrityError("project name or storage path already exists")
         root.mkdir(parents=True, exist_ok=True)
         probe = root / ".hengjian-write-test"
         try:
@@ -126,12 +137,33 @@ class Database:
         for row in rows:
             project = dict(row)
             project["is_synthetic"] = bool(project["is_synthetic"])
-            project.update(self.project_counts(Path(project["storage_path"])))
+            try:
+                project.update(self.project_counts(Path(project["storage_path"])))
+                project["storage_available"] = True
+                project["storage_error_code"] = None
+            except (OSError, sqlite3.Error, ProjectStorageUnavailable):
+                project.update(self.empty_project_counts())
+                project["storage_available"] = False
+                project["storage_error_code"] = "PROJECT_STORAGE_UNAVAILABLE"
             projects.append(project)
         return projects
 
+    @staticmethod
+    def empty_project_counts() -> dict[str, int]:
+        return {
+            "document_count": 0,
+            "page_count": 0,
+            "queued_count": 0,
+            "running_count": 0,
+            "failed_count": 0,
+            "completed_count": 0,
+        }
+
     def project_counts(self, root: Path) -> dict[str, int]:
-        with self.connect(root / "app.db") as db:
+        database_path = root / "app.db"
+        if not root.is_dir() or not database_path.is_file():
+            raise ProjectStorageUnavailable(str(root))
+        with self.connect(database_path) as db:
             doc = db.execute(
                 "SELECT COUNT(*) count, COALESCE(SUM(page_count), 0) pages FROM documents"
             ).fetchone()
@@ -151,10 +183,15 @@ class Database:
         }
 
     def project_root(self, project_id: str) -> Path:
-        return Path(self.get_project(project_id)["storage_path"])
+        root = Path(self.get_project(project_id)["storage_path"])
+        if not root.is_dir() or not (root / "app.db").is_file():
+            raise ProjectStorageUnavailable(str(root))
+        return root
 
     def recover_tasks(self) -> None:
         for project in self.list_projects():
+            if not project["storage_available"]:
+                continue
             root = Path(project["storage_path"])
             with self.connect(root / "app.db") as db:
                 db.execute(

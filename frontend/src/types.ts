@@ -24,6 +24,8 @@ export interface Project {
   running_count: number
   failed_count: number
   completed_count: number
+  storage_available: boolean
+  storage_error_code: string | null
 }
 
 export interface DocumentRecord {

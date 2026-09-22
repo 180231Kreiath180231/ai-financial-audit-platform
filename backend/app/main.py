@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from .config import load_settings
-from .db import Database, utc_now
+from .db import Database, ProjectStorageUnavailable, utc_now
 from .logging_config import configure_logging
 from .schemas import (
     ApiError,
@@ -86,6 +86,22 @@ def project_or_404(project_id: str) -> dict:
         raise HTTPException(status_code=404, detail="项目不存在") from exc
 
 
+def project_root_or_error(project_id: str) -> Path:
+    try:
+        return database.project_root(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="项目不存在") from exc
+    except ProjectStorageUnavailable as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "PROJECT_STORAGE_UNAVAILABLE",
+                "message": "项目目录不可用或项目数据库已移动",
+                "action": "恢复原项目目录后重试",
+            },
+        ) from exc
+
+
 def task_from_row(row) -> TaskRecord:
     return TaskRecord(**dict(row))
 
@@ -136,7 +152,7 @@ def create_project(payload: ProjectCreate) -> dict:
 
 @app.get("/api/v1/projects/{project_id}/documents", response_model=list[DocumentRecord], dependencies=[Depends(require_session)])
 def list_documents(project_id: str) -> list[dict]:
-    root = database.project_root(project_id)
+    root = project_root_or_error(project_id)
     with database.connect(root / "app.db") as db:
         rows = db.execute("SELECT * FROM documents ORDER BY created_at DESC").fetchall()
     return [dict(row) for row in rows]
@@ -144,7 +160,7 @@ def list_documents(project_id: str) -> list[dict]:
 
 @app.get("/api/v1/projects/{project_id}/tasks", response_model=list[TaskRecord], dependencies=[Depends(require_session)])
 def list_tasks(project_id: str) -> list[TaskRecord]:
-    root = database.project_root(project_id)
+    root = project_root_or_error(project_id)
     with database.connect(root / "app.db") as db:
         rows = db.execute("SELECT * FROM tasks ORDER BY created_at DESC").fetchall()
     return [task_from_row(row) for row in rows]
@@ -152,7 +168,7 @@ def list_tasks(project_id: str) -> list[TaskRecord]:
 
 @app.post("/api/v1/projects/{project_id}/documents", response_model=UploadResult, status_code=202, dependencies=[Depends(require_session)])
 async def upload_documents(project_id: str, files: list[UploadFile] = File(...)) -> UploadResult:
-    root = database.project_root(project_id)
+    root = project_root_or_error(project_id)
     accepted: list[TaskRecord] = []
     rejected: list[ApiError] = []
     for upload in files:
@@ -185,7 +201,7 @@ async def upload_documents(project_id: str, files: list[UploadFile] = File(...))
 
 @app.post("/api/v1/projects/{project_id}/tasks/{task_id}/{action}", response_model=TaskRecord, dependencies=[Depends(require_session)])
 def change_task(project_id: str, task_id: str, action: str) -> TaskRecord:
-    root = database.project_root(project_id)
+    root = project_root_or_error(project_id)
     transitions = {
         ("running", "pause"): ("pausing", "正在等待安全点"),
         ("paused", "resume"): ("queued", "等待恢复"),
@@ -220,14 +236,14 @@ def change_task(project_id: str, task_id: str, action: str) -> TaskRecord:
         "task.state_changed",
         extra={"project_id": project_id, "task_id": task_id, "status": new_status},
     )
-    if new_status == "cancelled":
+    if new_status == "cancelled" and row["status"] in {"queued", "paused"}:
         Path(row["incoming_path"]).unlink(missing_ok=True)
     return task_from_row(changed)
 
 
 @app.get("/api/v1/projects/{project_id}/documents/{document_id}/file", dependencies=[Depends(require_session)])
 def document_file(project_id: str, document_id: str) -> FileResponse:
-    root = database.project_root(project_id)
+    root = project_root_or_error(project_id)
     with database.connect(root / "app.db") as db:
         row = db.execute("SELECT * FROM documents WHERE id=?", (document_id,)).fetchone()
     if row is None:
@@ -237,7 +253,7 @@ def document_file(project_id: str, document_id: str) -> FileResponse:
 
 @app.get("/api/v1/projects/{project_id}/documents/{document_id}/search", dependencies=[Depends(require_session)])
 def search_document(project_id: str, document_id: str, q: str) -> list[dict]:
-    root = database.project_root(project_id)
+    root = project_root_or_error(project_id)
     term = q.strip()
     if not term:
         return []

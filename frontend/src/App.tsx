@@ -145,10 +145,18 @@ export function App() {
       setTasks([])
       return
     }
+    if (selectedProject?.storage_available === false) {
+      setDocuments([])
+      setTasks([])
+      setSelectedDocumentId('')
+      setSelectedTaskId('')
+      setOperationError('项目目录不可用或项目数据库已移动；请恢复原项目目录后重试。')
+      return
+    }
     void refreshProjectData(selectedProjectId)
     const timer = window.setInterval(() => void refreshProjectData(selectedProjectId), activeTaskCount > 0 ? 1000 : 4000)
     return () => window.clearInterval(timer)
-  }, [activeTaskCount, refreshProjectData, selectedProjectId])
+  }, [activeTaskCount, refreshProjectData, selectedProject?.storage_available, selectedProjectId])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -191,6 +199,10 @@ export function App() {
 
   async function uploadFiles(files: File[]) {
     if (!selectedProject || files.length === 0) return
+    if (selectedProject.storage_available === false) {
+      setOperationError('项目目录不可用，无法导入 PDF。')
+      return
+    }
     setOperationError(null)
     setUploadNotice(null)
     try {
@@ -278,11 +290,12 @@ export function App() {
                 <label className="project-select-label" htmlFor="project-selector">当前项目</label>
                 <div className="select-wrap">
                   <select id="project-selector" value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>
-                    {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                    {projects.map((project) => <option key={project.id} value={project.id}>{project.name}{project.storage_available === false ? '（目录不可用）' : ''}</option>)}
                   </select>
                   <CaretDown aria-hidden="true" />
                 </div>
                 {selectedProject?.is_synthetic && <div className="synthetic-note"><ShieldCheck aria-hidden="true" /><span><b>合成演示项目</b>不包含真实客户资料，也不会调用外部模型。</span></div>}
+                {selectedProject?.storage_available === false && <div className="notice error" role="alert"><Warning aria-hidden="true" /><span>项目目录不可用或项目数据库已移动；恢复原目录后才能继续处理。</span></div>}
                 <div
                   className={`drop-zone ${dragging ? 'dragging' : ''}`}
                   onDragEnter={(event) => { event.preventDefault(); setDragging(true) }}
@@ -293,8 +306,8 @@ export function App() {
                   <UploadSimple aria-hidden="true" />
                   <strong>导入 PDF</strong>
                   <span>拖放到这里，或选择多个文件</span>
-                  <button className="button compact" type="button" onClick={() => uploadRef.current?.click()}>选择 PDF</button>
-                  <input ref={uploadRef} className="sr-only" type="file" accept="application/pdf,.pdf" multiple onChange={fileInputChanged} />
+                  <button className="button compact" type="button" disabled={selectedProject?.storage_available === false} onClick={() => uploadRef.current?.click()}>选择 PDF</button>
+                  <input ref={uploadRef} className="sr-only" type="file" accept="application/pdf,.pdf" multiple disabled={selectedProject?.storage_available === false} onChange={fileInputChanged} />
                 </div>
                 {uploadNotice && <div className="notice success" role="status"><CheckCircle aria-hidden="true" />{uploadNotice}</div>}
                 {operationError && <div className="notice error" role="alert"><Warning aria-hidden="true" /><span>{operationError}</span><button aria-label="关闭错误" onClick={() => setOperationError(null)}><X aria-hidden="true" /></button></div>}
@@ -332,7 +345,7 @@ export function App() {
                   <div className="overview-canvas">
                     <header className="canvas-head">
                       <div><span className="section-kicker">项目 / 资料 / 本地解析</span><h2>{selectedProject?.name ?? '开始第一个审计项目'}</h2></div>
-                      <button className="button primary" type="button" onClick={() => selectedProject ? uploadRef.current?.click() : setProjectDialogOpen(true)}>{selectedProject ? '导入 PDF' : '创建项目'}</button>
+                      <button className="button primary" type="button" disabled={selectedProject?.storage_available === false} onClick={() => selectedProject ? uploadRef.current?.click() : setProjectDialogOpen(true)}>{selectedProject ? '导入 PDF' : '创建项目'}</button>
                     </header>
                     <section className="metric-strip" aria-label="项目概览">
                       <div><span>本地文档</span><strong>{selectedProject?.document_count ?? 0}</strong><small>{selectedProject?.page_count ?? 0} 个可定位页面</small></div>

@@ -50,6 +50,8 @@ class ProjectSummary(BaseModel):
     running_count: int = 0
     failed_count: int = 0
     completed_count: int = 0
+    storage_available: bool = True
+    storage_error_code: str | None = None
 
 
 TaskStatus = Literal[

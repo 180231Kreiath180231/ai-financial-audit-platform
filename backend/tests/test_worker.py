@@ -1,4 +1,7 @@
+import shutil
 from pathlib import Path
+
+import pytest
 
 from backend.app.db import Database
 from backend.app.worker import LocalTaskWorker
@@ -61,8 +64,59 @@ def test_corrupt_pdf_is_quarantined_without_losing_task(tmp_path: Path) -> None:
         db.execute("UPDATE tasks SET status='queued' WHERE id=?", (task_id,))
     claimed = worker._claim_next()
     assert claimed is not None
+    with database.connect(root / "app.db") as db:
+        retrying = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+    assert retrying["error_code"] is None
+    assert retrying["error_message"] is None
+    assert retrying["next_action"] is None
     worker._process(*claimed)
     with database.connect(root / "app.db") as db:
         retried = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
     assert retried["status"] == "failed"
     assert retried["error_code"] == "PDF_CORRUPT"
+
+
+def test_unexpected_parser_error_fails_task_without_escaping(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "project-unexpected")
+    root = Path(project["storage_path"])
+    incoming = root / "incoming" / "unexpected.part"
+    write_pdf(incoming, "unexpected")
+    task_id = enqueue(database, root, "unexpected.pdf", incoming)
+    worker = LocalTaskWorker(database)
+
+    def raise_unexpected(_: str) -> None:
+        raise RuntimeError("synthetic parser failure")
+
+    monkeypatch.setattr("backend.app.worker.PdfReader", raise_unexpected)
+    claimed = worker._claim_next()
+    assert claimed is not None
+    worker._process(*claimed)
+
+    with database.connect(root / "app.db") as db:
+        failed = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+    assert failed["status"] == "failed"
+    assert failed["error_code"] == "UNEXPECTED_PROCESSING_ERROR"
+    assert incoming.exists()
+
+
+def test_worker_skips_unavailable_project_and_processes_next_project(tmp_path: Path) -> None:
+    database = Database(tmp_path / "registry")
+    available = create_project(database, tmp_path / "available", "可用项目")
+    unavailable = create_project(database, tmp_path / "unavailable", "失效项目")
+    shutil.rmtree(Path(unavailable["storage_path"]))
+    root = Path(available["storage_path"])
+    incoming = root / "incoming" / "available.part"
+    write_pdf(incoming, "available")
+    task_id = enqueue(database, root, "available.pdf", incoming)
+
+    worker = LocalTaskWorker(database)
+    claimed = worker._claim_next()
+    assert claimed == (root, task_id)
+    worker._process(*claimed)
+
+    with database.connect(root / "app.db") as db:
+        task = db.execute("SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
+    assert task["status"] == "completed"

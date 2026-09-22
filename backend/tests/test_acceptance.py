@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from backend.app.db import Database
 from backend.app.worker import LocalTaskWorker
 from backend.tests.helpers import create_project, enqueue, write_pdf
@@ -83,3 +85,51 @@ def test_f03_pause_restart_and_resume_from_safe_point(tmp_path: Path) -> None:
     assert completed["progress"] == 100
     assert completed["result_kind"] == "imported"
     assert "task.completed" in event_types
+
+
+@pytest.mark.parametrize(
+    ("requested_status", "expected_status", "source_exists"),
+    [("cancelled", "cancelled", False), ("pausing", "paused", True)],
+)
+def test_f03_final_commit_does_not_overwrite_stop_request(
+    tmp_path: Path,
+    requested_status: str,
+    expected_status: str,
+    source_exists: bool,
+) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / f"project-{requested_status}")
+    root = Path(project["storage_path"])
+    incoming = root / "incoming" / "race.part"
+    write_pdf(incoming, f"race-{requested_status}")
+    task_id = enqueue(database, root, "race.pdf", incoming)
+    worker = LocalTaskWorker(database)
+    claimed = worker._claim_next()
+    assert claimed is not None
+
+    original_safe_point = worker._safe_point
+    calls = 0
+
+    def request_stop_after_last_safe_point(
+        project_root: Path, current_task_id: str, source: Path
+    ) -> bool:
+        nonlocal calls
+        calls += 1
+        allowed = original_safe_point(project_root, current_task_id, source)
+        if calls == 3 and allowed:
+            with database.connect(root / "app.db") as db:
+                db.execute(
+                    "UPDATE tasks SET status=? WHERE id=?", (requested_status, task_id)
+                )
+        return allowed
+
+    worker._safe_point = request_stop_after_last_safe_point  # type: ignore[method-assign]
+    worker._process(*claimed)
+
+    with database.connect(root / "app.db") as db:
+        task = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+        document_count = db.execute("SELECT COUNT(*) count FROM documents").fetchone()["count"]
+    assert task["status"] == expected_status
+    assert task["result_kind"] is None
+    assert document_count == 0
+    assert incoming.exists() is source_exists

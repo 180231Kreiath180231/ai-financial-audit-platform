@@ -106,6 +106,9 @@ npm.cmd --prefix frontend exec playwright install chromium
 npm.cmd --prefix frontend run e2e
 ```
 
+E2E 使用独立的 `127.0.0.1:5174` 前端、`127.0.0.1:8100` 后端和
+`.runtime/e2e-data` 合成数据目录，不复用日常开发项目。
+
 测量空闲前后端进程的 CPU 与内存基线：
 
 ```powershell

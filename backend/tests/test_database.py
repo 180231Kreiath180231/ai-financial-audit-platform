@@ -1,8 +1,9 @@
+import shutil
 from pathlib import Path
 
 import pytest
 
-from backend.app.db import Database
+from backend.app.db import Database, ProjectStorageUnavailable
 from backend.app.schemas import ProjectCreate
 
 
@@ -33,3 +34,21 @@ def test_duplicate_project_name_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(Exception):
         database.create_project(payload(tmp_path / "second"))
+    assert not (tmp_path / "second").exists()
+
+
+def test_missing_project_storage_does_not_break_project_listing(tmp_path: Path) -> None:
+    database = Database(tmp_path / "registry")
+    project = database.create_project(payload(tmp_path / "project"))
+    shutil.rmtree(tmp_path / "project")
+
+    projects = database.list_projects()
+
+    assert len(projects) == 1
+    assert projects[0]["id"] == project["id"]
+    assert projects[0]["storage_available"] is False
+    assert projects[0]["storage_error_code"] == "PROJECT_STORAGE_UNAVAILABLE"
+    assert projects[0]["document_count"] == 0
+    database.recover_tasks()
+    with pytest.raises(ProjectStorageUnavailable):
+        database.project_root(project["id"])

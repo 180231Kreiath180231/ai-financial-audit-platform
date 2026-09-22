@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:5174',
     trace: 'retain-on-failure',
   },
   projects: [
@@ -19,9 +19,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/dev.ps1 -NoOpen',
-    url: 'http://127.0.0.1:5173',
-    reuseExistingServer: !process.env.CI,
+    command: 'powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/e2e-server.ps1',
+    url: 'http://127.0.0.1:5174',
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })
