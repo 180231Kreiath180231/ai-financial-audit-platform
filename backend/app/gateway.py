@@ -150,6 +150,81 @@ class ModelGateway:
             )
             raise
 
+    def draft_fake_risk_explanation(
+        self,
+        project_id: str,
+        *,
+        summary: str,
+        support_refs: list[str],
+        counter_refs: list[str],
+    ) -> dict[str, Any]:
+        """Create a schema-shaped synthetic draft without making a network request."""
+        call_id = str(uuid.uuid4())
+        started_at = utc_now()
+        started = time.perf_counter()
+        prompt = json.dumps(
+            {
+                "schema_version": "risk-explanation.v1",
+                "summary": summary,
+                "support_refs": support_refs,
+                "counter_refs": counter_refs,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        request_summary = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        try:
+            route = self.route(project_id, "json_schema", allow_fake=True)
+            if route.provider_kind != "fake":
+                raise GatewayError(
+                    "FAKE_PROVIDER_REQUIRED",
+                    "合成解释只能使用 Fake Provider",
+                    "保留并启用本地 Fake Provider",
+                )
+            explanation = (
+                f"合成解释草稿：当前线索关联 {len(support_refs)} 条支持证据"
+                f"和 {len(counter_refs)} 条反证。请逐页核对原文后再作人工判断。"
+            )
+            uncertainty = (
+                "这是 Fake Provider 生成的结构化占位草稿；未执行正式财务规则、"
+                "金额复算或真实模型推理，不构成审计结论。"
+            )
+            evidence_refs = [*support_refs, *counter_refs]
+            self._record_call(
+                call_id=call_id,
+                project_id=project_id,
+                capability="json_schema",
+                request_summary=request_summary,
+                route=route,
+                started_at=started_at,
+                started=started,
+                status="completed",
+                evidence_refs=evidence_refs,
+            )
+            return {
+                "call_id": call_id,
+                "provider": route.provider_name,
+                "actual_model": route.model_name,
+                "schema_version": "risk-explanation.v1",
+                "explanation": explanation,
+                "uncertainty": uncertainty,
+                "external_request": False,
+            }
+        except GatewayError as exc:
+            self._record_call(
+                call_id=call_id,
+                project_id=project_id,
+                capability="json_schema",
+                request_summary=request_summary,
+                route=None,
+                started_at=started_at,
+                started=started,
+                status="blocked",
+                error_code=exc.code,
+                evidence_refs=[*support_refs, *counter_refs],
+            )
+            raise
+
     def complete_external(
         self,
         project_id: str,

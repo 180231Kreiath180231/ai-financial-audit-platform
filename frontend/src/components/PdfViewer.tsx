@@ -3,22 +3,31 @@ import { ArrowLeft, ArrowRight, MagnifyingGlass, Minus, Plus } from '@phosphor-i
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { api } from '../api'
-import type { DocumentRecord, SearchHit } from '../types'
+import type { DocumentRecord, EvidenceDirection, EvidenceSelection, SearchHit } from '../types'
 
 GlobalWorkerOptions.workerSrc = workerUrl
 
 interface Props {
   projectId: string
   document: DocumentRecord
+  initialPage?: number
+  initialQuery?: string
+  onSelectEvidence?: (evidence: EvidenceSelection) => void
 }
 
-export function PdfViewer({ projectId, document }: Props) {
+export function PdfViewer({
+  projectId,
+  document,
+  initialPage = 1,
+  initialQuery = '',
+  onSelectEvidence,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const renderToken = useRef(0)
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(initialPage)
   const [scale, setScale] = useState(1.15)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [hits, setHits] = useState<SearchHit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +36,9 @@ export function PdfViewer({ projectId, document }: Props) {
     let active = true
     setLoading(true)
     setError(null)
-    setPage(1)
+    setPage(initialPage)
+    setQuery(initialQuery)
+    setHits([])
     const task = getDocument({ url: api.documentUrl(projectId, document.id), withCredentials: true })
     task.promise
       .then((loaded) => {
@@ -42,7 +53,21 @@ export function PdfViewer({ projectId, document }: Props) {
       void task.destroy()
       setPdf(null)
     }
-  }, [document.id, projectId])
+  }, [document.id, initialPage, initialQuery, projectId])
+
+  useEffect(() => {
+    const trimmed = initialQuery.trim()
+    if (!trimmed) return
+    let active = true
+    api.searchDocument(projectId, document.id, trimmed)
+      .then((nextHits) => {
+        if (active) setHits(nextHits)
+      })
+      .catch((reason: unknown) => {
+        if (active) setError(reason instanceof Error ? reason.message : '证据定位失败')
+      })
+    return () => { active = false }
+  }, [document.id, initialQuery, projectId])
 
   useEffect(() => {
     if (!pdf || !canvasRef.current) return
@@ -84,6 +109,15 @@ export function PdfViewer({ projectId, document }: Props) {
     }
   }
 
+  function selectEvidence(hit: SearchHit, direction: EvidenceDirection) {
+    onSelectEvidence?.({
+      ...hit,
+      document_id: document.id,
+      document_name: document.filename,
+      direction,
+    })
+  }
+
   return (
     <section className="pdf-viewer" aria-label={`${document.filename} 阅读器`}>
       <div className="viewer-toolbar">
@@ -108,7 +142,15 @@ export function PdfViewer({ projectId, document }: Props) {
       </div>
       {hits.length > 0 && (
         <div className="search-hits" aria-live="polite">
-          {hits.map((hit) => <button key={hit.page_number} type="button" onClick={() => setPage(hit.page_number)}>第 {hit.page_number} 页<span>{hit.snippet || '命中页'}</span></button>)}
+          {hits.map((hit) => (
+            <article className="search-hit" key={`${hit.page_number}-${hit.block_number}`}>
+              <button className="search-hit-main" type="button" onClick={() => setPage(hit.page_number)}>第 {hit.page_number} 页<span>{hit.snippet || '命中页'}</span></button>
+              {onSelectEvidence && <div className="search-hit-actions" aria-label={`第 ${hit.page_number} 页证据方向`}>
+                <button type="button" onClick={() => selectEvidence(hit, 'support')}>支持证据</button>
+                <button type="button" onClick={() => selectEvidence(hit, 'counter')}>反证</button>
+              </div>}
+            </article>
+          ))}
         </div>
       )}
       <div className="canvas-stage">

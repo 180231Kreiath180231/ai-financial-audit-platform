@@ -17,10 +17,12 @@ from .config import load_settings
 from .db import Database, ProjectStorageUnavailable, utc_now
 from .gateway import GatewayError, ModelGateway
 from .logging_config import configure_logging
+from .risks import RiskError, RiskRepository
 from .schemas import (
     ApiError,
     DocumentRecord,
     ExternalAccessUpdate,
+    FakeRiskDraftResult,
     GatewayOverview,
     GatewayProbe,
     GatewayProbeResult,
@@ -36,6 +38,9 @@ from .schemas import (
     ProjectCreate,
     ProjectSummary,
     ResourceSnapshot,
+    RiskCreate,
+    RiskRecord,
+    RiskTransition,
     TaskRecord,
     UploadResult,
 )
@@ -49,6 +54,7 @@ database = Database(settings.data_dir)
 session_guard = LocalSessionGuard()
 worker = LocalTaskWorker(database)
 model_gateway = ModelGateway(database)
+risk_repository = RiskRepository(database)
 
 
 def seed_synthetic_project() -> None:
@@ -423,6 +429,119 @@ def probe_model_gateway(payload: GatewayProbe) -> dict:
         ) from exc
 
 
+@app.get(
+    "/api/v1/projects/{project_id}/risks",
+    response_model=list[RiskRecord],
+    dependencies=[Depends(require_session)],
+)
+def list_risks(project_id: str) -> list[dict]:
+    project_root_or_error(project_id)
+    return risk_repository.list(project_id)
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/risks",
+    response_model=RiskRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_risk(project_id: str, payload: RiskCreate) -> dict:
+    project_root_or_error(project_id)
+    try:
+        risk = risk_repository.create(project_id, payload)
+    except RiskError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info("risk.created", extra={"project_id": project_id, "risk_id": risk["id"]})
+    return risk
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/risks/{risk_id}",
+    response_model=RiskRecord,
+    dependencies=[Depends(require_session)],
+)
+def get_risk(project_id: str, risk_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return risk_repository.get(project_id, risk_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="风险卡不存在") from exc
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/risks/{risk_id}/transition",
+    response_model=RiskRecord,
+    dependencies=[Depends(require_session)],
+)
+def transition_risk(project_id: str, risk_id: str, payload: RiskTransition) -> dict:
+    project_root_or_error(project_id)
+    try:
+        risk = risk_repository.transition(project_id, risk_id, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="风险卡不存在") from exc
+    except RiskError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info(
+        "risk.status_changed",
+        extra={"project_id": project_id, "risk_id": risk_id, "status": payload.status},
+    )
+    return risk
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/risks/{risk_id}/fake-explanation",
+    response_model=FakeRiskDraftResult,
+    dependencies=[Depends(require_session)],
+)
+def create_fake_risk_explanation(project_id: str, risk_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        risk = risk_repository.get(project_id, risk_id)
+        support_refs = [
+            f"{item['document_id']}:{item['page_number']}:{item['block_number']}"
+            for item in risk["evidence"]
+            if item["direction"] == "support"
+        ]
+        counter_refs = [
+            f"{item['document_id']}:{item['page_number']}:{item['block_number']}"
+            for item in risk["evidence"]
+            if item["direction"] == "counter"
+        ]
+        draft = model_gateway.draft_fake_risk_explanation(
+            project_id,
+            summary=risk["summary"],
+            support_refs=support_refs,
+            counter_refs=counter_refs,
+        )
+        updated = risk_repository.apply_fake_explanation(
+            project_id,
+            risk_id,
+            explanation=draft["explanation"],
+            uncertainty=draft["uncertainty"],
+            provider=draft["provider"],
+            actual_model=draft["actual_model"],
+            model_call_id=draft["call_id"],
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="风险卡不存在") from exc
+    except GatewayError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info(
+        "risk.fake_explanation_created",
+        extra={"project_id": project_id, "risk_id": risk_id},
+    )
+    return {"risk": updated, "external_request": False}
+
+
 @app.get("/api/v1/projects/{project_id}/documents", response_model=list[DocumentRecord], dependencies=[Depends(require_session)])
 def list_documents(project_id: str) -> list[dict]:
     root = project_root_or_error(project_id)
@@ -532,9 +651,14 @@ def search_document(project_id: str, document_id: str, q: str) -> list[dict]:
         return []
     with database.connect(root / "app.db") as db:
         rows = db.execute(
-            """SELECT page_number, substr(original_text, 1, 320) snippet
-            FROM pages WHERE document_id=? AND original_text LIKE ? ORDER BY page_number LIMIT 20""",
-            (document_id, f"%{term}%"),
+            """SELECT page_number, block_number, parse_method, parse_version,
+            substr(original_text,
+                   max(1, instr(lower(original_text), lower(?)) - 100),
+                   320) snippet
+            FROM pages
+            WHERE document_id=? AND instr(lower(original_text), lower(?)) > 0
+            ORDER BY page_number LIMIT 20""",
+            (term, document_id, term),
         ).fetchall()
     return [dict(row) for row in rows]
 

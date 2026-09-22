@@ -64,6 +64,48 @@ test('imports a synthetic PDF and jumps to a matching evidence page', async ({ p
   await expect(page.getByLabel('页码')).toHaveValue('1')
 })
 
+test('creates and reviews a versioned risk from resolved evidence', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop', 'desktop risk acceptance path')
+  await page.goto('/')
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'playwright-risk-evidence.pdf',
+    mimeType: 'application/pdf',
+    buffer: syntheticTextPdf('RISK-EVIDENCE-LOCAL-ONLY'),
+  })
+  const documentList = page.getByLabel('已导入文档')
+  const documentRow = documentList.getByRole('button', { name: /playwright-risk-evidence\.pdf/ })
+  await expect(documentRow).toBeVisible({ timeout: 20_000 })
+  await documentRow.click()
+
+  await page.getByRole('textbox', { name: '搜索文档原文' }).fill('RISK-EVIDENCE-LOCAL-ONLY')
+  await page.getByRole('button', { name: '查找' }).click()
+  await page.getByRole('button', { name: '支持证据' }).click()
+
+  const decisionPanel = page.getByRole('complementary', { name: '复核与处置面板' })
+  await expect(decisionPanel.getByRole('heading', { name: '证据草稿（1）' })).toBeVisible()
+  await decisionPanel.getByRole('button', { name: '人工处置' }).click()
+  await decisionPanel.getByLabel('风险摘要').fill('核对本地合成证据对应事项')
+  await decisionPanel.getByRole('button', { name: '创建风险草稿' }).click()
+
+  await expect(page.getByRole('heading', { name: '风险台账' })).toBeVisible()
+  await expect(page.getByText('R-0001', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('RISK-EVIDENCE-LOCAL-ONLY')).toBeVisible()
+  await page.getByRole('button', { name: '生成合成解释草稿' }).click()
+  await expect(page.getByRole('status')).toContainText('外部请求 0 次')
+  await expect(page.getByText(/^合成解释草稿：/)).toBeVisible()
+
+  await page.getByLabel('复核备注').fill('已核对合成原文与页码')
+  await page.getByRole('button', { name: '转为已核实' }).click()
+  await expect(page.getByRole('status')).toContainText('已转为“已核实”')
+  await expect(page.getByText('v3', { exact: true }).first()).toBeVisible()
+
+  await page.getByRole('button', { name: /playwright-risk-evidence\.pdf · 第 1 页/ }).click()
+  await expect(page.getByRole('region', { name: /playwright-risk-evidence\.pdf 阅读器/ })).toBeVisible()
+  await expect(page.getByLabel('页码')).toHaveValue('1')
+  await expect(page.getByRole('button', { name: '支持证据' })).toBeVisible()
+})
+
 test('mobile workspace exposes all three panes', async ({ page }) => {
   test.skip(test.info().project.name !== 'mobile', 'mobile-only assertion')
   await page.goto('/')

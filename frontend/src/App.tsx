@@ -20,8 +20,20 @@ import {
 import { api } from './api'
 import { GatewaySettings } from './components/GatewaySettings'
 import { ProjectDialog } from './components/ProjectDialog'
+import { RiskWorkspace } from './components/RiskWorkspace'
 import { StatusMark } from './components/StatusMark'
-import type { DocumentRecord, GatewayOverview, Project, ProjectPayload, ResourceSnapshot, TaskRecord } from './types'
+import type {
+  DocumentRecord,
+  EvidenceSelection,
+  GatewayOverview,
+  Project,
+  ProjectPayload,
+  ResourceSnapshot,
+  RiskEvidence,
+  RiskRecord,
+  RiskStatus,
+  TaskRecord,
+} from './types'
 
 type View = 'project' | 'documents' | 'analysis' | 'risks' | 'outputs' | 'settings'
 type MobilePane = 'queue' | 'canvas' | 'decision'
@@ -40,9 +52,8 @@ const PdfViewer = lazy(() =>
   import('./components/PdfViewer').then((module) => ({ default: module.PdfViewer })),
 )
 
-const laterViews: Record<Exclude<View, 'project' | 'documents' | 'settings'>, { title: string; phase: string; description: string }> = {
+const laterViews: Record<Exclude<View, 'project' | 'documents' | 'risks' | 'settings'>, { title: string; phase: string; description: string }> = {
   analysis: { title: '分析', phase: '迭代四', description: '确定性财务规则、趋势、MAD 与结构占比将在规则口径确认后启用。' },
-  risks: { title: '风险', phase: '迭代四', description: '风险卡片必须同时包含规则版本、支持证据、反证、不确定性与人工状态。' },
   outputs: { title: '输出', phase: '迭代五', description: '固定模板与 Word、Excel、PDF 优先级确认后接入历史快照导出。' },
 }
 
@@ -82,6 +93,15 @@ export function App() {
   const [selectedTaskId, setSelectedTaskId] = useState<string>('')
   const [resources, setResources] = useState<ResourceSnapshot>(emptyResources)
   const [gatewayOverview, setGatewayOverview] = useState<GatewayOverview | null>(null)
+  const [risks, setRisks] = useState<RiskRecord[]>([])
+  const [selectedRiskId, setSelectedRiskId] = useState('')
+  const [selectedEvidence, setSelectedEvidence] = useState<EvidenceSelection[]>([])
+  const [riskType, setRiskType] = useState('人工线索')
+  const [riskSummary, setRiskSummary] = useState('')
+  const [riskBusy, setRiskBusy] = useState<string | null>(null)
+  const [riskError, setRiskError] = useState<string | null>(null)
+  const [riskNotice, setRiskNotice] = useState<string | null>(null)
+  const [evidenceTarget, setEvidenceTarget] = useState<{ documentId: string; page: number; query: string; token: number } | null>(null)
   const [view, setView] = useState<View>('project')
   const [mobilePane, setMobilePane] = useState<MobilePane>('canvas')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('basis')
@@ -97,6 +117,7 @@ export function App() {
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId) ?? null
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? tasks[0] ?? null
+  const selectedRisk = risks.find((risk) => risk.id === selectedRiskId) ?? risks[0] ?? null
   const activeTaskCount = tasks.filter((task) => ['queued', 'running', 'pausing'].includes(task.status)).length
 
   const bootstrap = useCallback(async () => {
@@ -119,15 +140,25 @@ export function App() {
 
   const refreshProjectData = useCallback(async (projectId: string) => {
     try {
-      const [nextProjects, nextDocuments, nextTasks, snapshot] = await Promise.all([
+      const [nextProjects, nextDocuments, nextTasks, nextRisks, snapshot] = await Promise.all([
         api.listProjects(),
         api.listDocuments(projectId),
         api.listTasks(projectId),
+        api.listRisks(projectId).catch((reason: unknown) => {
+          setRiskError(reason instanceof Error ? reason.message : '风险台账刷新失败')
+          return null
+        }),
         api.resources(),
       ])
       setProjects(nextProjects)
       setDocuments(nextDocuments)
       setTasks(nextTasks)
+      if (nextRisks) {
+        setRisks((current) => nextRisks.map((risk) => {
+          const detailed = current.find((item) => item.id === risk.id && item.versions.length > 0)
+          return detailed ? { ...risk, versions: detailed.versions } : risk
+        }))
+      }
       setResources(snapshot)
       setSelectedDocumentId((current) =>
         nextDocuments.some((document) => document.id === current) ? current : nextDocuments[0]?.id || '',
@@ -135,6 +166,11 @@ export function App() {
       setSelectedTaskId((current) =>
         nextTasks.some((task) => task.id === current) ? current : nextTasks[0]?.id || '',
       )
+      if (nextRisks) {
+        setSelectedRiskId((current) =>
+          nextRisks.some((risk) => risk.id === current) ? current : nextRisks[0]?.id || '',
+        )
+      }
     } catch (reason) {
       setOperationError(reason instanceof Error ? reason.message : '项目状态刷新失败')
     }
@@ -144,13 +180,18 @@ export function App() {
     if (!selectedProjectId) {
       setDocuments([])
       setTasks([])
+      setRisks([])
+      setSelectedEvidence([])
       return
     }
     if (selectedProject?.storage_available === false) {
       setDocuments([])
       setTasks([])
+      setRisks([])
+      setSelectedEvidence([])
       setSelectedDocumentId('')
       setSelectedTaskId('')
+      setSelectedRiskId('')
       setOperationError('项目目录不可用或项目数据库已移动；请恢复原项目目录后重试。')
       return
     }
@@ -162,6 +203,25 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
+
+  useEffect(() => {
+    if (!selectedProjectId || !selectedRiskId) return
+    let active = true
+    api.getRisk(selectedProjectId, selectedRiskId)
+      .then((detail) => {
+        if (!active) return
+        setRisks((current) => {
+          const exists = current.some((risk) => risk.id === detail.id)
+          return exists
+            ? current.map((risk) => risk.id === detail.id ? detail : risk)
+            : [detail, ...current]
+        })
+      })
+      .catch((reason: unknown) => {
+        if (active) setRiskError(reason instanceof Error ? reason.message : '风险详情加载失败')
+      })
+    return () => { active = false }
+  }, [selectedProjectId, selectedRiskId])
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
@@ -240,6 +300,97 @@ export function App() {
     }
   }
 
+  function addEvidence(evidence: EvidenceSelection) {
+    setSelectedEvidence((current) => {
+      const sameSource = (item: EvidenceSelection) => item.document_id === evidence.document_id
+        && item.page_number === evidence.page_number
+        && item.block_number === evidence.block_number
+      const exists = current.some((item) => sameSource(item) && item.direction === evidence.direction)
+      if (exists) return current
+      return [...current.filter((item) => !sameSource(item)), evidence]
+    })
+    setRiskError(null)
+    setRiskNotice(`已加入${evidence.direction === 'support' ? '支持证据' : '反证'}：${evidence.document_name} 第 ${evidence.page_number} 页`)
+    setInspectorTab('basis')
+    setMobilePane('decision')
+  }
+
+  async function createRiskDraft() {
+    if (!selectedProject || selectedEvidence.length === 0 || riskSummary.trim().length < 5) return
+    setRiskBusy('create')
+    setRiskError(null)
+    setRiskNotice(null)
+    try {
+      const created = await api.createRisk(selectedProject.id, {
+        risk_type: riskType.trim(),
+        summary: riskSummary.trim(),
+        evidence: selectedEvidence.map((item) => ({
+          document_id: item.document_id,
+          page_number: item.page_number,
+          block_number: item.block_number,
+          quote: item.snippet,
+          direction: item.direction,
+        })),
+      })
+      setRisks((current) => [created, ...current.filter((risk) => risk.id !== created.id)])
+      setSelectedRiskId(created.id)
+      setSelectedEvidence([])
+      setRiskSummary('')
+      setRiskNotice(`${created.risk_number} 已创建；证据原文已由服务端重新解析并固化。`)
+      setView('risks')
+    } catch (reason) {
+      setRiskError(reason instanceof Error ? reason.message : '风险草稿创建失败')
+    } finally {
+      setRiskBusy(null)
+    }
+  }
+
+  async function transitionRisk(risk: RiskRecord, status: RiskStatus, note: string) {
+    if (!selectedProject) return false
+    setRiskBusy(`transition-${status}`)
+    setRiskError(null)
+    setRiskNotice(null)
+    try {
+      const updated = await api.transitionRisk(selectedProject.id, risk.id, status, note)
+      setRisks((current) => current.map((item) => item.id === updated.id ? updated : item))
+      setRiskNotice(`${risk.risk_number} 已转为“${status}”，并保存为 v${updated.version}。`)
+      return true
+    } catch (reason) {
+      setRiskError(reason instanceof Error ? reason.message : '风险状态变更失败')
+      return false
+    } finally {
+      setRiskBusy(null)
+    }
+  }
+
+  async function createFakeExplanation(risk: RiskRecord) {
+    if (!selectedProject) return
+    setRiskBusy('fake-explanation')
+    setRiskError(null)
+    setRiskNotice(null)
+    try {
+      const result = await api.createFakeRiskExplanation(selectedProject.id, risk.id)
+      setRisks((current) => current.map((item) => item.id === result.risk.id ? result.risk : item))
+      setRiskNotice(`合成解释已保存为 v${result.risk.version}；外部请求 ${result.external_request ? 1 : 0} 次。`)
+    } catch (reason) {
+      setRiskError(reason instanceof Error ? reason.message : '合成解释生成失败')
+    } finally {
+      setRiskBusy(null)
+    }
+  }
+
+  function openEvidence(evidence: RiskEvidence) {
+    setSelectedDocumentId(evidence.document_id)
+    setEvidenceTarget({
+      documentId: evidence.document_id,
+      page: evidence.page_number,
+      query: evidence.quote.slice(0, 80),
+      token: Date.now(),
+    })
+    setView('documents')
+    setMobilePane('canvas')
+  }
+
   function updateProject(changed: Project) {
     setProjects((current) => current.map((project) => project.id === changed.id ? { ...project, ...changed } : project))
   }
@@ -273,12 +424,12 @@ export function App() {
           <button key={item.id} className={view === item.id ? 'active' : ''} type="button" onClick={() => setView(item.id)}>
             {item.label}
             {item.id === 'documents' && documents.length > 0 && <span>{documents.length}</span>}
-            {item.id === 'risks' && <small>后续</small>}
+            {item.id === 'risks' && risks.length > 0 && <span>{risks.length}</span>}
           </button>
         ))}
       </nav>
 
-      <main id="main-content" tabIndex={-1}>
+      <main id="main-content" className={view === 'project' || view === 'documents' ? 'with-workspace-switch' : undefined} tabIndex={-1}>
         {(view === 'project' || view === 'documents') && (
           <>
             <nav className="mobile-workspace-switch" aria-label="项目工作区">
@@ -344,7 +495,14 @@ export function App() {
               <section className="canvas-pane pane" aria-label="证据阅读画布">
                 {selectedDocument && selectedProject ? (
                   <Suspense fallback={<div className="viewer-state"><span className="skeleton-line wide" /><span className="skeleton-line" />正在准备本地阅读器…</div>}>
-                    <PdfViewer key={selectedDocument.id} projectId={selectedProject.id} document={selectedDocument} />
+                    <PdfViewer
+                      key={`${selectedDocument.id}-${evidenceTarget?.documentId === selectedDocument.id ? evidenceTarget.token : 0}`}
+                      projectId={selectedProject.id}
+                      document={selectedDocument}
+                      initialPage={evidenceTarget?.documentId === selectedDocument.id ? evidenceTarget.page : 1}
+                      initialQuery={evidenceTarget?.documentId === selectedDocument.id ? evidenceTarget.query : ''}
+                      onSelectEvidence={addEvidence}
+                    />
                   </Suspense>
                 ) : (
                   <div className="overview-canvas">
@@ -364,7 +522,7 @@ export function App() {
                         <li className="done"><span>01</span><div><b>创建隔离项目</b><small>独立目录与 SQLite 数据库</small></div></li>
                         <li className={tasks.length ? 'done' : ''}><span>02</span><div><b>导入并去重</b><small>损坏文件隔离，整批继续</small></div></li>
                         <li className={documents.length ? 'done' : ''}><span>03</span><div><b>本地解析与阅读</b><small>页码、原文、解析版本可追溯</small></div></li>
-                        <li><span>04</span><div><b>风险取证</b><small>待规则口径确认后进入迭代四</small></div></li>
+                        <li className={risks.length ? 'done' : ''}><span>04</span><div><b>风险取证</b><small>人工选择证据，服务端固化原文与版本</small></div></li>
                       </ol>
                     </section>
                     <section className="security-ledger">
@@ -376,12 +534,20 @@ export function App() {
               </section>
 
               <aside className="decision-pane pane" aria-label="复核与处置面板">
-                <div className="pane-head"><div><span className="section-kicker">复核与处置</span><h2>{selectedTask?.filename ?? '尚未选择任务'}</h2></div></div>
+                <div className="pane-head"><div><span className="section-kicker">复核与处置</span><h2>{selectedEvidence.length ? `证据草稿（${selectedEvidence.length}）` : selectedTask?.filename ?? '尚未选择任务'}</h2></div></div>
                 <nav className="inspector-tabs" aria-label="处置面板内容">
                   {([['basis', '判断依据'], ['explain', 'AI 解释'], ['action', '人工处置']] as [InspectorTab, string][]).map(([id, label]) => <button key={id} className={inspectorTab === id ? 'active' : ''} type="button" onClick={() => setInspectorTab(id)}>{label}</button>)}
                 </nav>
                 {inspectorTab === 'basis' && (
                   <div className="inspector-content">
+                    {selectedEvidence.length > 0 && <section className="evidence-tray" aria-labelledby="evidence-tray-title">
+                      <div className="list-heading"><span id="evidence-tray-title">待固化证据</span><b>{selectedEvidence.length}</b></div>
+                      {selectedEvidence.map((evidence) => <article key={`${evidence.document_id}-${evidence.page_number}-${evidence.block_number}`}>
+                        <div><strong>{evidence.direction === 'support' ? '支持证据' : '反证'} · 第 {evidence.page_number} 页</strong><span>{evidence.document_name}</span></div>
+                        <p>{evidence.snippet || '命中页'}</p>
+                        <button type="button" aria-label={`移除 ${evidence.document_name} 第 ${evidence.page_number} 页证据`} onClick={() => setSelectedEvidence((current) => current.filter((item) => item !== evidence))}><X aria-hidden="true" /></button>
+                      </article>)}
+                    </section>}
                     {selectedTask ? (
                       <>
                         <div className="task-hero"><StatusMark status={selectedTask.status} /><strong>{selectedTask.progress}%</strong><span>{selectedTask.current_step}</span></div>
@@ -391,9 +557,16 @@ export function App() {
                     ) : <div className="inspector-empty"><ListMagnifyingGlass aria-hidden="true" /><h3>等待资料任务</h3><p>选择 PDF 后，这里显示真实进度、错误码和可执行的下一步。</p></div>}
                   </div>
                 )}
-                {inspectorTab === 'explain' && <div className="inspector-empty"><ShieldCheck aria-hidden="true" /><h3>AI 解释尚未启用</h3><p>第一版严格离线运行。模型服务商、外发范围和数据政策确认前，不会发送任何证据。</p><span className="future-label">迭代二后按能力接入</span></div>}
+                {inspectorTab === 'explain' && <div className="inspector-empty"><ShieldCheck aria-hidden="true" /><h3>仅开放合成解释</h3><p>风险卡可调用本地 Fake Provider 生成明显标注的合成草稿。真实服务商和证据外发仍被阻断。</p><span className="future-label">外部请求始终为 0 次</span></div>}
                 {inspectorTab === 'action' && (
                   <div className="inspector-content">
+                    {selectedEvidence.length > 0 && <form className="risk-draft-form" onSubmit={(event) => { event.preventDefault(); void createRiskDraft() }}>
+                      <div className="risk-draft-title"><span className="section-kicker">人工风险草稿</span><strong>将 {selectedEvidence.length} 条证据固化为风险卡</strong><small>等级固定为“待评估”，规则固定为 MANUAL-DRAFT / v1。</small></div>
+                      <label className="field"><span>风险类型</span><input aria-label="风险类型" maxLength={60} value={riskType} onChange={(event) => setRiskType(event.target.value)} /></label>
+                      <label className="field"><span>风险摘要</span><textarea aria-label="风险摘要" rows={4} maxLength={300} value={riskSummary} onChange={(event) => setRiskSummary(event.target.value)} placeholder="至少 5 个字符，描述需要人工复核的事项" /><small>{riskSummary.length}/300</small></label>
+                      {riskError && <div className="inline-error" role="alert">{riskError}</div>}
+                      <button className="button primary" type="submit" disabled={riskBusy !== null || riskType.trim().length < 2 || riskSummary.trim().length < 5}>创建风险草稿</button>
+                    </form>}
                     <p className="panel-intro">只显示当前任务状态允许的动作；所有操作均写入本地状态库。</p>
                     {selectedTask && <div className="task-actions">
                       {selectedTask.status === 'running' && <button className="button secondary" type="button" onClick={() => void changeTask(selectedTask, 'pause')}><Pause aria-hidden="true" />安全暂停</button>}
@@ -419,7 +592,21 @@ export function App() {
           />
         )}
 
-        {view !== 'project' && view !== 'documents' && view !== 'settings' && (
+        {view === 'risks' && (
+          <RiskWorkspace
+            risks={risks}
+            selectedRisk={selectedRisk}
+            busy={riskBusy}
+            error={riskError}
+            notice={riskNotice}
+            onSelect={(riskId) => { setSelectedRiskId(riskId); setRiskError(null); setRiskNotice(null) }}
+            onTransition={transitionRisk}
+            onFakeExplanation={createFakeExplanation}
+            onOpenEvidence={openEvidence}
+          />
+        )}
+
+        {view !== 'project' && view !== 'documents' && view !== 'risks' && view !== 'settings' && (
           <section className="future-page">
             <div className="future-icon">{view === 'outputs' ? <Files aria-hidden="true" /> : <ListMagnifyingGlass aria-hidden="true" />}</div>
             <span className="section-kicker">{laterViews[view].phase}</span><h1>{laterViews[view].title}</h1><p>{laterViews[view].description}</p>
@@ -429,7 +616,7 @@ export function App() {
       </main>
 
       <footer className="status-bar">
-        <div><span>当前上下文</span><b>{selectedDocument?.filename ?? selectedProject?.name ?? '未选择项目'}</b></div>
+        <div><span>当前上下文</span><b>{view === 'risks' && selectedRisk ? `${selectedRisk.risk_number} · ${selectedRisk.summary}` : selectedDocument?.filename ?? selectedProject?.name ?? '未选择项目'}</b></div>
         <div className="status-center"><ShieldCheck aria-hidden="true" /><span>{gatewayOverview?.strict_offline === false ? '外发总开关已开启 · 当前真实连接仍禁用' : '仅使用本地资料 · 外部 API 已阻断'}</span></div>
         <div className="resource-brief"><span>CPU <b>{resources.cpu_percent}%</b></span><span>内存 <b>{resources.memory_percent}%</b></span><small>本地工作线程 {resources.worker_limit}</small></div>
       </footer>

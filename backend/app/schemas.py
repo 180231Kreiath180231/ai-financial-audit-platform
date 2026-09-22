@@ -230,6 +230,94 @@ class GatewayProbeResult(BaseModel):
     external_request: bool = False
 
 
+EvidenceDirection = Literal["support", "counter"]
+RiskLevel = Literal["高", "中", "低", "待评估"]
+RiskStatus = Literal["待复核", "已核实", "已排除", "待补证", "已关闭"]
+
+
+class RiskEvidenceCreate(BaseModel):
+    document_id: str = Field(min_length=1, max_length=80)
+    page_number: int = Field(ge=1)
+    block_number: int = Field(ge=1)
+    quote: str = Field(min_length=1, max_length=320)
+    direction: EvidenceDirection
+
+    @field_validator("quote", mode="before")
+    @classmethod
+    def strip_evidence_quote(cls, value: str) -> str:
+        return value.strip()
+
+
+class RiskCreate(BaseModel):
+    risk_type: str = Field(default="人工线索", min_length=2, max_length=80)
+    summary: str = Field(min_length=5, max_length=500)
+    evidence: list[RiskEvidenceCreate] = Field(min_length=1, max_length=20)
+
+    @field_validator("risk_type", "summary", mode="before")
+    @classmethod
+    def strip_risk_text(cls, value: str) -> str:
+        return value.strip()
+
+
+class RiskTransition(BaseModel):
+    status: RiskStatus
+    note: str = Field(min_length=2, max_length=500)
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def strip_transition_note(cls, value: str) -> str:
+        return value.strip()
+
+
+class RiskEvidenceRecord(BaseModel):
+    id: str
+    document_id: str
+    document_name: str
+    page_number: int
+    block_number: int
+    quote: str
+    direction: EvidenceDirection
+    parse_method: str
+    parse_version: str
+
+
+class RiskVersionRecord(BaseModel):
+    version: int
+    change_reason: str
+    created_at: datetime
+    snapshot: dict
+
+
+class RiskRecord(BaseModel):
+    id: str
+    risk_number: str
+    risk_type: str
+    risk_level: RiskLevel
+    status: RiskStatus
+    summary: str
+    trigger_rule_id: str
+    trigger_rule_version: str
+    input_values: dict
+    baseline_values: dict
+    calculation_result: dict
+    model_explanation: str | None
+    uncertainty: str
+    human_opinion: str
+    model_provider: str | None
+    actual_model: str | None
+    model_call_id: str | None
+    version: int
+    created_at: datetime
+    updated_at: datetime
+    evidence: list[RiskEvidenceRecord] = Field(default_factory=list)
+    versions: list[RiskVersionRecord] = Field(default_factory=list)
+
+
+class FakeRiskDraftResult(BaseModel):
+    risk: RiskRecord
+    external_request: bool = False
+
+
 TaskStatus = Literal[
     "queued",
     "running",

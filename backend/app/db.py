@@ -43,7 +43,9 @@ class Database:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.registry_path = data_dir / "registry.db"
         self.secret_store = DpapiSecretStore(data_dir / "secrets")
+        self._project_migration_errors: dict[str, str] = {}
         self._init_registry()
+        self._migrate_registered_projects()
         self._seed_gateway_defaults()
 
     @contextmanager
@@ -83,6 +85,21 @@ class Database:
                         '0', '0', 0, 1, ?, ?)""",
                 (now, now),
             )
+
+    def _migrate_registered_projects(self) -> None:
+        """Upgrade every available project database before the API accepts requests."""
+        with self.connect(self.registry_path) as db:
+            projects = db.execute(
+                "SELECT id, storage_path FROM projects WHERE archived_at IS NULL"
+            ).fetchall()
+        for project in projects:
+            root = Path(project["storage_path"])
+            if not root.is_dir() or not (root / "app.db").is_file():
+                continue
+            try:
+                self.init_project_db(root)
+            except (OSError, sqlite3.Error) as exc:
+                self._project_migration_errors[project["id"]] = str(exc)
 
     def init_project_db(self, root: Path) -> None:
         for folder in ("files", "incoming", "quarantine", "exports"):
@@ -181,6 +198,10 @@ class Database:
             project["is_synthetic"] = bool(project["is_synthetic"])
             project["external_access_enabled"] = bool(project["external_access_enabled"])
             try:
+                if project["id"] in self._project_migration_errors:
+                    raise ProjectStorageUnavailable(
+                        self._project_migration_errors[project["id"]]
+                    )
                 project.update(self.project_counts(Path(project["storage_path"])))
                 project["storage_available"] = True
                 project["storage_error_code"] = None
@@ -755,6 +776,8 @@ class Database:
 
     def project_root(self, project_id: str) -> Path:
         root = Path(self.get_project(project_id)["storage_path"])
+        if project_id in self._project_migration_errors:
+            raise ProjectStorageUnavailable(self._project_migration_errors[project_id])
         if not root.is_dir() or not (root / "app.db").is_file():
             raise ProjectStorageUnavailable(str(root))
         return root

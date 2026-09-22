@@ -8,6 +8,9 @@ import type {
   Project,
   ProjectPayload,
   ResourceSnapshot,
+  RiskPayload,
+  RiskRecord,
+  RiskStatus,
   SearchHit,
   TaskRecord,
 } from './types'
@@ -126,5 +129,26 @@ export const api = {
   searchDocument: (projectId: string, documentId: string, query: string) =>
     request<SearchHit[]>(
       `/api/v1/projects/${projectId}/documents/${documentId}/search?q=${encodeURIComponent(query)}`,
+    ),
+  listRisks: (projectId: string) =>
+    request<RiskRecord[]>(`/api/v1/projects/${projectId}/risks`),
+  getRisk: (projectId: string, riskId: string) =>
+    request<RiskRecord>(`/api/v1/projects/${projectId}/risks/${riskId}`),
+  createRisk: (projectId: string, payload: RiskPayload) =>
+    request<RiskRecord>(`/api/v1/projects/${projectId}/risks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  transitionRisk: (projectId: string, riskId: string, status: RiskStatus, note: string) =>
+    request<RiskRecord>(`/api/v1/projects/${projectId}/risks/${riskId}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, note }),
+    }),
+  createFakeRiskExplanation: (projectId: string, riskId: string) =>
+    request<{ risk: RiskRecord; external_request: boolean }>(
+      `/api/v1/projects/${projectId}/risks/${riskId}/fake-explanation`,
+      { method: 'POST' },
     ),
 }

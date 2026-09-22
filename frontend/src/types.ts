@@ -160,5 +160,73 @@ export interface ProjectPayload {
 
 export interface SearchHit {
   page_number: number
+  block_number: number
+  parse_method: string
+  parse_version: string
   snippet: string
+}
+
+export type EvidenceDirection = 'support' | 'counter'
+export type RiskStatus = '待复核' | '已核实' | '已排除' | '待补证' | '已关闭'
+
+export interface EvidenceSelection extends SearchHit {
+  document_id: string
+  document_name: string
+  direction: EvidenceDirection
+}
+
+export interface RiskEvidence {
+  id: string
+  document_id: string
+  document_name: string
+  page_number: number
+  block_number: number
+  quote: string
+  direction: EvidenceDirection
+  parse_method: string
+  parse_version: string
+}
+
+export interface RiskVersion {
+  version: number
+  change_reason: string
+  created_at: string
+  snapshot: Record<string, unknown>
+}
+
+export interface RiskRecord {
+  id: string
+  risk_number: string
+  risk_type: string
+  risk_level: '高' | '中' | '低' | '待评估'
+  status: RiskStatus
+  summary: string
+  trigger_rule_id: string
+  trigger_rule_version: string
+  input_values: Record<string, unknown>
+  baseline_values: Record<string, unknown>
+  calculation_result: Record<string, unknown>
+  model_explanation: string | null
+  uncertainty: string
+  human_opinion: string
+  model_provider: string | null
+  actual_model: string | null
+  model_call_id: string | null
+  version: number
+  created_at: string
+  updated_at: string
+  evidence: RiskEvidence[]
+  versions: RiskVersion[]
+}
+
+export interface RiskPayload {
+  risk_type: string
+  summary: string
+  evidence: Array<{
+    document_id: string
+    page_number: number
+    block_number: number
+    quote: string
+    direction: EvidenceDirection
+  }>
 }

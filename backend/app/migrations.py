@@ -216,12 +216,74 @@ def _project_v1(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v2(db: sqlite3.Connection) -> None:
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS risk_items (
+            id TEXT PRIMARY KEY,
+            risk_number TEXT NOT NULL UNIQUE,
+            risk_type TEXT NOT NULL,
+            risk_level TEXT NOT NULL CHECK(risk_level IN ('高', '中', '低', '待评估')),
+            status TEXT NOT NULL CHECK(status IN ('待复核', '已核实', '已排除', '待补证', '已关闭')),
+            summary TEXT NOT NULL,
+            trigger_rule_id TEXT NOT NULL,
+            trigger_rule_version TEXT NOT NULL,
+            input_values_json TEXT NOT NULL DEFAULT '{}',
+            baseline_values_json TEXT NOT NULL DEFAULT '{}',
+            calculation_result_json TEXT NOT NULL DEFAULT '{}',
+            model_explanation TEXT,
+            uncertainty TEXT NOT NULL,
+            human_opinion TEXT NOT NULL DEFAULT '',
+            model_provider TEXT,
+            actual_model TEXT,
+            model_call_id TEXT,
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS risk_evidence (
+            id TEXT PRIMARY KEY,
+            risk_id TEXT NOT NULL REFERENCES risk_items(id) ON DELETE CASCADE,
+            document_id TEXT NOT NULL REFERENCES documents(id),
+            page_number INTEGER NOT NULL,
+            block_number INTEGER NOT NULL,
+            quote TEXT NOT NULL,
+            direction TEXT NOT NULL CHECK(direction IN ('support', 'counter')),
+            parse_method TEXT NOT NULL,
+            parse_version TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(risk_id, document_id, page_number, block_number, direction)
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS risk_versions (
+            id TEXT PRIMARY KEY,
+            risk_id TEXT NOT NULL REFERENCES risk_items(id) ON DELETE CASCADE,
+            version INTEGER NOT NULL,
+            snapshot_json TEXT NOT NULL,
+            change_reason TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(risk_id, version)
+        )"""
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_risk_items_status_updated ON risk_items(status, updated_at DESC)"
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_risk_evidence_risk_direction ON risk_evidence(risk_id, direction)"
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
     (3, "model_gateway_fallback_cache", _registry_v3),
 )
-PROJECT_MIGRATIONS: Sequence[Migration] = ((1, "initial_project", _project_v1),)
+PROJECT_MIGRATIONS: Sequence[Migration] = (
+    (1, "initial_project", _project_v1),
+    (2, "risk_evidence_versions", _project_v2),
+)
 
 
 def apply_migrations(
