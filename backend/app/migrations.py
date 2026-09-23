@@ -3,6 +3,8 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Callable, Sequence
 
+from .retrieval import rebuild_retrieval_chunks
+
 Migration = tuple[int, str, Callable[[sqlite3.Connection], None]]
 
 
@@ -499,6 +501,61 @@ def _project_v7(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v8(db: sqlite3.Connection) -> None:
+    """Create traceable chunks and versioned vector-index storage without external calls."""
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS retrieval_chunks (
+            id TEXT PRIMARY KEY,
+            document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+            page_id TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+            page_number INTEGER NOT NULL,
+            block_number INTEGER NOT NULL,
+            chunk_number INTEGER NOT NULL,
+            char_start INTEGER NOT NULL,
+            char_end INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            text_sha256 TEXT NOT NULL,
+            parse_method TEXT NOT NULL,
+            parse_version TEXT NOT NULL,
+            chunk_version TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(page_id, chunk_number, chunk_version)
+        )"""
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_retrieval_chunks_document_page ON retrieval_chunks(document_id, page_number, block_number)"
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS vector_index_versions (
+            id TEXT PRIMARY KEY,
+            model_profile_id TEXT NOT NULL,
+            actual_model TEXT NOT NULL,
+            dimension INTEGER NOT NULL CHECK(dimension > 0),
+            chunk_version TEXT NOT NULL,
+            backend TEXT NOT NULL CHECK(backend IN ('sqlite_vec', 'memory_cosine')),
+            status TEXT NOT NULL CHECK(status IN ('building', 'ready', 'stale', 'failed')),
+            indexed_chunk_count INTEGER NOT NULL DEFAULT 0,
+            error_code TEXT,
+            created_at TEXT NOT NULL,
+            completed_at TEXT,
+            UNIQUE(id, dimension)
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS chunk_embeddings (
+            chunk_id TEXT NOT NULL REFERENCES retrieval_chunks(id) ON DELETE CASCADE,
+            index_version_id TEXT NOT NULL REFERENCES vector_index_versions(id) ON DELETE CASCADE,
+            dimension INTEGER NOT NULL CHECK(dimension > 0),
+            vector_blob BLOB NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY(chunk_id, index_version_id),
+            FOREIGN KEY(index_version_id, dimension)
+                REFERENCES vector_index_versions(id, dimension) ON DELETE CASCADE
+        )"""
+    )
+    rebuild_retrieval_chunks(db)
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -513,6 +570,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (5, "scanned_page_remote_lifecycle", _project_v5),
     (6, "cjk_trigram_full_text_index", _project_v6),
     (7, "document_search_metadata", _project_v7),
+    (8, "retrieval_chunks_and_vector_versions", _project_v8),
 )
 
 

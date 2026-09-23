@@ -154,6 +154,24 @@ export interface ProjectSearchFilters {
   parse_method?: string
 }
 
+export interface RetrievalStatus {
+  chunk_version: string
+  chunk_state: 'empty' | 'ready' | 'stale'
+  chunk_count: number
+  chunked_page_count: number
+  source_page_count: number
+  keyword_state: 'empty' | 'ready'
+  vector_state: 'not_configured' | 'building' | 'ready' | 'stale' | 'failed'
+  vector_backend: 'sqlite_vec' | 'memory_cosine' | null
+  model_profile_id: string | null
+  actual_model: string | null
+  dimension: number | null
+  indexed_chunk_count: number
+  external_request: boolean
+  message: string
+  action: string
+}
+
 export interface PageVisionRecord {
   page_number: number
   status: 'not_required' | 'completed' | 'requires_vision' | 'failed'

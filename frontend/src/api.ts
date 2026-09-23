@@ -13,6 +13,7 @@ import type {
   Project,
   ProjectPayload,
   ResourceSnapshot,
+  RetrievalStatus,
   RiskPayload,
   RiskRecord,
   RiskStatus,
@@ -200,6 +201,8 @@ export const api = {
     })
     return request<SearchHit[]>(`/api/v1/projects/${projectId}/search?${parameters}`)
   },
+  retrievalStatus: (projectId: string) =>
+    request<RetrievalStatus>(`/api/v1/projects/${projectId}/retrieval/status`),
   listRisks: (projectId: string) =>
     request<RiskRecord[]>(`/api/v1/projects/${projectId}/risks`),
   getRisk: (projectId: string, riskId: string) =>

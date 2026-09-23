@@ -39,6 +39,7 @@ from .financial_data import (
 )
 from .gateway import GatewayError, ModelGateway
 from .logging_config import configure_logging
+from .retrieval import retrieval_status
 from .risks import RiskError, RiskRepository
 from .schemas import (
     ApiError,
@@ -69,6 +70,7 @@ from .schemas import (
     ProjectCreate,
     ProjectSummary,
     ResourceSnapshot,
+    RetrievalStatus,
     RiskCreate,
     RiskRecord,
     RiskTransition,
@@ -962,6 +964,17 @@ def document_file(project_id: str, document_id: str) -> FileResponse:
     if row is None:
         raise HTTPException(status_code=404, detail="文档不存在")
     return FileResponse(row["stored_path"], media_type="application/pdf", filename=row["filename"])
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/retrieval/status",
+    response_model=RetrievalStatus,
+    dependencies=[Depends(require_session)],
+)
+def project_retrieval_status(project_id: str) -> dict:
+    root = project_root_or_error(project_id)
+    with database.connect(root / "app.db") as db:
+        return retrieval_status(db)
 
 
 @app.get(

@@ -432,6 +432,24 @@ class DocumentSearchHit(BaseModel):
     account_names: list[str] = Field(default_factory=list)
 
 
+class RetrievalStatus(BaseModel):
+    chunk_version: str
+    chunk_state: Literal["empty", "ready", "stale"]
+    chunk_count: int
+    chunked_page_count: int
+    source_page_count: int
+    keyword_state: Literal["empty", "ready"]
+    vector_state: Literal["not_configured", "building", "ready", "stale", "failed"]
+    vector_backend: Literal["sqlite_vec", "memory_cosine"] | None = None
+    model_profile_id: str | None = None
+    actual_model: str | None = None
+    dimension: int | None = None
+    indexed_chunk_count: int = 0
+    external_request: bool = False
+    message: str
+    action: str
+
+
 class PageVisionRecord(BaseModel):
     page_number: int
     status: Literal["not_required", "completed", "requires_vision", "failed"]

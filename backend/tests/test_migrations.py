@@ -42,6 +42,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (5, "scanned_page_remote_lifecycle"),
         (6, "cjk_trigram_full_text_index"),
         (7, "document_search_metadata"),
+        (8, "retrieval_chunks_and_vector_versions"),
     ]
     assert {
         "documents",
@@ -56,6 +57,9 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         "financial_risk_evidence",
         "page_vision_results",
         "document_metadata_versions",
+        "retrieval_chunks",
+        "vector_index_versions",
+        "chunk_embeddings",
         "audit_events",
         "schema_migrations",
     } <= tables
@@ -82,7 +86,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8]
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:
@@ -161,3 +165,41 @@ def test_project_v7_adds_nullable_metadata_without_guessing_values(tmp_path: Pat
         connection.close()
 
     assert tuple(document) == (None, None, None, "[]", 0)
+
+
+def test_project_v8_backfills_traceable_chunks_without_creating_vectors(tmp_path: Path) -> None:
+    path = tmp_path / "legacy-project.db"
+    connection = sqlite3.connect(path, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    source = "这是迁移前的合成审计证据。" * 100
+    try:
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS[:7])
+        connection.execute(
+            """INSERT INTO documents
+            (id, filename, sha256, size_bytes, page_count, parse_method, parse_version,
+             stored_path, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("doc-1", "合成资料.pdf", "c" * 64, 12, 2, "native_pdf", "v1", "x.pdf", "now"),
+        )
+        connection.executemany(
+            "INSERT INTO pages VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                ("page-1", "doc-1", 1, 1, source, "native_pdf", "v1"),
+                ("page-2", "doc-1", 2, 1, "   ", "native_pdf", "v1"),
+            ],
+        )
+
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS)
+        chunks = connection.execute(
+            """SELECT page_id, page_number, chunk_number, char_start, char_end, text,
+            text_sha256, chunk_version FROM retrieval_chunks ORDER BY chunk_number"""
+        ).fetchall()
+        vector_count = connection.execute("SELECT COUNT(*) FROM vector_index_versions").fetchone()[0]
+    finally:
+        connection.close()
+
+    assert len(chunks) == 2
+    assert {row["page_id"] for row in chunks} == {"page-1"}
+    assert all(row["text"] == source[row["char_start"] : row["char_end"]] for row in chunks)
+    assert all(row["chunk_version"] == "char-window-v1" for row in chunks)
+    assert vector_count == 0

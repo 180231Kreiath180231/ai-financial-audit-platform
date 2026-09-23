@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api'
 import type { DocumentRecord, SearchHit } from '../types'
 import { ProjectSearch } from './ProjectSearch'
@@ -33,9 +33,40 @@ const baseProps = {
   onOpen: vi.fn(), onSelectEvidence: vi.fn(), onDocumentUpdated: vi.fn(),
 }
 
+const retrievalStatus = {
+  chunk_version: 'char-window-v1', chunk_state: 'ready' as const, chunk_count: 1,
+  chunked_page_count: 1, source_page_count: 1, keyword_state: 'ready' as const,
+  vector_state: 'not_configured' as const, vector_backend: null, model_profile_id: null,
+  actual_model: null, dimension: null, indexed_chunk_count: 0, external_request: false,
+  message: '全文检索与本地分块可用；语义检索尚未配置，不会发送数据。',
+  action: '确认 Embedding 服务商与数据外发政策后再构建向量索引。',
+}
+
+beforeEach(() => {
+  vi.spyOn(api, 'retrievalStatus').mockResolvedValue(retrievalStatus)
+})
+
 afterEach(() => vi.restoreAllMocks())
 
 describe('ProjectSearch', () => {
+  it('shows local chunk readiness and an explicit semantic-search boundary', async () => {
+    render(<ProjectSearch {...baseProps} />)
+
+    expect(await screen.findByText('全文 1 段')).toBeVisible()
+    expect(screen.getByText('语义检索 · 待配置')).toBeVisible()
+    expect(screen.getByText('未发送数据')).toBeVisible()
+  })
+
+  it('offers a retry when retrieval readiness cannot be loaded', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.retrievalStatus).mockRejectedValueOnce(new Error('状态服务暂不可用'))
+    render(<ProjectSearch {...baseProps} />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('状态服务暂不可用')
+    await user.click(screen.getByRole('button', { name: '重试' }))
+    expect(await screen.findByText('语义检索 · 待配置')).toBeVisible()
+  })
+
   it('opens a project-wide hit and can mark it as supporting evidence', async () => {
     const user = userEvent.setup()
     const onOpen = vi.fn()

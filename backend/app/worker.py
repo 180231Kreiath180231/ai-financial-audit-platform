@@ -12,6 +12,7 @@ from pypdf.errors import PdfReadError
 
 from .db import Database, utc_now
 from .financial_data import FinancialDataError, FinancialDataService
+from .retrieval import replace_page_chunks
 from .vision import ScanVisionService, vision_row_values
 
 logger = logging.getLogger("hengjian.worker")
@@ -378,18 +379,29 @@ class LocalTaskWorker:
                         ),
                     )
                     for analysis in page_analyses:
+                        page_id = str(uuid.uuid4())
                         db.execute(
                             """INSERT INTO pages
                             (id, document_id, page_number, block_number, original_text, parse_method, parse_version)
                             VALUES (?, ?, ?, 1, ?, ?, ?)""",
                             (
-                                str(uuid.uuid4()),
+                                page_id,
                                 document_id,
                                 analysis["page_number"],
                                 analysis["recognized_text"],
                                 analysis["parse_method"],
                                 analysis["parse_version"],
                             ),
+                        )
+                        replace_page_chunks(
+                            db,
+                            page_id=page_id,
+                            document_id=document_id,
+                            page_number=analysis["page_number"],
+                            block_number=1,
+                            original_text=analysis["recognized_text"],
+                            parse_method=analysis["parse_method"],
+                            parse_version=analysis["parse_version"],
                         )
                         db.execute(
                             """INSERT INTO page_vision_results

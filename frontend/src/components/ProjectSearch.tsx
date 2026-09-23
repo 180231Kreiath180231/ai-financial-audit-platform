@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CaretDown, FilePdf, Funnel, MagnifyingGlass, PencilSimple, Warning, X } from '@phosphor-icons/react'
+import { ArrowClockwise, Brain, CaretDown, FilePdf, Funnel, MagnifyingGlass, PencilSimple, TextAlignLeft, Warning, X } from '@phosphor-icons/react'
 import { api } from '../api'
 import type {
   DocumentMetadataPayload,
@@ -7,6 +7,7 @@ import type {
   EvidenceDirection,
   EvidenceSelection,
   ProjectSearchFilters,
+  RetrievalStatus,
   SearchHit,
 } from '../types'
 
@@ -88,6 +89,10 @@ export function ProjectSearch({
   const [metadataBusy, setMetadataBusy] = useState(false)
   const [metadataMessage, setMetadataMessage] = useState<string | null>(null)
   const [metadataError, setMetadataError] = useState(false)
+  const [retrieval, setRetrieval] = useState<RetrievalStatus | null>(null)
+  const [retrievalError, setRetrievalError] = useState<string | null>(null)
+  const [retrievalLoading, setRetrievalLoading] = useState(true)
+  const [retrievalRetry, setRetrievalRetry] = useState(0)
 
   useEffect(() => {
     setQuery('')
@@ -102,6 +107,25 @@ export function ProjectSearch({
     setMetadataMessage(null)
     setMetadataError(false)
   }, [projectId])
+
+  useEffect(() => {
+    let active = true
+    setRetrievalLoading(true)
+    setRetrievalError(null)
+    void api.retrievalStatus(projectId)
+      .then((status) => {
+        if (active) setRetrieval(status)
+      })
+      .catch((reason: unknown) => {
+        if (!active) return
+        setRetrieval(null)
+        setRetrievalError(reason instanceof Error ? reason.message : '检索索引状态读取失败')
+      })
+      .finally(() => {
+        if (active) setRetrievalLoading(false)
+      })
+    return () => { active = false }
+  }, [projectId, documents.length, retrievalRetry])
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length
   const selectedFilterDocument = documents.find((document) => document.id === filters.documentId)
@@ -174,6 +198,26 @@ export function ProjectSearch({
       <div className="list-heading">
         <span id="project-search-title">项目全文检索</span>
         <b>本地</b>
+      </div>
+      <div className="retrieval-readiness" aria-live="polite">
+        {retrievalLoading && <span className="retrieval-readiness-loading">正在检查本地索引…</span>}
+        {!retrievalLoading && retrieval && (
+          <>
+            <span className={retrieval.chunk_state === 'ready' ? 'ready' : ''} title={retrieval.message}>
+              <TextAlignLeft aria-hidden="true" />全文 {retrieval.chunk_count} 段
+            </span>
+            <span className={retrieval.vector_state === 'ready' ? 'ready' : 'pending'} title={retrieval.action}>
+              <Brain aria-hidden="true" />语义检索 · {retrieval.vector_state === 'ready' ? '就绪' : retrieval.vector_state === 'building' ? '构建中' : retrieval.vector_state === 'failed' ? '失败' : retrieval.vector_state === 'stale' ? '待重建' : '待配置'}
+            </span>
+            <small>{retrieval.external_request ? '已使用外部服务' : '未发送数据'}</small>
+          </>
+        )}
+        {!retrievalLoading && retrievalError && (
+          <div className="retrieval-readiness-error" role="alert">
+            <span><Warning aria-hidden="true" />{retrievalError}</span>
+            <button type="button" onClick={() => setRetrievalRetry((value) => value + 1)}><ArrowClockwise aria-hidden="true" />重试</button>
+          </div>
+        )}
       </div>
       <form className="project-search-bar" onSubmit={(event) => { event.preventDefault(); void search() }}>
         <MagnifyingGlass aria-hidden="true" />
