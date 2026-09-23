@@ -1,9 +1,19 @@
+import json
+import os
 import shutil
 from pathlib import Path
 
 import pytest
+from pydantic import SecretStr
 
 from backend.app.db import Database
+from backend.app.gateway import ModelGateway
+from backend.app.paddleocr_aistudio import (
+    PADDLEOCR_JOB_URL,
+    PaddleOcrAiStudioAdapter,
+    PaddleOcrHttpResponse,
+)
+from backend.app.schemas import ModelProfileCreate, ModelProviderCreate
 from backend.app.worker import LocalTaskWorker
 from backend.tests.helpers import create_project, enqueue, write_pdf
 
@@ -145,7 +155,7 @@ def test_synthetic_scanned_page_uses_fake_vision_and_cleans_temp(tmp_path: Path)
         ).fetchone()
 
     assert document["parse_method"] == "fake_vision"
-    assert document["parse_version"] == "document-pipeline-v2"
+    assert document["parse_version"] == "document-pipeline-v3"
     assert page["parse_method"] == "fake_vision"
     assert "合成扫描页 1" in page["original_text"]
     assert vision["status"] == "completed"
@@ -155,6 +165,77 @@ def test_synthetic_scanned_page_uses_fake_vision_and_cleans_temp(tmp_path: Path)
     assert call["capability"] == "vision"
     assert call["status"] == "completed"
     assert call["task_id"] == task_id
+    assert list((root / "temp").iterdir()) == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Gateway credential resolution uses DPAPI")
+def test_synthetic_scanned_page_can_use_audited_paddleocr_adapter(tmp_path: Path) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "paddle-scan")
+    root = Path(project["storage_path"])
+    provider = database.create_model_provider(
+        ModelProviderCreate(
+            provider_kind="paddleocr_aistudio",
+            display_name="PaddleOCR Worker Fixture",
+            base_url=PADDLEOCR_JOB_URL,
+            api_key=SecretStr("credential-fixture"),
+        )
+    )
+    database.create_model_profile(
+        ModelProfileCreate(
+            provider_id=provider["id"],
+            display_name="PaddleOCR Worker Model",
+            model_name="PaddleOCR-VL-1.6",
+            capabilities={"vision", "file_upload"},
+        )
+    )
+    database.set_strict_offline(False)
+    database.set_project_external_access(project["id"], True)
+    incoming = root / "incoming" / "scan.part"
+    write_pdf(incoming, "scan")
+    task_id = enqueue(database, root, "paddle-scan.pdf", incoming)
+    replies = [
+        PaddleOcrHttpResponse(200, json.dumps({"data": {"jobId": "job-worker"}}).encode()),
+        PaddleOcrHttpResponse(
+            200,
+            json.dumps(
+                {
+                    "data": {
+                        "state": "done",
+                        "resultUrl": {"jsonUrl": "https://results.invalid/worker.jsonl"},
+                    }
+                }
+            ).encode(),
+        ),
+        PaddleOcrHttpResponse(
+            200,
+            b'{"result":{"layoutParsingResults":[{"markdown":{"text":"PADDLE-OCR-SYNTHETIC"}}]}}',
+        ),
+    ]
+    adapter = PaddleOcrAiStudioAdapter(
+        transport=lambda _request: replies.pop(0),
+        result_url_validator=lambda _url: None,
+    )
+    worker = LocalTaskWorker(database)
+    worker.scan_vision.gateway = ModelGateway(database, paddleocr_adapter=adapter)
+
+    claimed = worker._claim_next()
+    assert claimed is not None
+    worker._process(*claimed)
+
+    with database.connect(root / "app.db") as db:
+        document = db.execute("SELECT * FROM documents").fetchone()
+        page = db.execute("SELECT * FROM pages").fetchone()
+        vision = db.execute("SELECT * FROM page_vision_results").fetchone()
+        task = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+    assert document["parse_method"] == "paddleocr_vision"
+    assert document["parse_version"] == "document-pipeline-v3"
+    assert page["original_text"] == "PADDLE-OCR-SYNTHETIC"
+    assert page["parse_method"] == "paddleocr_vision"
+    assert vision["external_request"] == 1
+    assert vision["remote_request_id"] == "job-worker"
+    assert vision["remote_cleanup_status"] == "unsupported"
+    assert task["current_step"] == "PaddleOCR 页级结果已提交（合成联调）"
     assert list((root / "temp").iterdir()) == []
 
 

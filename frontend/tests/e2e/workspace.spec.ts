@@ -191,6 +191,11 @@ test('settings exposes audited local model routing without external requests', a
   await expect(page.getByRole('status')).toContainText('外部请求 0 次')
 
   const providers = page.getByRole('region', { name: '服务商' })
+  await providers.getByRole('combobox', { name: /服务商类型/ }).selectOption('paddleocr_aistudio')
+  await expect(providers.getByRole('textbox', { name: /Base URL/ })).toHaveValue('https://paddleocr.aistudio-app.com/api/v2/ocr/jobs')
+  await expect(providers.getByRole('textbox', { name: /Base URL/ })).toHaveAttribute('readonly')
+  await expect(providers.getByLabel(/Access Token/)).toHaveAttribute('type', 'password')
+  await providers.getByRole('combobox', { name: /服务商类型/ }).selectOption('openai_compatible')
   await providers.getByLabel('显示名称').fill('Synthetic E2E Provider')
   await providers.getByLabel(/Base URL/).fill('https://models.invalid/v1')
   await providers.getByRole('button', { name: '保存服务商' }).click()
@@ -203,9 +208,9 @@ test('settings exposes audited local model routing without external requests', a
   await expect(providers.getByText('Synthetic E2E Provider Updated')).toBeVisible()
 
   const models = page.getByRole('region', { name: '模型能力档案' })
-  await models.getByLabel('服务商').selectOption({ label: 'Synthetic E2E Provider Updated' })
+  await models.getByRole('combobox').selectOption({ label: 'Synthetic E2E Provider Updated' })
   await models.getByLabel('显示名称').fill('Synthetic E2E Fallback')
-  await models.getByLabel('模型标识').fill('synthetic-e2e-fallback')
+  await models.getByRole('textbox', { name: /^模型标识/ }).fill('synthetic-e2e-fallback')
   await models.getByRole('checkbox', { name: /作为备用模型/ }).check()
   await models.getByRole('button', { name: '保存模型档案' }).click()
   const modelRow = models.locator('article').filter({ hasText: 'Synthetic E2E Fallback' })

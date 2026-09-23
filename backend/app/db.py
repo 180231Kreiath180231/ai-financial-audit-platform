@@ -461,6 +461,16 @@ class Database:
             ).fetchone()
         if existing is None:
             raise KeyError(provider_id)
+        if existing["provider_kind"] != payload.provider_kind:
+            with self.connect(self.registry_path) as db:
+                model_count = int(
+                    db.execute(
+                        "SELECT COUNT(*) FROM model_profiles WHERE provider_id=?",
+                        (provider_id,),
+                    ).fetchone()[0]
+                )
+            if model_count:
+                raise ValueError("请先删除关联模型档案，再修改服务商类型")
         old_reference = existing["api_key_ref"]
         new_reference = old_reference
         created_reference = None
@@ -588,10 +598,11 @@ class Database:
         flags = {column: int(capability in payload.capabilities) for capability, column in CAPABILITY_COLUMNS.items()}
         with self.connect(self.registry_path) as db:
             provider = db.execute(
-                "SELECT 1 FROM model_providers WHERE id=?", (payload.provider_id,)
+                "SELECT provider_kind FROM model_providers WHERE id=?", (payload.provider_id,)
             ).fetchone()
             if provider is None:
                 raise KeyError(payload.provider_id)
+            self._validate_model_provider_compatibility(provider["provider_kind"], payload)
             db.execute(
                 """INSERT INTO model_profiles
                 (id, provider_id, display_name, model_name, supports_text, supports_vision,
@@ -667,10 +678,11 @@ class Database:
         now = utc_now()
         with self.connect(self.registry_path) as db:
             provider = db.execute(
-                "SELECT 1 FROM model_providers WHERE id=?", (payload.provider_id,)
+                "SELECT provider_kind FROM model_providers WHERE id=?", (payload.provider_id,)
             ).fetchone()
             if provider is None:
                 raise KeyError(payload.provider_id)
+            self._validate_model_provider_compatibility(provider["provider_kind"], payload)
             changed = db.execute(
                 """UPDATE model_profiles SET provider_id=?, display_name=?, model_name=?,
                 supports_text=?, supports_vision=?, supports_json_schema=?, supports_tools=?,
@@ -710,6 +722,17 @@ class Database:
             )
             row = db.execute("SELECT * FROM model_profiles WHERE id=?", (model_id,)).fetchone()
         return self._model_from_row(row)
+
+    @staticmethod
+    def _validate_model_provider_compatibility(
+        provider_kind: str, payload: ModelProfileCreate | ModelProfileUpdate
+    ) -> None:
+        if provider_kind != "paddleocr_aistudio":
+            return
+        if payload.capabilities != {"vision", "file_upload"}:
+            raise ValueError("PaddleOCR 模型档案必须且只能声明视觉与文件上传能力")
+        if payload.model_name != "PaddleOCR-VL-1.6":
+            raise ValueError("当前已批准的 PaddleOCR 模型标识仅限 PaddleOCR-VL-1.6")
 
     def delete_model_profile(self, model_id: str) -> None:
         if model_id == "fake-structured-v1":

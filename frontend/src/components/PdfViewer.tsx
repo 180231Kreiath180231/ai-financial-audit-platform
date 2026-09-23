@@ -157,11 +157,11 @@ export function PdfViewer({
       </div>
       {currentAnalysis?.status === 'completed' && <div className="page-analysis-status completed" role="status">
         <MagnifyingGlass aria-hidden="true" />
-        <span><b>第 {page} 页 · 合成视觉解析</b>{currentAnalysis.provider_name} / {currentAnalysis.actual_model} · 外部请求 {currentAnalysis.external_request ? 1 : 0} 次</span>
+        <span><b>第 {page} 页 · {currentAnalysis.external_request ? 'PaddleOCR 识别（合成联调）' : '合成视觉解析'}</b>{currentAnalysis.provider_name} / {currentAnalysis.actual_model} · 外部请求 {currentAnalysis.external_request ? 1 : 0} 次{currentAnalysis.remote_cleanup_status === 'unsupported' ? ' · 服务商未提供远端删除接口' : ''}</span>
       </div>}
       {currentAnalysis?.status === 'requires_vision' && <div className="page-analysis-status pending" role="note">
         <MagnifyingGlass aria-hidden="true" />
-        <span><b>第 {page} 页 · 已识别为扫描页</b>当前未上传页面；需要经批准的视觉模型策略后才能解析。</span>
+        <span><b>第 {page} 页 · 已识别为扫描页</b>当前未上传页面；真实审计资料会保持阻止，合成项目可使用已授权的 PaddleOCR 档案联调。</span>
       </div>}
       {currentAnalysis?.status === 'failed' && <div className="page-analysis-status failed" role="alert">
         <MagnifyingGlass aria-hidden="true" />

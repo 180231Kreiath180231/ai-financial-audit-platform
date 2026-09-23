@@ -333,22 +333,39 @@ class LocalTaskWorker:
                     vision_count = sum(
                         analysis["status"] == "completed" for analysis in page_analyses
                     )
+                    failed_count = sum(
+                        analysis["status"] == "failed" for analysis in page_analyses
+                    )
+                    external_count = sum(
+                        analysis["external_request"] for analysis in page_analyses
+                    )
                     if not scan_count:
                         document_parse_method = "native_pdf"
                         completed_step = "本地解析完成"
                     elif vision_count == scan_count and scan_count == page_count:
-                        document_parse_method = "fake_vision"
-                        completed_step = "合成视觉页结果已提交"
+                        if external_count:
+                            document_parse_method = "paddleocr_vision"
+                            completed_step = "PaddleOCR 页级结果已提交（合成联调）"
+                        else:
+                            document_parse_method = "fake_vision"
+                            completed_step = "合成视觉页结果已提交"
                     elif vision_count == scan_count:
                         document_parse_method = "hybrid_pdf"
-                        completed_step = "本地文本与合成视觉页结果已提交"
+                        completed_step = (
+                            "本地文本与 PaddleOCR 页级结果已提交（合成联调）"
+                            if external_count
+                            else "本地文本与合成视觉页结果已提交"
+                        )
+                    elif failed_count:
+                        document_parse_method = "scan_detected"
+                        completed_step = f"本地解析完成；{failed_count} 个扫描页视觉解析失败"
                     else:
                         document_parse_method = "scan_detected"
                         completed_step = "本地解析完成；扫描页等待视觉模型"
                     db.execute(
                         """INSERT INTO documents
                         (id, filename, sha256, size_bytes, page_count, parse_method, parse_version, stored_path, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, 'document-pipeline-v2', ?, ?)""",
+                        VALUES (?, ?, ?, ?, ?, ?, 'document-pipeline-v3', ?, ?)""",
                         (
                             document_id,
                             filename,
@@ -380,8 +397,8 @@ class LocalTaskWorker:
                              model_profile_id, provider_name, actual_model, model_call_id,
                              schema_version, recognized_text, confidence, result_json,
                              image_sha256, external_request, error_code, error_message,
-                             created_at, updated_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                             remote_request_id, remote_cleanup_status, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                             vision_row_values(document_id, analysis),
                         )
                     db.execute(
@@ -412,7 +429,9 @@ class LocalTaskWorker:
                     "vision_page_count": sum(
                         analysis["status"] == "completed" for analysis in page_analyses
                     ),
-                    "external_requests": 0,
+                    "external_requests": sum(
+                        analysis["external_request"] for analysis in page_analyses
+                    ),
                 },
             )
             logger.info("task.completed", extra={"task_id": task_id, "status": "completed"})

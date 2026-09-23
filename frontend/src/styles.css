@@ -154,6 +154,7 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .document-row .vision-state { color: var(--muted); font-weight: 650; }
 .document-row .vision-state.completed { color: var(--accent); }
 .document-row .vision-state.pending { color: var(--warning); }
+.document-row .vision-state.failed { color: var(--danger); }
 .document-row > b { color: var(--accent); font: 9px ui-monospace, Consolas, monospace; }
 .task-row { grid-template-columns: minmax(0, 1fr) auto; }
 .compact-empty { display: grid; justify-items: center; gap: 6px; padding: 24px 18px; color: var(--quiet); text-align: center; }
@@ -589,6 +590,7 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 
 @media (max-width: 620px) {
   body { overflow: hidden; }
+  .button, .icon-button { min-width: 44px; min-height: 44px; }
   .brand-block span { display: none; }
   .brand-mark { width: 34px; height: 34px; }
   .header-tools { gap: 4px; }
@@ -665,6 +667,11 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
   .rule-calculation > div { grid-template-columns: 1fr; gap: 4px; }
   .result-row-head { align-items: stretch; flex-direction: column; }
   .result-row-head > div:last-child button { min-height: 44px; }
+}
+
+@media (max-width: 940px) and (max-height: 620px) {
+  .button, .icon-button { min-width: 44px; min-height: 44px; }
+  .button.compact { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

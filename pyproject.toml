@@ -12,6 +12,7 @@ dependencies = [
   "pypdf>=6,<7",
   "pypdfium2>=5.13,<6",
   "python-multipart>=0.0.20,<1",
+  "requests>=2.34,<3",
   "uvicorn[standard]>=0.35,<1",
 ]
 

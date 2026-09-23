@@ -15,6 +15,7 @@
 | pypdf | 6.19.0 | PDF 完整性检查与原生文本提取 | BSD-3-Clause | 纯 Python，低集成风险 |
 | pypdfium2 | 5.13.0 | 扫描页逐页本地栅格化 | Apache-2.0 OR BSD-3-Clause；PDFium 为 BSD-style | Windows x64 wheel 约 3.9 MB；无独立进程 |
 | Pillow | 12.3.0 | 将单页位图编码为临时 PNG | HPND | 页面处理结束立即释放并删除临时文件 |
+| Requests | 2.34.2 | PaddleOCR HTTPS、multipart 单页上传和异步 Job 轮询 | Apache-2.0 | 纯 Python 通用 wheel 约 73 KB；设置超时、响应上限并拒绝重定向 |
 | python-multipart | 0.0.32 | 多文件上传解析 | Apache-2.0 | 仅本地请求 |
 | psutil | 7.2.2 | CPU、内存与磁盘状态 | BSD-3-Clause | 提供 Windows wheel |
 | DuckDB Python | 1.5.5 | 科目余额表明细与确定性规则结果的嵌入式分析存储 | MIT | Python 3.12 Windows x64 wheel 约 13 MB；无独立服务 |

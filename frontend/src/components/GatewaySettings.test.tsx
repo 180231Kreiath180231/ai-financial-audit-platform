@@ -63,6 +63,18 @@ describe('GatewaySettings', () => {
     expect(screen.getByText('JSON Schema', { selector: '.capability-list span' })).toBeVisible()
   })
 
+  it('locks PaddleOCR configuration to the approved jobs endpoint', async () => {
+    const user = userEvent.setup()
+    render(<GatewaySettings overview={overview} project={project} onOverviewChange={vi.fn()} onProjectChange={vi.fn()} />)
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /服务商类型/ }), 'paddleocr_aistudio')
+
+    expect(screen.getByRole('textbox', { name: /Base URL/ })).toHaveValue('https://paddleocr.aistudio-app.com/api/v2/ocr/jobs')
+    expect(screen.getByRole('textbox', { name: /Base URL/ })).toHaveAttribute('readonly')
+    expect(screen.getByLabelText(/Access Token（可稍后配置）/)).toHaveAttribute('type', 'password')
+    expect(screen.getByText('固定为已批准的异步 Jobs Endpoint。')).toBeVisible()
+  })
+
   it('enters an explicit credential rotation state without revealing the saved key', async () => {
     const user = userEvent.setup()
     const editable: GatewayOverview = {

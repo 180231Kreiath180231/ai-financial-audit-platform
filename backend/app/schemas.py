@@ -7,6 +7,8 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 
+from .paddleocr_aistudio import PADDLEOCR_JOB_URL
+
 
 class ApiError(BaseModel):
     code: str
@@ -57,7 +59,7 @@ class ProjectSummary(BaseModel):
     external_access_enabled: bool = False
 
 
-ProviderKind = Literal["fake", "openai_compatible"]
+ProviderKind = Literal["fake", "openai_compatible", "paddleocr_aistudio"]
 ModelCapability = Literal["text", "vision", "json_schema", "tools", "embedding", "file_upload"]
 
 
@@ -109,6 +111,11 @@ class ModelProviderCreate(BaseModel):
                 or parsed.fragment
             ):
                 raise ValueError("外部服务 Base URL 必须是无凭据、查询参数和片段的有效 HTTPS 地址")
+            if (
+                self.provider_kind == "paddleocr_aistudio"
+                and self.base_url.rstrip("/") != PADDLEOCR_JOB_URL
+            ):
+                raise ValueError("PaddleOCR AI Studio 仅允许使用已批准的 Jobs Endpoint")
         return self
 
 
@@ -365,6 +372,7 @@ class DocumentRecord(BaseModel):
     native_page_count: int = 0
     scan_page_count: int = 0
     vision_page_count: int = 0
+    external_vision_page_count: int = 0
     vision_status: Literal["not_required", "completed", "requires_vision", "failed"] = (
         "not_required"
     )
@@ -380,6 +388,10 @@ class PageVisionRecord(BaseModel):
     confidence: float | None = None
     image_sha256: str | None = None
     external_request: bool = False
+    remote_request_id: str | None = None
+    remote_cleanup_status: Literal["not_applicable", "unsupported", "unknown"] = (
+        "not_applicable"
+    )
     error_code: str | None = None
     error_message: str | None = None
     parse_method: str

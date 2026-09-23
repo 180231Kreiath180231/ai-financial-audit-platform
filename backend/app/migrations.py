@@ -147,6 +147,22 @@ def _registry_v3(db: sqlite3.Connection) -> None:
     )
 
 
+def _registry_v4(db: sqlite3.Connection) -> None:
+    call_columns = {
+        row[1] for row in db.execute("PRAGMA table_info(model_calls)").fetchall()
+    }
+    if "remote_request_id" not in call_columns:
+        db.execute("ALTER TABLE model_calls ADD COLUMN remote_request_id TEXT")
+    if "remote_cleanup_status" not in call_columns:
+        db.execute(
+            "ALTER TABLE model_calls ADD COLUMN remote_cleanup_status TEXT NOT NULL DEFAULT 'not_applicable'"
+        )
+    if "data_scope_json" not in call_columns:
+        db.execute(
+            "ALTER TABLE model_calls ADD COLUMN data_scope_json TEXT NOT NULL DEFAULT '{}'"
+        )
+
+
 def _project_v1(db: sqlite3.Connection) -> None:
     db.execute(
         """CREATE TABLE IF NOT EXISTS documents (
@@ -398,16 +414,30 @@ def _project_v4(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v5(db: sqlite3.Connection) -> None:
+    vision_columns = {
+        row[1] for row in db.execute("PRAGMA table_info(page_vision_results)").fetchall()
+    }
+    if "remote_request_id" not in vision_columns:
+        db.execute("ALTER TABLE page_vision_results ADD COLUMN remote_request_id TEXT")
+    if "remote_cleanup_status" not in vision_columns:
+        db.execute(
+            "ALTER TABLE page_vision_results ADD COLUMN remote_cleanup_status TEXT NOT NULL DEFAULT 'not_applicable'"
+        )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
     (3, "model_gateway_fallback_cache", _registry_v3),
+    (4, "external_request_lifecycle_audit", _registry_v4),
 )
 PROJECT_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_project", _project_v1),
     (2, "risk_evidence_versions", _project_v2),
     (3, "financial_datasets_and_rules", _project_v3),
     (4, "scanned_page_vision_results", _project_v4),
+    (5, "scanned_page_remote_lifecycle", _project_v5),
 )
 
 

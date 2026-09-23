@@ -580,6 +580,7 @@ def list_documents(project_id: str) -> list[dict]:
                  native_page_count,
             SUM(CASE WHEN v.status!='not_required' THEN 1 ELSE 0 END) scan_page_count,
             SUM(CASE WHEN v.status='completed' THEN 1 ELSE 0 END) vision_page_count,
+            SUM(CASE WHEN v.external_request=1 THEN 1 ELSE 0 END) external_vision_page_count,
             CASE WHEN SUM(CASE WHEN v.status='failed' THEN 1 ELSE 0 END)>0 THEN 'failed'
                  WHEN SUM(CASE WHEN v.status='requires_vision' THEN 1 ELSE 0 END)>0
                       THEN 'requires_vision'
@@ -608,7 +609,8 @@ def list_page_analyses(project_id: str, document_id: str) -> list[dict]:
         rows = db.execute(
             """SELECT v.page_number, v.status, v.provider_name, v.actual_model,
             v.model_call_id, v.schema_version, v.confidence, v.image_sha256,
-            v.external_request, v.error_code, v.error_message,
+            v.external_request, v.remote_request_id, v.remote_cleanup_status,
+            v.error_code, v.error_message,
             p.parse_method, p.parse_version
             FROM page_vision_results v
             JOIN pages p ON p.document_id=v.document_id

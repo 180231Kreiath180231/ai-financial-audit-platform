@@ -67,12 +67,14 @@ scripts/              文档生成脚本
 - 服务商与模型档案支持二次确认删除；有关联模型的服务商会拒绝删除，历史调用审计始终保留。
 - 支持从本地 PDF 搜索命中选择支持证据或反证；服务端重新校验并固化页码、文本块、原文片段和解析版本。
 - PDF 导入会识别无足够原生文本的扫描页；合成项目逐页本地渲染并用 Fake Vision 生成明确标注的固定 JSON，真实项目保持“等待视觉策略”且不会上传页面。
+- 可配置 PaddleOCR AI Studio 专用服务商与 `PaddleOCR-VL-1.6` 模型档案；只有关闭严格离线、项目显式授权且项目标记为 synthetic 时，才会逐页上传临时 PNG 并轮询异步 Job。整份 PDF、文件名和返回图片均不外发或下载。
+- PaddleOCR Access Token 通过 Windows DPAPI 加密，SQLite 仅保存引用；调用审计记录页码、图像摘要、Job ID 和远端清理状态。由于服务商示例未提供删除接口，真实审计资料继续被硬阻断。
 - 提供人工风险草稿、PRD 约束的状态流转、复核备注和不可覆盖版本历史；证据可回跳到 PDF 原文。
 - 风险解释当前只使用 Fake Provider，风险等级固定为“待评估”；所有金额与规则结果由本地代码计算，模型不参与复算或最终判断。
 - CSV 科目余额表已作为正式结构化输入进入迭代四：导入前执行严格预览校验，确认后由本地单工作器写入不可变数据集，并使用 DuckDB 与 Decimal 复算借贷平衡、余额公式和跨期衔接。
 - 规则失败只生成“待评估”风险草稿；风险可回溯至原文件 SHA-256、数据集版本和 CSV 行级明细，同一文件及同一规则版本不会重复计算。
 
-真实外部模型连接、真实扫描件视觉服务、统计异常分析、自动风险分级和报告导出仍未启用，不代表功能已实现。
+真实审计资料的外部视觉服务、真实文本模型业务调用、统计异常分析、自动风险分级和报告导出仍未启用，不代表功能已实现。PaddleOCR 当前只完成合成数据专项接入。
 
 迭代一的自动化验收、资源基线和已知边界记录在
 [验收记录](docs/acceptance/iteration-1-2026-09-22.md)；仓库同时提供 Windows GitHub Actions 质量门禁。
@@ -82,6 +84,9 @@ scripts/              文档生成脚本
 [迭代三证据与风险版本基础验收](docs/acceptance/iteration-3-evidence-risk-foundation-2026-09-22.md)。
 扫描页检测、本地逐页渲染和 Fake Vision 页级审计记录在
 [迭代三扫描页视觉基础增量验收](docs/acceptance/iteration-3-scanned-page-foundation-2026-09-22.md)。
+PaddleOCR AI Studio 的合成数据专用接入、安全门禁和远端生命周期限制记录在
+[ADR-0006](docs/adr/0006-paddleocr-aistudio-synthetic-only.md) 与
+[专项验收记录](docs/acceptance/iteration-3-paddleocr-aistudio-2026-09-22.md)。
 科目余额表数据契约、首批规则和风险边界记录在
 [ADR-0004](docs/adr/0004-trial-balance-csv-deterministic-rules.md)，实现范围和验证结果记录在
 [迭代四财务数据与确定性规则验收](docs/acceptance/iteration-4-financial-data-2026-09-22.md)。
@@ -108,6 +113,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1
 ```
 
 启动脚本会打开 `http://127.0.0.1:5173`。按 `Ctrl+C` 同时停止前端和后端。使用 `-NoOpen` 可以不自动打开浏览器。
+
+### PaddleOCR 合成数据联调
+
+1. 先撤销任何曾粘贴到聊天或日志中的旧 Token，再生成新 Token。
+2. 在“设置”中新建 PaddleOCR AI Studio 服务商并保存新 Token；Endpoint 和模型标识由系统固定。
+3. 关闭“严格离线”，并只对 synthetic 项目开启外部访问授权。
+4. 导入一份新生成、无业务含义且至少含一个扫描页的 PDF；已完成 Fake Vision 的旧文件不会自动重跑。
+5. 在文档页核对外部页数、Job ID、识别文本和 `remote_cleanup_status=unsupported`。未核实远端保留与删除政策前，不得用于真实审计资料。
 
 ## 检查与测试
 

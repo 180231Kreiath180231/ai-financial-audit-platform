@@ -32,12 +32,14 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (1, "initial_registry"),
         (2, "model_gateway"),
         (3, "model_gateway_fallback_cache"),
+        (4, "external_request_lifecycle_audit"),
     ]
     assert [tuple(row) for row in project_versions] == [
         (1, "initial_project"),
         (2, "risk_evidence_versions"),
         (3, "financial_datasets_and_rules"),
         (4, "scanned_page_vision_results"),
+        (5, "scanned_page_remote_lifecycle"),
     ]
     assert {
         "documents",
@@ -77,7 +79,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5]
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:
@@ -102,7 +104,7 @@ def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -
             row["name"]
             for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
-    assert [row["version"] for row in versions] == [1, 2, 3]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4]
     assert "external_access_enabled" in columns
     assert {
         "app_settings",

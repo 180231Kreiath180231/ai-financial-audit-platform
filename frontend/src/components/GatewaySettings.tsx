@@ -32,6 +32,14 @@ const capabilityLabels: Record<ModelCapability, string> = {
   file_upload: '文件上传',
 }
 
+const PADDLEOCR_JOB_URL = 'https://paddleocr.aistudio-app.com/api/v2/ocr/jobs'
+
+const providerKindLabels = {
+  fake: '本地 Fake Provider',
+  openai_compatible: 'OpenAI-compatible',
+  paddleocr_aistudio: 'PaddleOCR AI Studio',
+} as const
+
 interface GatewaySettingsProps {
   overview: GatewayOverview | null
   project: Project | null
@@ -196,6 +204,28 @@ export function GatewaySettings({
     }))
   }
 
+  function selectProviderKind(providerKind: ModelProviderPayload['provider_kind']) {
+    setProviderForm((current) => ({
+      ...current,
+      provider_kind: providerKind,
+      display_name: providerKind === 'paddleocr_aistudio' && !current.display_name ? 'PaddleOCR AI Studio' : current.display_name,
+      base_url: providerKind === 'paddleocr_aistudio' ? PADDLEOCR_JOB_URL : current.base_url === PADDLEOCR_JOB_URL ? 'https://' : current.base_url,
+    }))
+  }
+
+  function selectModelProvider(providerId: string) {
+    const provider = overview?.providers.find((item) => item.id === providerId)
+    setModelForm((current) => ({
+      ...current,
+      provider_id: providerId,
+      ...(provider?.provider_kind === 'paddleocr_aistudio' ? {
+        display_name: current.display_name || 'PaddleOCR VL 1.6',
+        model_name: 'PaddleOCR-VL-1.6',
+        capabilities: ['vision', 'file_upload'] as ModelCapability[],
+      } : {}),
+    }))
+  }
+
   function submitProvider(event: FormEvent) {
     event.preventDefault()
     void runOperation('provider-create', async () => {
@@ -231,7 +261,7 @@ export function GatewaySettings({
     setEditingProviderId(provider.id)
     setEditingProviderHasSecret(provider.secret_configured)
     setProviderForm({
-      provider_kind: 'openai_compatible',
+      provider_kind: provider.provider_kind === 'paddleocr_aistudio' ? 'paddleocr_aistudio' : 'openai_compatible',
       display_name: provider.display_name,
       base_url: provider.base_url,
       api_key: '',
@@ -268,14 +298,16 @@ export function GatewaySettings({
   }
 
   const externalProviders = overview.providers.filter((provider) => provider.provider_kind !== 'fake')
+  const selectedModelProvider = overview.providers.find((provider) => provider.id === modelForm.provider_id)
+  const paddleProviderSelected = selectedModelProvider?.provider_kind === 'paddleocr_aistudio'
 
   return (
     <section className="settings-page" aria-labelledby="settings-title">
       <header className="settings-head">
         <div>
-          <span className="section-kicker">迭代二 · 多模型网关</span>
+          <span className="section-kicker">多模型网关 · PaddleOCR 合成联调</span>
           <h1 id="settings-title">模型与外发设置</h1>
-          <p>配置可以先保存；真实连接仅能通过后端统一网关使用，目前尚未接入用户业务任务。</p>
+          <p>配置可以先保存；PaddleOCR 仅允许逐页上传合成扫描页，真实审计资料仍保持阻止。</p>
         </div>
         <span className={`mode-badge ${overview.strict_offline ? 'safe' : 'warning'}`}>
           {overview.strict_offline ? <ShieldCheck aria-hidden="true" /> : <Warning aria-hidden="true" />}
@@ -302,7 +334,7 @@ export function GatewaySettings({
               aria-pressed={overview.strict_offline}
               onClick={() => void runOperation('offline', async () => {
                 onOverviewChange(await api.setOfflineMode(!overview.strict_offline))
-                setNotice(overview.strict_offline ? '严格离线已关闭；项目仍需单独授权，且真实连接仍未启用。' : '严格离线已开启，所有外发路径已阻断。')
+                setNotice(overview.strict_offline ? '严格离线已关闭；项目仍需单独授权，PaddleOCR 仍仅限合成项目联调。' : '严格离线已开启，所有外发路径已阻断。')
               })}
             >
               {overview.strict_offline ? '关闭严格离线' : '重新开启离线'}
@@ -318,7 +350,7 @@ export function GatewaySettings({
               onClick={() => project && void runOperation('project-access', async () => {
                 const changed = await api.setProjectExternalAccess(project.id, !project.external_access_enabled)
                 onProjectChange(changed)
-                setNotice(changed.external_access_enabled ? '项目外发授权已开启；请求仍须通过最小证据审计。' : '项目外发授权已撤销。')
+                setNotice(changed.external_access_enabled ? `项目外发授权已开启；${changed.is_synthetic ? 'PaddleOCR 只会逐页发送合成扫描页。' : '真实资料仍会因远端保留政策未验证而被阻止。'}` : '项目外发授权已撤销。')
               })}
             >
               {project?.external_access_enabled ? '撤销项目授权' : '授权当前项目'}
@@ -380,7 +412,7 @@ export function GatewaySettings({
           {overview.providers.map((provider) => (
             <article className="config-row" key={provider.id}>
               <div><b>{provider.display_name}</b><span>{provider.base_url}</span></div>
-              <div className="config-meta"><span>{provider.provider_kind === 'fake' ? '本地验收' : provider.secret_configured ? '密钥已配置' : '未配置密钥'}</span><span>{provider.timeout_seconds}s · 重试 {provider.max_retries}</span></div>
+              <div className="config-meta"><span>{providerKindLabels[provider.provider_kind]}</span><span>{provider.provider_kind === 'fake' ? '本地验收' : provider.secret_configured ? '密钥已配置' : '未配置密钥'}</span><span>{provider.timeout_seconds}s · 重试 {provider.max_retries}</span></div>
               <div className="config-actions">
                 <button className="button compact" type="button" disabled={provider.provider_kind === 'fake' || busy !== null} onClick={() => editProvider(provider)}><PencilSimple aria-hidden="true" />编辑</button>
                 <button className="button compact" type="button" disabled={provider.provider_kind === 'fake' || busy !== null} onClick={() => void runOperation(`provider-${provider.id}`, async () => { await api.toggleModelProvider(provider.id); await refresh() })}>{provider.enabled ? '停用' : '启用'}</button>
@@ -390,10 +422,11 @@ export function GatewaySettings({
           ))}
         </div>
         <form className="config-form" onSubmit={submitProvider}>
-          <div className="form-title"><Plus aria-hidden="true" /><b>{editingProviderId ? '编辑 OpenAI-compatible 服务商' : '新增 OpenAI-compatible 服务商'}</b></div>
+          <div className="form-title"><Plus aria-hidden="true" /><b>{editingProviderId ? `编辑 ${providerKindLabels[providerForm.provider_kind]} 服务商` : '新增外部服务商'}</b></div>
+          <label className="field"><span>服务商类型</span><select disabled={editingProviderId !== null} value={providerForm.provider_kind} onChange={(event) => selectProviderKind(event.target.value as ModelProviderPayload['provider_kind'])}><option value="openai_compatible">OpenAI-compatible</option><option value="paddleocr_aistudio">PaddleOCR AI Studio</option></select><small>{editingProviderId ? '已有配置不可直接改变类型。' : 'PaddleOCR 使用隔离的异步 Jobs 适配器。'}</small></label>
           <label className="field"><span>显示名称</span><input required minLength={2} maxLength={80} value={providerForm.display_name} onChange={(event) => setProviderForm({ ...providerForm, display_name: event.target.value })} /></label>
-          <label className="field field-wide"><span>Base URL</span><input required type="url" pattern="https://.*" value={providerForm.base_url} onChange={(event) => setProviderForm({ ...providerForm, base_url: event.target.value })} /><small>仅接受 HTTPS，例如 https://api.example.com/v1</small></label>
-          <label className="field field-wide"><span>API Key（可稍后配置）</span><input type={showSecret ? 'text' : 'password'} autoComplete="new-password" disabled={clearSecret} value={providerForm.api_key ?? ''} onChange={(event) => setProviderForm({ ...providerForm, api_key: event.target.value })} /><small>{editingProviderId ? editingProviderHasSecret ? '留空表示保留现有密钥；输入新值将执行轮换。' : '当前未配置密钥；输入新值后将使用 DPAPI 保存。' : '提交后不会再次显示完整值。'}</small></label>
+          <label className="field field-wide"><span>Base URL</span><input required readOnly={providerForm.provider_kind === 'paddleocr_aistudio'} type="url" pattern="https://.*" value={providerForm.base_url} onChange={(event) => setProviderForm({ ...providerForm, base_url: event.target.value })} /><small>{providerForm.provider_kind === 'paddleocr_aistudio' ? '固定为已批准的异步 Jobs Endpoint。' : '仅接受 HTTPS，例如 https://api.example.com/v1'}</small></label>
+          <label className="field field-wide"><span>{providerForm.provider_kind === 'paddleocr_aistudio' ? 'Access Token' : 'API Key'}（可稍后配置）</span><input type={showSecret ? 'text' : 'password'} autoComplete="new-password" disabled={clearSecret} value={providerForm.api_key ?? ''} onChange={(event) => setProviderForm({ ...providerForm, api_key: event.target.value })} /><small>{editingProviderId ? editingProviderHasSecret ? '留空表示保留现有密钥；输入新值将执行轮换。' : '当前未配置密钥；输入新值后将使用 DPAPI 保存。' : '提交后不会再次显示完整值；请勿粘贴已暴露的旧令牌。'}</small></label>
           <label className="secret-visibility field-wide"><input type="checkbox" checked={showSecret} onChange={(event) => setShowSecret(event.target.checked)} />显示本次输入</label>
           {editingProviderId && editingProviderHasSecret && <label className="secret-visibility field-wide danger-choice"><input type="checkbox" checked={clearSecret} onChange={(event) => { setClearSecret(event.target.checked); if (event.target.checked) setProviderForm({ ...providerForm, api_key: '' }) }} />清除已保存的 API Key</label>}
           <label className="field"><span>超时（秒）</span><input required type="number" min={1} max={300} value={providerForm.timeout_seconds} onChange={(event) => setProviderForm({ ...providerForm, timeout_seconds: Number(event.target.value) })} /></label>
@@ -425,10 +458,10 @@ export function GatewaySettings({
         </div>
         <form className="config-form" onSubmit={submitModel}>
           <div className="form-title"><Plus aria-hidden="true" /><b>{editingModelId ? '编辑模型档案' : '新增模型档案'}</b></div>
-          <label className="field"><span>服务商</span><select required value={modelForm.provider_id} onChange={(event) => setModelForm({ ...modelForm, provider_id: event.target.value })}><option value="">请选择</option>{externalProviders.filter((provider) => provider.enabled || provider.id === modelForm.provider_id).map((provider) => <option key={provider.id} value={provider.id}>{provider.display_name}</option>)}</select></label>
+          <label className="field"><span>服务商</span><select required value={modelForm.provider_id} onChange={(event) => selectModelProvider(event.target.value)}><option value="">请选择</option>{externalProviders.filter((provider) => provider.enabled || provider.id === modelForm.provider_id).map((provider) => <option key={provider.id} value={provider.id}>{provider.display_name}</option>)}</select></label>
           <label className="field"><span>显示名称</span><input required minLength={2} maxLength={80} value={modelForm.display_name} onChange={(event) => setModelForm({ ...modelForm, display_name: event.target.value })} /></label>
-          <label className="field field-wide"><span>模型标识</span><input required maxLength={160} value={modelForm.model_name} onChange={(event) => setModelForm({ ...modelForm, model_name: event.target.value })} /></label>
-          <fieldset className="capability-field field-wide"><legend>能力</legend><div>{(Object.keys(capabilityLabels) as ModelCapability[]).map((capability) => <label key={capability}><input type="checkbox" checked={modelForm.capabilities.includes(capability)} onChange={() => toggleCapability(capability)} />{capabilityLabels[capability]}</label>)}</div></fieldset>
+          <label className="field field-wide"><span>模型标识</span><input required readOnly={paddleProviderSelected} maxLength={160} value={modelForm.model_name} onChange={(event) => setModelForm({ ...modelForm, model_name: event.target.value })} /><small>{paddleProviderSelected ? '当前审批范围固定为 PaddleOCR-VL-1.6。' : '填写服务商实际模型名称。'}</small></label>
+          <fieldset className="capability-field field-wide"><legend>能力</legend><div>{(Object.keys(capabilityLabels) as ModelCapability[]).map((capability) => <label key={capability}><input type="checkbox" disabled={paddleProviderSelected} checked={modelForm.capabilities.includes(capability)} onChange={() => toggleCapability(capability)} />{capabilityLabels[capability]}</label>)}</div>{paddleProviderSelected && <small>PaddleOCR 档案固定声明视觉与文件上传；不用于文本对话或风险结论。</small>}</fieldset>
           <label className="secret-visibility field-wide"><input type="checkbox" checked={modelForm.is_fallback} onChange={(event) => setModelForm({ ...modelForm, is_fallback: event.target.checked })} />作为备用模型（主模型遇到超时、限流或服务不可用时使用）</label>
           <label className="field"><span>上下文长度</span><input required type="number" min={1024} value={modelForm.context_window} onChange={(event) => setModelForm({ ...modelForm, context_window: Number(event.target.value) })} /></label>
           <label className="field"><span>输出上限</span><input required type="number" min={1} value={modelForm.max_output_tokens} onChange={(event) => setModelForm({ ...modelForm, max_output_tokens: Number(event.target.value) })} /></label>

@@ -39,7 +39,7 @@ export type ModelCapability =
 
 export interface ModelProvider {
   id: string
-  provider_kind: 'fake' | 'openai_compatible'
+  provider_kind: 'fake' | 'openai_compatible' | 'paddleocr_aistudio'
   display_name: string
   base_url: string
   secret_configured: boolean
@@ -92,7 +92,7 @@ export interface GatewayOverview {
 }
 
 export interface ModelProviderPayload {
-  provider_kind: 'openai_compatible'
+  provider_kind: 'openai_compatible' | 'paddleocr_aistudio'
   display_name: string
   base_url: string
   api_key?: string
@@ -127,6 +127,7 @@ export interface DocumentRecord {
   native_page_count: number
   scan_page_count: number
   vision_page_count: number
+  external_vision_page_count: number
   vision_status: 'not_required' | 'completed' | 'requires_vision' | 'failed'
 }
 
@@ -140,6 +141,8 @@ export interface PageVisionRecord {
   confidence: number | null
   image_sha256: string | null
   external_request: boolean
+  remote_request_id: string | null
+  remote_cleanup_status: 'not_applicable' | 'unsupported' | 'unknown'
   error_code: string | null
   error_message: string | null
   parse_method: string

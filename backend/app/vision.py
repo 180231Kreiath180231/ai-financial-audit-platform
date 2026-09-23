@@ -10,13 +10,14 @@ from typing import Any
 import pypdfium2 as pdfium
 
 from .db import Database, utc_now
-from .gateway import ModelGateway
+from .gateway import GatewayError, ModelGateway
 
 SCAN_TEXT_MIN_CHARACTERS = 12
 VISION_SCHEMA_VERSION = "vision-page.v1"
 NATIVE_PARSE_VERSION = "pypdf-v2"
 FAKE_VISION_PARSE_VERSION = "fake-vision-v1"
 SCAN_DETECT_PARSE_VERSION = "scan-detect-v1"
+PADDLEOCR_PARSE_VERSION = "paddleocr-aistudio-v1"
 
 
 def is_scanned_page(text: str) -> bool:
@@ -50,6 +51,22 @@ class ScanVisionService:
     ) -> list[dict[str, Any]] | None:
         project = self.database.get_project(project_id)
         synthetic = bool(project["is_synthetic"])
+        use_paddleocr = False
+        if (
+            synthetic
+            and project["external_access_enabled"]
+            and not self.database.strict_offline()
+        ):
+            try:
+                self.gateway.route(
+                    project_id,
+                    "vision",
+                    provider_kind="paddleocr_aistudio",
+                )
+                use_paddleocr = True
+            except GatewayError as exc:
+                if exc.code != "MODEL_ROUTE_UNAVAILABLE":
+                    raise
         analyses: list[dict[str, Any]] = []
         for index, text in enumerate(page_text):
             page_number = index + 1
@@ -61,8 +78,18 @@ class ScanVisionService:
             if not synthetic:
                 analyses.append(self._pending_result(page_number))
                 continue
-            analyses.append(
-                self._fake_result(
+            result = (
+                self._paddleocr_result(
+                    project_id=project_id,
+                    root=root,
+                    task_id=task_id,
+                    source=source,
+                    filename=filename,
+                    page_number=page_number,
+                    safe_point=safe_point,
+                )
+                if use_paddleocr
+                else self._fake_result(
                     project_id=project_id,
                     root=root,
                     task_id=task_id,
@@ -71,6 +98,9 @@ class ScanVisionService:
                     page_number=page_number,
                 )
             )
+            if result is None:
+                return None
+            analyses.append(result)
             if not safe_point(root, task_id, source):
                 return None
         return analyses
@@ -92,6 +122,8 @@ class ScanVisionService:
             "result_json": "{}",
             "image_sha256": None,
             "external_request": False,
+            "remote_request_id": None,
+            "remote_cleanup_status": "not_applicable",
             "error_code": None,
             "error_message": None,
             "parse_method": "native_pdf",
@@ -115,6 +147,8 @@ class ScanVisionService:
             "result_json": "{}",
             "image_sha256": None,
             "external_request": False,
+            "remote_request_id": None,
+            "remote_cleanup_status": "not_applicable",
             "error_code": None,
             "error_message": None,
             "parse_method": "scan_detected",
@@ -167,10 +201,104 @@ class ScanVisionService:
                 "result_json": json.dumps(result, ensure_ascii=False, sort_keys=True),
                 "image_sha256": image_sha256,
                 "external_request": False,
+                "remote_request_id": None,
+                "remote_cleanup_status": "not_applicable",
                 "error_code": None,
                 "error_message": None,
                 "parse_method": "fake_vision",
                 "parse_version": FAKE_VISION_PARSE_VERSION,
+            }
+        finally:
+            if image is not None:
+                image.close()
+            if bitmap is not None:
+                bitmap.close()
+            page.close()
+            pdf_document.close()
+            temp_path.unlink(missing_ok=True)
+
+    def _paddleocr_result(
+        self,
+        *,
+        project_id: str,
+        root: Path,
+        task_id: str,
+        source: Path,
+        filename: str,
+        page_number: int,
+        safe_point: Callable[[Path, str, Path], bool],
+    ) -> dict[str, Any] | None:
+        temp_path = root / "temp" / f"{task_id}-page-{page_number}.png"
+        pdf_document = pdfium.PdfDocument(str(source))
+        page = pdf_document[page_number - 1]
+        bitmap = None
+        image = None
+        image_sha256 = None
+        try:
+            bitmap = page.render(scale=1.5)
+            image = bitmap.to_pil()
+            image.save(temp_path, format="PNG", optimize=True)
+            width, height = image.size
+            image_sha256 = _sha256(temp_path)
+            try:
+                response = self.gateway.analyze_paddleocr_page(
+                    project_id,
+                    task_id=task_id,
+                    document_name=filename,
+                    page_number=page_number,
+                    image_path=temp_path,
+                    image_sha256=image_sha256,
+                    width=width,
+                    height=height,
+                    should_continue=lambda: safe_point(root, task_id, source),
+                )
+            except GatewayError as exc:
+                if exc.code == "OCR_TASK_INTERRUPTED":
+                    return None
+                return {
+                    "id": str(uuid.uuid4()),
+                    "page_number": page_number,
+                    "status": "failed",
+                    "provider_id": None,
+                    "model_profile_id": None,
+                    "provider_name": "PaddleOCR AI Studio",
+                    "actual_model": "PaddleOCR-VL-1.6",
+                    "model_call_id": exc.call_id,
+                    "schema_version": VISION_SCHEMA_VERSION,
+                    "recognized_text": "",
+                    "confidence": None,
+                    "result_json": "{}",
+                    "image_sha256": image_sha256,
+                    "external_request": exc.external_request,
+                    "remote_request_id": exc.remote_request_id,
+                    "remote_cleanup_status": exc.remote_cleanup_status,
+                    "error_code": exc.code,
+                    "error_message": f"{exc.message}；{exc.action}",
+                    "parse_method": "paddleocr_failed",
+                    "parse_version": PADDLEOCR_PARSE_VERSION,
+                }
+            result = response["result"]
+            return {
+                "id": str(uuid.uuid4()),
+                "page_number": page_number,
+                "status": "completed",
+                "provider_id": response["provider_id"],
+                "model_profile_id": response["model_profile_id"],
+                "provider_name": response["provider"],
+                "actual_model": response["actual_model"],
+                "model_call_id": response["call_id"],
+                "schema_version": result["schema_version"],
+                "recognized_text": result["recognized_text"],
+                "confidence": result["confidence"],
+                "result_json": json.dumps(result, ensure_ascii=False, sort_keys=True),
+                "image_sha256": image_sha256,
+                "external_request": True,
+                "remote_request_id": response["remote_request_id"],
+                "remote_cleanup_status": response["remote_cleanup_status"],
+                "error_code": None,
+                "error_message": None,
+                "parse_method": "paddleocr_vision",
+                "parse_version": PADDLEOCR_PARSE_VERSION,
             }
         finally:
             if image is not None:
@@ -202,6 +330,8 @@ def vision_row_values(document_id: str, analysis: dict[str, Any]) -> tuple[Any, 
         int(analysis["external_request"]),
         analysis["error_code"],
         analysis["error_message"],
+        analysis["remote_request_id"],
+        analysis["remote_cleanup_status"],
         now,
         now,
     )

@@ -499,7 +499,7 @@ export function App() {
                         setMobilePane('canvas')
                       }}
                     >
-                      <FilePdf aria-hidden="true" /><span><strong>{document.filename}</strong><small>{document.page_count} 页 · {formatBytes(document.size_bytes)}{document.scan_page_count > 0 ? ` · 扫描页 ${document.scan_page_count}` : ''}</small>{document.vision_status === 'completed' && <small className="vision-state completed">合成视觉完成 · 外部请求 0 次</small>}{document.vision_status === 'requires_vision' && <small className="vision-state pending">扫描页等待视觉策略</small>}</span><b>{document.sha256.slice(0, 6)}</b>
+                      <FilePdf aria-hidden="true" /><span><strong>{document.filename}</strong><small>{document.page_count} 页 · {formatBytes(document.size_bytes)}{document.scan_page_count > 0 ? ` · 扫描页 ${document.scan_page_count}` : ''}</small>{document.vision_status === 'completed' && <small className="vision-state completed">{document.external_vision_page_count > 0 ? `PaddleOCR 合成联调完成 · 外部页面 ${document.external_vision_page_count}` : '合成视觉完成 · 外部请求 0 次'}</small>}{document.vision_status === 'requires_vision' && <small className="vision-state pending">扫描页等待视觉策略</small>}{document.vision_status === 'failed' && <small className="vision-state failed">扫描页视觉解析失败 · 原页已保留</small>}</span><b>{document.sha256.slice(0, 6)}</b>
                     </button>
                   ))}
                 </div>

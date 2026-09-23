@@ -4,20 +4,49 @@ import hashlib
 import json
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from .db import CAPABILITY_COLUMNS, Database, utc_now
 from .openai_compatible import OpenAICompatibleAdapter, ProviderRequestError
+from .paddleocr_aistudio import PaddleOcrAiStudioAdapter, PaddleOcrRequestError
+
+
+def paddleocr_recovery_action(code: str) -> str:
+    return {
+        "OCR_CREDENTIAL_INVALID": "在设置中轮换 PaddleOCR Access Token 后重试",
+        "OCR_BALANCE_INSUFFICIENT": "补充服务额度或更换已批准账户后重试",
+        "OCR_PAGE_TOO_LARGE": "降低扫描页分辨率或压缩页面后重试",
+        "OCR_PAGE_UNREADABLE": "确认本地临时页仍可读取后重新导入",
+        "OCR_TASK_INTERRUPTED": "如仍需识别，请重新发起导入任务",
+        "OCR_RESULT_URL_REJECTED": "联系管理员核验服务商返回的结果地址",
+        "OCR_RESULT_URL_UNRESOLVED": "检查 DNS 与网络连接后重试",
+    }.get(code, "检查 PaddleOCR 服务、令牌和网络后重试；原始页面仍保留在本机")
 
 
 class GatewayError(RuntimeError):
-    def __init__(self, code: str, message: str, action: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        action: str,
+        *,
+        call_id: str | None = None,
+        external_request: bool = False,
+        remote_request_id: str | None = None,
+        remote_cleanup_status: str = "not_applicable",
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.action = action
+        self.call_id = call_id
+        self.external_request = external_request
+        self.remote_request_id = remote_request_id
+        self.remote_cleanup_status = remote_cleanup_status
 
 
 @dataclass(frozen=True)
@@ -41,16 +70,37 @@ class ModelGateway:
     """Capability router with an audited, deny-by-default external boundary."""
 
     def __init__(
-        self, database: Database, adapter: OpenAICompatibleAdapter | None = None
+        self,
+        database: Database,
+        adapter: OpenAICompatibleAdapter | None = None,
+        paddleocr_adapter: PaddleOcrAiStudioAdapter | None = None,
     ) -> None:
         self.database = database
         self.adapter = adapter or OpenAICompatibleAdapter()
+        self.paddleocr_adapter = paddleocr_adapter or PaddleOcrAiStudioAdapter()
 
-    def route(self, project_id: str, capability: str, *, allow_fake: bool = False) -> Route:
-        return self.routes(project_id, capability, allow_fake=allow_fake)[0]
+    def route(
+        self,
+        project_id: str,
+        capability: str,
+        *,
+        allow_fake: bool = False,
+        provider_kind: str | None = None,
+    ) -> Route:
+        return self.routes(
+            project_id,
+            capability,
+            allow_fake=allow_fake,
+            provider_kind=provider_kind,
+        )[0]
 
     def routes(
-        self, project_id: str, capability: str, *, allow_fake: bool = False
+        self,
+        project_id: str,
+        capability: str,
+        *,
+        allow_fake: bool = False,
+        provider_kind: str | None = None,
     ) -> list[Route]:
         column = CAPABILITY_COLUMNS.get(capability)
         if column is None:
@@ -88,6 +138,8 @@ class ModelGateway:
             ).fetchall()
         routes: list[Route] = []
         for row in rows:
+            if provider_kind is not None and row["provider_kind"] != provider_kind:
+                continue
             if allow_fake and row["provider_kind"] == "fake":
                 routes.append(Route(**{**dict(row), "is_fallback": bool(row["is_fallback"])}))
             if not allow_fake and row["provider_kind"] != "fake" and external_allowed:
@@ -311,6 +363,159 @@ class ModelGateway:
                 evidence_refs=evidence_refs,
             )
             raise
+
+    def analyze_paddleocr_page(
+        self,
+        project_id: str,
+        *,
+        task_id: str,
+        document_name: str,
+        page_number: int,
+        image_path: Path,
+        image_sha256: str,
+        width: int,
+        height: int,
+        should_continue: Callable[[], bool],
+    ) -> dict[str, Any]:
+        """Submit one synthetic page to the approved PaddleOCR Jobs API."""
+        call_id = str(uuid.uuid4())
+        started_at = utc_now()
+        started = time.perf_counter()
+        data_scope = {
+            "whole_document": False,
+            "content_type": "image/png",
+            "page_number": page_number,
+            "image_sha256": image_sha256,
+            "width": width,
+            "height": height,
+            "document_name_sha256": hashlib.sha256(
+                document_name.encode("utf-8")
+            ).hexdigest(),
+        }
+        request_summary = hashlib.sha256(
+            json.dumps(data_scope, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        evidence_refs = [f"page:{page_number}:image:{image_sha256}"]
+        route: Route | None = None
+        try:
+            project = self.database.get_project(project_id)
+            if not project["is_synthetic"]:
+                raise GatewayError(
+                    "OCR_REMOTE_RETENTION_UNVERIFIED",
+                    "PaddleOCR 远端保留与删除政策尚未验证，真实审计资料外发已阻止",
+                    "仅使用合成项目联调，或完成服务商数据保留专项审批",
+                )
+            route = self.route(
+                project_id,
+                "vision",
+                provider_kind="paddleocr_aistudio",
+            )
+            if not route.api_key_ref:
+                raise GatewayError(
+                    "OCR_CREDENTIAL_REQUIRED",
+                    "PaddleOCR 尚未配置 Access Token",
+                    "在设置中添加或轮换 PaddleOCR Access Token",
+                )
+            result = self.paddleocr_adapter.analyze_page(
+                job_url=route.base_url,
+                access_token=self.database.secret_store.get(route.api_key_ref),
+                default_headers=json.loads(route.default_headers_json),
+                model_name=route.model_name,
+                page_path=image_path,
+                timeout_seconds=route.timeout_seconds,
+                max_retries=route.max_retries,
+                should_continue=should_continue,
+            )
+            schema_result = {
+                "schema_version": "vision-page.v1",
+                "page_number": page_number,
+                "document_type": None,
+                "year": None,
+                "entity_name": None,
+                "recognized_text": result.recognized_text,
+                "confidence": None,
+                "regions": [],
+                "synthetic_input": True,
+                "remote_cleanup_status": result.remote_cleanup_status,
+            }
+            self._record_call(
+                call_id=call_id,
+                project_id=project_id,
+                task_id=task_id,
+                capability="vision",
+                request_summary=request_summary,
+                route=route,
+                started_at=started_at,
+                started=started,
+                status="completed",
+                evidence_refs=evidence_refs,
+                retry_count=result.retry_count,
+                remote_request_id=result.job_id,
+                remote_cleanup_status=result.remote_cleanup_status,
+                data_scope=data_scope,
+            )
+            return {
+                "call_id": call_id,
+                "provider_id": route.provider_id,
+                "provider": route.provider_name,
+                "model_profile_id": route.model_profile_id,
+                "actual_model": route.model_name,
+                "external_request": True,
+                "remote_request_id": result.job_id,
+                "remote_cleanup_status": result.remote_cleanup_status,
+                "result": schema_result,
+            }
+        except PaddleOcrRequestError as exc:
+            self._record_call(
+                call_id=call_id,
+                project_id=project_id,
+                task_id=task_id,
+                capability="vision",
+                request_summary=request_summary,
+                route=route,
+                started_at=started_at,
+                started=started,
+                status="cancelled" if exc.code == "OCR_TASK_INTERRUPTED" else "failed",
+                error_code=exc.code,
+                evidence_refs=evidence_refs,
+                retry_count=exc.retry_count,
+                remote_request_id=exc.remote_request_id,
+                remote_cleanup_status=exc.remote_cleanup_status,
+                data_scope=data_scope,
+            )
+            raise GatewayError(
+                exc.code,
+                exc.message,
+                paddleocr_recovery_action(exc.code),
+                call_id=call_id,
+                external_request=exc.external_request,
+                remote_request_id=exc.remote_request_id,
+                remote_cleanup_status=exc.remote_cleanup_status,
+            ) from exc
+        except GatewayError as exc:
+            self._record_call(
+                call_id=call_id,
+                project_id=project_id,
+                task_id=task_id,
+                capability="vision",
+                request_summary=request_summary,
+                route=route,
+                started_at=started_at,
+                started=started,
+                status="blocked",
+                error_code=exc.code,
+                evidence_refs=evidence_refs,
+                data_scope=data_scope,
+            )
+            raise GatewayError(
+                exc.code,
+                exc.message,
+                exc.action,
+                call_id=call_id,
+                external_request=exc.external_request,
+                remote_request_id=exc.remote_request_id,
+                remote_cleanup_status=exc.remote_cleanup_status,
+            ) from exc
 
     def complete_external(
         self,
@@ -551,6 +756,9 @@ class ModelGateway:
         cache_hit: bool = False,
         route_role: str = "primary",
         fallback_from_model_profile_id: str | None = None,
+        remote_request_id: str | None = None,
+        remote_cleanup_status: str = "not_applicable",
+        data_scope: dict[str, Any] | None = None,
     ) -> None:
         duration_ms = round((time.perf_counter() - started) * 1000)
         with self.database.connect(self.database.registry_path) as db:
@@ -559,8 +767,9 @@ class ModelGateway:
                 (id, project_id, task_id, provider_id, model_profile_id, capability, started_at,
                  completed_at, duration_ms, evidence_refs_json, request_summary,
                  input_tokens, output_tokens, estimated_cost, cache_hit, retry_count, status,
-                 error_code, route_role, fallback_from_model_profile_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 error_code, route_role, fallback_from_model_profile_id, remote_request_id,
+                 remote_cleanup_status, data_scope_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     call_id,
                     project_id,
@@ -582,5 +791,8 @@ class ModelGateway:
                     error_code,
                     route_role,
                     fallback_from_model_profile_id,
+                    remote_request_id,
+                    remote_cleanup_status,
+                    json.dumps(data_scope or {}, ensure_ascii=False, sort_keys=True),
                 ),
             )
