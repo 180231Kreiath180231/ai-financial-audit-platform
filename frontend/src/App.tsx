@@ -4,7 +4,6 @@ import {
   CaretDown,
   CheckCircle,
   FilePdf,
-  Files,
   HardDrives,
   ListMagnifyingGlass,
   Moon,
@@ -21,6 +20,7 @@ import { api } from './api'
 import { FinancialDataWorkspace } from './components/FinancialDataWorkspace'
 import { DemoDataLoader } from './components/DemoDataLoader'
 import { GatewaySettings } from './components/GatewaySettings'
+import { OutputWorkspace } from './components/OutputWorkspace'
 import { ProjectDialog } from './components/ProjectDialog'
 import { ProjectSearch } from './components/ProjectSearch'
 import { RiskWorkspace } from './components/RiskWorkspace'
@@ -56,10 +56,6 @@ const navItems: { id: View; label: string }[] = [
 const PdfViewer = lazy(() =>
   import('./components/PdfViewer').then((module) => ({ default: module.PdfViewer })),
 )
-
-const laterViews: Record<Exclude<View, 'project' | 'documents' | 'analysis' | 'risks' | 'settings'>, { title: string; phase: string; description: string }> = {
-  outputs: { title: '输出', phase: '迭代五', description: '固定模板与 Word、Excel、PDF 优先级确认后接入历史快照导出。' },
-}
 
 const emptyResources: ResourceSnapshot = {
   cpu_percent: 0,
@@ -674,12 +670,12 @@ export function App() {
           />
         )}
 
-        {view !== 'project' && view !== 'documents' && view !== 'analysis' && view !== 'risks' && view !== 'settings' && (
-          <section className="future-page">
-            <div className="future-icon">{view === 'outputs' ? <Files aria-hidden="true" /> : <ListMagnifyingGlass aria-hidden="true" />}</div>
-            <span className="section-kicker">{laterViews[view].phase}</span><h1>{laterViews[view].title}</h1><p>{laterViews[view].description}</p>
-            <div className="scope-guard"><ShieldCheck aria-hidden="true" /><span><b>范围保护</b>当前页面是禁用态，不伪造分析、风险或导出成功。已确认的文档链路仍可在“项目”和“资料”中使用。</span></div>
-          </section>
+        {view === 'outputs' && (
+          <OutputWorkspace
+            project={selectedProject}
+            risks={risks}
+            onOpenRisks={() => setView('risks')}
+          />
         )}
       </main>
 

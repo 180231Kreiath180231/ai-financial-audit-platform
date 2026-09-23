@@ -63,11 +63,13 @@ test('imports a synthetic PDF and jumps to a matching evidence page', async ({ p
   await projectSearch.getByRole('button', { name: '检索', exact: true }).click()
   await expect(projectSearch.getByText('1 条命中 · 合成混合检索 · 未调用外部服务')).toBeVisible()
   await projectSearch.getByRole('button', { name: /playwright-evidence\.pdf/ }).click()
-  await expect(page.getByRole('region', { name: /playwright-evidence\.pdf 阅读器/ })).toBeVisible()
-  await page.getByRole('textbox', { name: '搜索文档原文' }).fill('AUDIT-EVIDENCE-2025')
-  await page.getByRole('button', { name: '查找' }).click()
-  await expect(page.getByRole('button', { name: /第 1 页/ })).toBeVisible()
-  await page.getByRole('button', { name: /第 1 页/ }).click()
+  const reader = page.getByRole('region', { name: /playwright-evidence\.pdf 阅读器/ })
+  await expect(reader).toBeVisible()
+  await reader.getByRole('textbox', { name: '搜索文档原文' }).fill('AUDIT-EVIDENCE-2025')
+  await reader.getByRole('button', { name: '查找' }).click()
+  const searchHit = reader.getByRole('button', { name: /第 1 页/ })
+  await expect(searchHit).toBeVisible()
+  await searchHit.click()
   await expect(page.getByLabel('页码')).toHaveValue('1')
 })
 
@@ -132,7 +134,7 @@ test('detects a scanned page and completes the local Fake Vision trace', async (
   await expect(viewer.getByLabel('页码')).toHaveValue('1')
 })
 
-test('creates and reviews a versioned risk from resolved evidence', async ({ page }) => {
+test('creates, reviews, and freezes a versioned risk from resolved evidence', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop risk acceptance path')
   await page.goto('/')
 
@@ -171,6 +173,15 @@ test('creates and reviews a versioned risk from resolved evidence', async ({ pag
   await expect(page.getByRole('region', { name: /playwright-risk-evidence\.pdf 阅读器/ })).toBeVisible()
   await expect(page.getByLabel('页码')).toHaveValue('1')
   await expect(page.getByRole('button', { name: '支持证据' })).toBeVisible()
+
+  await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '输出' }).click()
+  await page.getByRole('button', { name: '生成风险清单快照' }).click()
+  await expect(page.getByRole('status')).toContainText('已固化 1 项风险及其证据引用')
+  await expect(page.getByText('R-0001-E01')).toBeVisible()
+  await expect(page.getByText('已核对合成原文与页码')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Word' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Excel' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'PDF' })).toBeDisabled()
 })
 
 test('imports a trial balance and traces a deterministic risk to CSV rows', async ({ page }) => {

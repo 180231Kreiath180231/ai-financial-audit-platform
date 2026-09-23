@@ -370,6 +370,20 @@ class DemoLoadResult(BaseModel):
     external_request: bool = False
 
 
+class OutputSnapshotSummary(BaseModel):
+    id: str
+    output_kind: Literal["risk_register"]
+    schema_version: str
+    template_version: str
+    risk_count: int
+    content_sha256: str
+    created_at: datetime
+
+
+class OutputSnapshotDetail(OutputSnapshotSummary):
+    snapshot: dict
+
+
 class DocumentRecord(BaseModel):
     id: str
     filename: str

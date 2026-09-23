@@ -319,6 +319,64 @@ export interface RiskPayload {
   }>
 }
 
+export interface OutputSnapshotSummary {
+  id: string
+  output_kind: 'risk_register'
+  schema_version: string
+  template_version: string
+  risk_count: number
+  content_sha256: string
+  created_at: string
+}
+
+export interface OutputEvidenceSnapshot {
+  citation: string
+  source_evidence_id: string
+  kind: 'document' | 'financial'
+  direction: EvidenceDirection
+  source_reference: string
+  quote: string
+}
+
+export interface OutputRiskSnapshot {
+  risk_id: string
+  risk_number: string
+  risk_version: number
+  risk_type: string
+  risk_level: '高' | '中' | '低' | '待评估'
+  status: '已核实' | '已关闭'
+  summary: string
+  trigger_rule_id: string
+  trigger_rule_version: string
+  input_values: Record<string, unknown>
+  baseline_values: Record<string, unknown>
+  calculation_result: Record<string, unknown>
+  model_explanation: string | null
+  uncertainty: string
+  human_opinion: string
+  model_source: {
+    provider: string | null
+    actual_model: string | null
+    model_call_id: string | null
+  }
+  evidence: OutputEvidenceSnapshot[]
+}
+
+export interface OutputSnapshotDetail extends OutputSnapshotSummary {
+  snapshot: {
+    schema_version: string
+    output_kind: 'risk_register'
+    project: {
+      id: string
+      name: string
+      entity_name: string
+      year_start: number
+      year_end: number
+    }
+    risks: OutputRiskSnapshot[]
+  }
+}
+
 export interface FinancialPreviewIssue {
   code: string
   message: string

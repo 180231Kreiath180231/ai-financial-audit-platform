@@ -556,6 +556,36 @@ def _project_v8(db: sqlite3.Connection) -> None:
     rebuild_retrieval_chunks(db)
 
 
+def _project_v9(db: sqlite3.Connection) -> None:
+    """Persist immutable, format-neutral output snapshots before file templates exist."""
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS output_snapshots (
+            id TEXT PRIMARY KEY,
+            output_kind TEXT NOT NULL CHECK(output_kind IN ('risk_register')),
+            schema_version TEXT NOT NULL,
+            template_version TEXT NOT NULL,
+            risk_count INTEGER NOT NULL CHECK(risk_count > 0),
+            content_sha256 TEXT NOT NULL,
+            snapshot_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS output_snapshot_risks (
+            snapshot_id TEXT NOT NULL REFERENCES output_snapshots(id),
+            risk_id TEXT NOT NULL,
+            risk_number TEXT NOT NULL,
+            risk_version INTEGER NOT NULL,
+            risk_status TEXT NOT NULL CHECK(risk_status IN ('已核实', '已关闭')),
+            PRIMARY KEY(snapshot_id, risk_id)
+        )"""
+    )
+    db.execute(
+        """CREATE INDEX IF NOT EXISTS idx_output_snapshots_created
+        ON output_snapshots(created_at DESC)"""
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -571,6 +601,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (6, "cjk_trigram_full_text_index", _project_v6),
     (7, "document_search_metadata", _project_v7),
     (8, "retrieval_chunks_and_vector_versions", _project_v8),
+    (9, "immutable_output_snapshots", _project_v9),
 )
 
 

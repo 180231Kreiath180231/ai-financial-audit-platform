@@ -43,6 +43,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (6, "cjk_trigram_full_text_index"),
         (7, "document_search_metadata"),
         (8, "retrieval_chunks_and_vector_versions"),
+        (9, "immutable_output_snapshots"),
     ]
     assert {
         "documents",
@@ -60,6 +61,8 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         "retrieval_chunks",
         "vector_index_versions",
         "chunk_embeddings",
+        "output_snapshots",
+        "output_snapshot_risks",
         "audit_events",
         "schema_migrations",
     } <= tables
@@ -86,7 +89,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:

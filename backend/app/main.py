@@ -41,6 +41,7 @@ from .financial_data import (
 )
 from .gateway import GatewayError, ModelGateway
 from .logging_config import configure_logging
+from .outputs import OutputError, OutputSnapshotService
 from .retrieval import retrieval_status
 from .risks import RiskError, RiskRepository
 from .schemas import (
@@ -69,6 +70,8 @@ from .schemas import (
     ModelProviderRecord,
     ModelProviderUpdate,
     OfflineModeUpdate,
+    OutputSnapshotDetail,
+    OutputSnapshotSummary,
     PageVisionRecord,
     ProjectCreate,
     ProjectSummary,
@@ -100,6 +103,7 @@ model_gateway = ModelGateway(database)
 risk_repository = RiskRepository(database)
 financial_data = FinancialDataService(database)
 demo_data = DemoDataService(database, financial_data, settings.demo_data_dir)
+output_snapshots = OutputSnapshotService(database)
 
 
 def seed_synthetic_project() -> None:
@@ -593,6 +597,55 @@ def create_fake_risk_explanation(project_id: str, risk_id: str) -> dict:
         extra={"project_id": project_id, "risk_id": risk_id},
     )
     return {"risk": updated, "external_request": False}
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/outputs/snapshots",
+    response_model=list[OutputSnapshotSummary],
+    dependencies=[Depends(require_session)],
+)
+def list_output_snapshots(project_id: str) -> list[dict]:
+    project_root_or_error(project_id)
+    return output_snapshots.list(project_id)
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/outputs/snapshots/{snapshot_id}",
+    response_model=OutputSnapshotDetail,
+    dependencies=[Depends(require_session)],
+)
+def get_output_snapshot(project_id: str, snapshot_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return output_snapshots.get(project_id, snapshot_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="输出快照不存在") from exc
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/outputs/risk-register/snapshots",
+    response_model=OutputSnapshotDetail,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_risk_register_snapshot(project_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        snapshot = output_snapshots.create_risk_register(project_id)
+    except OutputError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info(
+        "output.snapshot_created",
+        extra={
+            "project_id": project_id,
+            "snapshot_id": snapshot["id"],
+            "risk_count": snapshot["risk_count"],
+        },
+    )
+    return snapshot
 
 
 @app.get("/api/v1/projects/{project_id}/documents", response_model=list[DocumentRecord], dependencies=[Depends(require_session)])

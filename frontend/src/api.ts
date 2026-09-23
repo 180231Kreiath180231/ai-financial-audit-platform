@@ -10,6 +10,8 @@ import type {
   ModelProfilePayload,
   ModelProvider,
   ModelProviderPayload,
+  OutputSnapshotDetail,
+  OutputSnapshotSummary,
   PageVisionRecord,
   Project,
   ProjectPayload,
@@ -231,6 +233,17 @@ export const api = {
   createFakeRiskExplanation: (projectId: string, riskId: string) =>
     request<{ risk: RiskRecord; external_request: boolean }>(
       `/api/v1/projects/${projectId}/risks/${riskId}/fake-explanation`,
+      { method: 'POST' },
+    ),
+  listOutputSnapshots: (projectId: string) =>
+    request<OutputSnapshotSummary[]>(`/api/v1/projects/${projectId}/outputs/snapshots`),
+  getOutputSnapshot: (projectId: string, snapshotId: string) =>
+    request<OutputSnapshotDetail>(
+      `/api/v1/projects/${projectId}/outputs/snapshots/${snapshotId}`,
+    ),
+  createRiskRegisterSnapshot: (projectId: string) =>
+    request<OutputSnapshotDetail>(
+      `/api/v1/projects/${projectId}/outputs/risk-register/snapshots`,
       { method: 'POST' },
     ),
 }
