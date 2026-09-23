@@ -13,6 +13,7 @@ import type {
 
 interface Props {
   projectId: string
+  isSynthetic: boolean
   documents: DocumentRecord[]
   yearStart: number
   yearEnd: number
@@ -68,6 +69,7 @@ function metadataFor(document: DocumentRecord): DocumentMetadataPayload {
 
 export function ProjectSearch({
   projectId,
+  isSynthetic,
   documents,
   yearStart,
   yearEnd,
@@ -78,6 +80,7 @@ export function ProjectSearch({
 }: Props) {
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
+  const [submittedMode, setSubmittedMode] = useState<'keyword' | 'hybrid'>('keyword')
   const [filters, setFilters] = useState<FilterDraft>(emptyFilters)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [submittedFilterCount, setSubmittedFilterCount] = useState(0)
@@ -93,10 +96,14 @@ export function ProjectSearch({
   const [retrievalError, setRetrievalError] = useState<string | null>(null)
   const [retrievalLoading, setRetrievalLoading] = useState(true)
   const [retrievalRetry, setRetrievalRetry] = useState(0)
+  const [indexBusy, setIndexBusy] = useState(false)
+  const [indexActionError, setIndexActionError] = useState<string | null>(null)
+  const [searchMode, setSearchMode] = useState<'keyword' | 'hybrid'>('keyword')
 
   useEffect(() => {
     setQuery('')
     setSubmittedQuery('')
+    setSubmittedMode('keyword')
     setFilters(emptyFilters)
     setFiltersOpen(false)
     setSubmittedFilterCount(0)
@@ -106,6 +113,9 @@ export function ProjectSearch({
     setMetadata(null)
     setMetadataMessage(null)
     setMetadataError(false)
+    setIndexBusy(false)
+    setIndexActionError(null)
+    setSearchMode('keyword')
   }, [projectId])
 
   useEffect(() => {
@@ -114,7 +124,9 @@ export function ProjectSearch({
     setRetrievalError(null)
     void api.retrievalStatus(projectId)
       .then((status) => {
-        if (active) setRetrieval(status)
+        if (!active) return
+        setRetrieval(status)
+        if (status.vector_state !== 'ready') setSearchMode('keyword')
       })
       .catch((reason: unknown) => {
         if (!active) return
@@ -140,18 +152,36 @@ export function ProjectSearch({
     setBusy(true)
     setError(null)
     try {
-      const nextHits = await api.searchProject(projectId, term, toSearchFilters(filters))
+      const effectiveMode = term ? searchMode : 'keyword'
+      const nextHits = await api.searchProject(projectId, term, toSearchFilters(filters), effectiveMode)
       setHits(nextHits)
       setSubmittedQuery(term)
+      setSubmittedMode(effectiveMode)
       setSubmittedFilterCount(activeFilterCount)
       setFiltersOpen(false)
     } catch (reason) {
       setHits([])
       setSubmittedQuery(term)
+      setSubmittedMode(term ? searchMode : 'keyword')
       setSubmittedFilterCount(activeFilterCount)
       setError(reason instanceof Error ? reason.message : '项目检索失败，请重试')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function buildSyntheticIndex() {
+    if (!isSynthetic || indexBusy) return
+    setIndexBusy(true)
+    setIndexActionError(null)
+    try {
+      const status = await api.buildSyntheticIndex(projectId)
+      setRetrieval(status)
+      setSearchMode('hybrid')
+    } catch (reason) {
+      setIndexActionError(reason instanceof Error ? reason.message : '合成测试索引构建失败')
+    } finally {
+      setIndexBusy(false)
     }
   }
 
@@ -207,10 +237,22 @@ export function ProjectSearch({
               <TextAlignLeft aria-hidden="true" />全文 {retrieval.chunk_count} 段
             </span>
             <span className={retrieval.vector_state === 'ready' ? 'ready' : 'pending'} title={retrieval.action}>
-              <Brain aria-hidden="true" />语义检索 · {retrieval.vector_state === 'ready' ? '就绪' : retrieval.vector_state === 'building' ? '构建中' : retrieval.vector_state === 'failed' ? '失败' : retrieval.vector_state === 'stale' ? '待重建' : '待配置'}
+              <Brain aria-hidden="true" />语义检索 · {retrieval.vector_state === 'ready' && retrieval.actual_model === 'synthetic-hash-embedding-v1' ? '合成就绪' : retrieval.vector_state === 'ready' ? '就绪' : retrieval.vector_state === 'building' ? '构建中' : retrieval.vector_state === 'failed' ? '失败' : retrieval.vector_state === 'stale' ? '待重建' : '待配置'}
             </span>
             <small>{retrieval.external_request ? '已使用外部服务' : '未发送数据'}</small>
+            {isSynthetic && retrieval.chunk_state === 'ready' && retrieval.vector_state !== 'ready' && (
+              <button className="retrieval-action" type="button" disabled={indexBusy} onClick={() => void buildSyntheticIndex()}>{indexBusy ? '构建中…' : '构建合成索引'}</button>
+            )}
+            {isSynthetic && retrieval.vector_state === 'ready' && retrieval.actual_model === 'synthetic-hash-embedding-v1' && (
+              <button className="retrieval-action" type="button" aria-pressed={searchMode === 'hybrid'} onClick={() => setSearchMode((current) => current === 'hybrid' ? 'keyword' : 'hybrid')}>{searchMode === 'hybrid' ? '混合检索已开启' : '启用混合检索'}</button>
+            )}
           </>
+        )}
+        {indexActionError && (
+          <div className="retrieval-readiness-error" role="alert">
+            <span><Warning aria-hidden="true" />{indexActionError}</span>
+            <button type="button" disabled={indexBusy} onClick={() => void buildSyntheticIndex()}><ArrowClockwise aria-hidden="true" />重试构建</button>
+          </div>
         )}
         {!retrievalLoading && retrievalError && (
           <div className="retrieval-readiness-error" role="alert">
@@ -258,10 +300,10 @@ export function ProjectSearch({
       {!error && (submittedQuery || submittedFilterCount > 0) && hits.length === 0 && <div className="project-search-message" role="status">未找到匹配资料。可清除部分筛选，或尝试完整科目名、连续金额和文件名。</div>}
       {hits.length > 0 && (
         <div className="project-search-results" aria-live="polite" aria-label={`${hits.length} 条本地检索结果`}>
-          <p>{hits.length} 条命中{submittedFilterCount > 0 ? ` · ${submittedFilterCount} 项筛选` : ''} · 未调用外部服务</p>
+          <p>{hits.length} 条命中{submittedFilterCount > 0 ? ` · ${submittedFilterCount} 项筛选` : ''} · {submittedMode === 'hybrid' ? '合成混合检索' : '本地全文检索'} · 未调用外部服务</p>
           {hits.map((hit) => (
-            <article key={`${hit.document_id}-${hit.page_number}-${hit.block_number}`}>
-              <button className="project-search-open" type="button" onClick={() => onOpen(hit, submittedQuery)}><FilePdf aria-hidden="true" /><span><strong>{hit.document_name}</strong><small>第 {hit.page_number} 页 · {hit.match_kind === 'filename' ? '文件名命中' : hit.match_kind === 'metadata' ? '标注筛选' : '原文命中'}</small></span></button>
+            <article key={hit.chunk_id ?? `${hit.document_id}-${hit.page_number}-${hit.block_number}`}>
+              <button className="project-search-open" type="button" onClick={() => onOpen(hit, submittedQuery)}><FilePdf aria-hidden="true" /><span><strong>{hit.document_name}</strong><small>第 {hit.page_number} 页 · {hit.match_kind === 'filename' ? '文件名命中' : hit.match_kind === 'metadata' ? '标注筛选' : hit.match_kind === 'semantic' ? '合成语义命中' : '原文命中'}</small></span></button>
               {(hit.fiscal_year || hit.entity_name || hit.document_type || hit.account_names.length > 0) && <div className="search-hit-metadata">{hit.fiscal_year && <span>{hit.fiscal_year}</span>}{hit.entity_name && <span>{hit.entity_name}</span>}{hit.document_type && <span>{hit.document_type}</span>}{hit.account_names.map((account) => <span key={account}>{account}</span>)}</div>}
               <p>{hit.snippet || '该页暂无可提取原文，可打开 PDF 查看。'}</p>
               {hit.snippet && <div className="project-search-actions" aria-label={`${hit.document_name} 第 ${hit.page_number} 页证据方向`}><button type="button" onClick={() => selectEvidence(hit, 'support')}>支持证据</button><button type="button" onClick={() => selectEvidence(hit, 'counter')}>反证</button></div>}

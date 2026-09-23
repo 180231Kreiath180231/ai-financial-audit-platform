@@ -134,6 +134,8 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .retrieval-readiness-error { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--danger); }
 .retrieval-readiness-error > span, .retrieval-readiness-error button { display: inline-flex; align-items: center; gap: 5px; }
 .retrieval-readiness-error button { min-height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); color: var(--text); font-size: 9px; }
+.retrieval-action { min-height: 28px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel); color: var(--muted); font-size: 9px; }
+.retrieval-action:hover:not(:disabled), .retrieval-action[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .project-search-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; margin: 0 12px 9px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel); }
 .project-search-bar > svg { width: 16px; margin-left: 9px; color: var(--quiet); }
 .project-search-bar input { min-width: 0; height: 36px; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 11px; }
@@ -687,7 +689,7 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
   .project-search-bar input { height: 44px; font-size: 16px; }
   .select-wrap select { height: 44px; font-size: 16px; }
   .project-search-bar button { min-width: 66px; }
-  .retrieval-readiness-error button, .project-search-filters summary, .project-search-filter-grid input, .project-search-filter-grid select, .document-metadata-editor input, .project-search-filter-actions button, .document-metadata-actions button, .project-search-open, .project-search-actions button { min-height: 44px; }
+  .retrieval-action, .retrieval-readiness-error button, .project-search-filters summary, .project-search-filter-grid input, .project-search-filter-grid select, .document-metadata-editor input, .project-search-filter-actions button, .document-metadata-actions button, .project-search-open, .project-search-actions button { min-height: 44px; }
   .project-search-filter-grid, .document-metadata-editor { grid-template-columns: 1fr; }
   .document-metadata-editor > div:first-child, .metadata-accounts, .document-metadata-actions, .document-metadata-editor > p { grid-column: 1; }
   .search-hit-actions button { min-height: 44px; }

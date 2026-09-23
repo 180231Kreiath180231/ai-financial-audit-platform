@@ -56,9 +56,12 @@ test('imports a synthetic PDF and jumps to a matching evidence page', async ({ p
   })
 
   const projectSearch = page.getByRole('region', { name: '项目全文检索' })
+  await projectSearch.getByRole('button', { name: '构建合成索引' }).click()
+  await expect(projectSearch.getByText('语义检索 · 合成就绪')).toBeVisible()
+  await expect(projectSearch.getByRole('button', { name: '混合检索已开启' })).toHaveAttribute('aria-pressed', 'true')
   await projectSearch.getByRole('searchbox', { name: '搜索全部本地文档' }).fill('AUDIT-EVIDENCE-2025')
-  await projectSearch.getByRole('button', { name: '检索' }).click()
-  await expect(projectSearch.getByText('1 条命中 · 未调用外部服务')).toBeVisible()
+  await projectSearch.getByRole('button', { name: '检索', exact: true }).click()
+  await expect(projectSearch.getByText('1 条命中 · 合成混合检索 · 未调用外部服务')).toBeVisible()
   await projectSearch.getByRole('button', { name: /playwright-evidence\.pdf/ }).click()
   await expect(page.getByRole('region', { name: /playwright-evidence\.pdf 阅读器/ })).toBeVisible()
   await page.getByRole('textbox', { name: '搜索文档原文' }).fill('AUDIT-EVIDENCE-2025')
@@ -99,7 +102,7 @@ test('versions document metadata and filters without a keyword', async ({ page }
   await filterGrid.getByRole('combobox', { name: '文档类型' }).fill('E2E 专项报告')
   await projectSearch.getByRole('button', { name: '检索' }).click()
 
-  await expect(projectSearch.getByText('1 条命中 · 3 项筛选 · 未调用外部服务')).toBeVisible()
+  await expect(projectSearch.getByText('1 条命中 · 3 项筛选 · 本地全文检索 · 未调用外部服务')).toBeVisible()
   await projectSearch.getByRole('button', { name: /playwright-metadata\.pdf/ }).click()
   await expect(page.getByRole('region', { name: /playwright-metadata\.pdf 阅读器/ })).toBeVisible()
 })

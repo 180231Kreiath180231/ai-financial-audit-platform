@@ -10,6 +10,7 @@ import sqlite3
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 import psutil
 from fastapi import (
@@ -79,6 +80,12 @@ from .schemas import (
 )
 from .search import search_project_pages
 from .security import SESSION_COOKIE, LocalSessionGuard
+from .synthetic_vectors import (
+    SyntheticVectorError,
+    build_synthetic_vector_index,
+    require_synthetic_project,
+    search_synthetic_hybrid,
+)
 from .worker import LocalTaskWorker
 
 settings = load_settings()
@@ -977,6 +984,40 @@ def project_retrieval_status(project_id: str) -> dict:
         return retrieval_status(db)
 
 
+@app.post(
+    "/api/v1/projects/{project_id}/retrieval/synthetic-index",
+    response_model=RetrievalStatus,
+    dependencies=[Depends(require_session)],
+)
+def build_project_synthetic_index(project_id: str) -> dict:
+    project = project_or_404(project_id)
+    try:
+        require_synthetic_project(project["is_synthetic"])
+    except SyntheticVectorError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    root = project_root_or_error(project_id)
+    try:
+        with database.connect(root / "app.db") as db:
+            result = build_synthetic_vector_index(db)
+    except SyntheticVectorError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info(
+        "retrieval.synthetic_index_built",
+        extra={
+            "project_id": project_id,
+            "chunk_count": result["indexed_chunk_count"],
+            "external_request": False,
+        },
+    )
+    return result
+
+
 @app.get(
     "/api/v1/projects/{project_id}/search",
     response_model=list[DocumentSearchHit],
@@ -992,10 +1033,38 @@ def search_project(
     account_name: str | None = Query(default=None, max_length=80),
     document_type: str | None = Query(default=None, max_length=80),
     parse_method: str | None = Query(default=None, max_length=40),
+    mode: Literal["keyword", "hybrid"] = "keyword",
     limit: int = Query(default=20, ge=1, le=50),
 ) -> list[dict]:
+    project = project_or_404(project_id)
     root = project_root_or_error(project_id)
     with database.connect(root / "app.db") as db:
+        if mode == "hybrid" and q.strip():
+            try:
+                require_synthetic_project(project["is_synthetic"])
+            except SyntheticVectorError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"code": exc.code, "message": exc.message, "action": exc.action},
+                ) from exc
+            try:
+                return search_synthetic_hybrid(
+                    db,
+                    q,
+                    document_id=document_id,
+                    page_number=page_number,
+                    fiscal_year=fiscal_year,
+                    entity_name=entity_name,
+                    account_name=account_name,
+                    document_type=document_type,
+                    parse_method=parse_method,
+                    limit=limit,
+                )
+            except SyntheticVectorError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"code": exc.code, "message": exc.message, "action": exc.action},
+                ) from exc
         return search_project_pages(
             db,
             q,

@@ -187,6 +187,8 @@ def retrieval_status(db: sqlite3.Connection) -> dict[str, Any]:
         message = "本地分块与页面原文不一致；需重建后再生成向量索引。"
     elif vector_state == "not_configured":
         message = "全文检索与本地分块可用；语义检索尚未配置，不会发送数据。"
+    elif index is not None and index["actual_model"] == "synthetic-hash-embedding-v1":
+        message = "全文检索与合成测试向量索引可用；未调用外部服务。"
     else:
         message = "全文检索与本地分块可用；语义索引状态已记录。"
 
@@ -196,6 +198,8 @@ def retrieval_status(db: sqlite3.Connection) -> dict[str, Any]:
         action = "使用原模型与维度重建向量索引，或新建独立索引版本。"
     elif vector_state == "failed":
         action = "检查索引失败原因后重试，不要混用不同维度的向量。"
+    elif index is not None and index["actual_model"] == "synthetic-hash-embedding-v1":
+        action = "仅用于合成项目验证检索链路，不代表真实 Embedding 质量。"
     else:
         action = "无需操作。"
 

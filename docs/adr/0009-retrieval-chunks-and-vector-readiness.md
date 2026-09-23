@@ -20,8 +20,8 @@
 ## 安全与实现边界
 
 - 本轮不选择 Embedding 服务商，不发起 Embedding、Rerank 或其他外部请求，不读取或复用聊天中出现的明文密钥。
-- 本轮不新增 sqlite-vec 或其他第三方依赖。后续在 Windows 上验证 sqlite-vec；验证失败时按 PRD 回退到内存余弦检索。
-- 本轮尚未把向量召回接入搜索 API，因而不宣称 PRD-RET-002 或 PRD-RET-003 已完成。
+- 本轮不新增 sqlite-vec 或其他第三方依赖。Windows 临时兼容探测与合成内存余弦链路已由 [ADR-0010](0010-synthetic-hybrid-retrieval.md) 补充；正式依赖仍待打包、迁移和性能验收。
+- 本 ADR 接受时尚未把向量召回接入搜索 API；后续仅合成项目的验证链路由 [ADR-0010](0010-synthetic-hybrid-retrieval.md) 补充，真实 Embedding 仍未进入生产验收。
 - 真实向量构建必须先确认服务商与数据政策，并继续满足严格离线关闭、项目允许外发、统一网关审计和最小必要文本原则。
 
 ## 结果

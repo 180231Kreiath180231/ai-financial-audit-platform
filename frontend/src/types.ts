@@ -225,6 +225,7 @@ export interface ProjectPayload {
 }
 
 export interface SearchHit {
+  chunk_id?: string | null
   document_id: string
   document_name: string
   page_number: number
@@ -232,7 +233,7 @@ export interface SearchHit {
   parse_method: string
   parse_version: string
   snippet: string
-  match_kind: 'content' | 'filename' | 'metadata'
+  match_kind: 'content' | 'filename' | 'metadata' | 'semantic'
   fiscal_year: number | null
   entity_name: string | null
   document_type: string | null

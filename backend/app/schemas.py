@@ -418,6 +418,7 @@ class DocumentMetadataUpdate(BaseModel):
 
 
 class DocumentSearchHit(BaseModel):
+    chunk_id: str | None = None
     document_id: str
     document_name: str
     page_number: int
@@ -425,7 +426,7 @@ class DocumentSearchHit(BaseModel):
     parse_method: str
     parse_version: str
     snippet: str
-    match_kind: Literal["content", "filename", "metadata"]
+    match_kind: Literal["content", "filename", "metadata", "semantic"]
     fiscal_year: int | None = None
     entity_name: str | None = None
     document_type: str | None = None

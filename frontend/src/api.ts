@@ -194,8 +194,8 @@ export const api = {
     request<SearchHit[]>(
       `/api/v1/projects/${projectId}/documents/${documentId}/search?q=${encodeURIComponent(query)}`,
     ),
-  searchProject: (projectId: string, query: string, filters: ProjectSearchFilters = {}) => {
-    const parameters = new URLSearchParams({ q: query, limit: '20' })
+  searchProject: (projectId: string, query: string, filters: ProjectSearchFilters = {}, mode: 'keyword' | 'hybrid' = 'keyword') => {
+    const parameters = new URLSearchParams({ q: query, limit: '20', mode })
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== '') parameters.set(key, String(value))
     })
@@ -203,6 +203,10 @@ export const api = {
   },
   retrievalStatus: (projectId: string) =>
     request<RetrievalStatus>(`/api/v1/projects/${projectId}/retrieval/status`),
+  buildSyntheticIndex: (projectId: string) =>
+    request<RetrievalStatus>(`/api/v1/projects/${projectId}/retrieval/synthetic-index`, {
+      method: 'POST',
+    }),
   listRisks: (projectId: string) =>
     request<RiskRecord[]>(`/api/v1/projects/${projectId}/risks`),
   getRisk: (projectId: string, riskId: string) =>

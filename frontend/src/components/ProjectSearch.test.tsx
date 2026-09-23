@@ -29,7 +29,7 @@ const document: DocumentRecord = {
 }
 
 const baseProps = {
-  projectId: 'project-1', documents: [document], yearStart: 2024, yearEnd: 2025,
+  projectId: 'project-1', isSynthetic: true, documents: [document], yearStart: 2024, yearEnd: 2025,
   onOpen: vi.fn(), onSelectEvidence: vi.fn(), onDocumentUpdated: vi.fn(),
 }
 
@@ -83,7 +83,7 @@ describe('ProjectSearch', () => {
     await user.type(screen.getByRole('searchbox', { name: '搜索全部本地文档' }), '审计证据')
     await user.click(screen.getByRole('button', { name: '检索' }))
 
-    expect(await screen.findByText('1 条命中 · 未调用外部服务')).toBeVisible()
+    expect(await screen.findByText('1 条命中 · 本地全文检索 · 未调用外部服务')).toBeVisible()
     await user.click(screen.getByRole('button', { name: /合成年度报告\.pdf/ }))
     expect(onOpen).toHaveBeenCalledWith(hit, '审计证据')
 
@@ -115,8 +115,8 @@ describe('ProjectSearch', () => {
     await user.selectOptions(screen.getByLabelText('文档'), 'doc-1')
     await user.click(screen.getByRole('button', { name: '检索' }))
 
-    expect(api.searchProject).toHaveBeenCalledWith('project-1', '', expect.objectContaining({ document_id: 'doc-1' }))
-    expect(await screen.findByText('1 条命中 · 1 项筛选 · 未调用外部服务')).toBeVisible()
+    expect(api.searchProject).toHaveBeenCalledWith('project-1', '', expect.objectContaining({ document_id: 'doc-1' }), 'keyword')
+    expect(await screen.findByText('1 条命中 · 1 项筛选 · 本地全文检索 · 未调用外部服务')).toBeVisible()
     await user.click(screen.getByText('结构化筛选'))
     await user.click(screen.getByRole('button', { name: '清除筛选' }))
     expect(screen.getByRole('button', { name: '检索' })).toBeDisabled()
@@ -138,5 +138,51 @@ describe('ProjectSearch', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('版本 2')
     expect(onDocumentUpdated).toHaveBeenCalledWith(expect.objectContaining({ document_type: '专项报告' }))
+  })
+
+  it('builds a synthetic-only index and uses explicit hybrid search mode', async () => {
+    const user = userEvent.setup()
+    const readyStatus = {
+      ...retrievalStatus,
+      vector_state: 'ready' as const,
+      vector_backend: 'memory_cosine' as const,
+      model_profile_id: 'synthetic-hash-embedding-v1',
+      actual_model: 'synthetic-hash-embedding-v1',
+      dimension: 64,
+      indexed_chunk_count: 1,
+    }
+    vi.spyOn(api, 'buildSyntheticIndex').mockResolvedValue(readyStatus)
+    vi.spyOn(api, 'searchProject').mockResolvedValue([{ ...hit, chunk_id: 'chunk-1', match_kind: 'semantic' }])
+    render(<ProjectSearch {...baseProps} />)
+
+    await user.click(await screen.findByRole('button', { name: '构建合成索引' }))
+    expect(await screen.findByText('语义检索 · 合成就绪')).toBeVisible()
+    expect(screen.getByRole('button', { name: '混合检索已开启' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.type(screen.getByRole('searchbox', { name: '搜索全部本地文档' }), '相关证据')
+    await user.click(screen.getByRole('button', { name: '检索' }))
+    expect(api.searchProject).toHaveBeenCalledWith('project-1', '相关证据', expect.any(Object), 'hybrid')
+    expect(await screen.findByRole('button', { name: /合成年度报告\.pdf.*合成语义命中/ })).toBeVisible()
+  })
+
+  it('announces a synthetic index build failure and supports retry', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(api, 'buildSyntheticIndex')
+      .mockRejectedValueOnce(new Error('索引构建暂时失败'))
+      .mockResolvedValueOnce({
+        ...retrievalStatus,
+        vector_state: 'ready',
+        vector_backend: 'memory_cosine',
+        model_profile_id: 'synthetic-hash-embedding-v1',
+        actual_model: 'synthetic-hash-embedding-v1',
+        dimension: 64,
+        indexed_chunk_count: 1,
+      })
+    render(<ProjectSearch {...baseProps} />)
+
+    await user.click(await screen.findByRole('button', { name: '构建合成索引' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('索引构建暂时失败')
+    await user.click(screen.getByRole('button', { name: '重试构建' }))
+    expect(await screen.findByText('语义检索 · 合成就绪')).toBeVisible()
   })
 })

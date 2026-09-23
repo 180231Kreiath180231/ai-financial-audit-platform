@@ -499,6 +499,7 @@ export function App() {
                 {selectedProject && (
                   <ProjectSearch
                     projectId={selectedProject.id}
+                    isSynthetic={selectedProject.is_synthetic}
                     documents={documents}
                     yearStart={selectedProject.year_start}
                     yearEnd={selectedProject.year_end}
