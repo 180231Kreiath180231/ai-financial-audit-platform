@@ -1,0 +1,207 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import uuid
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+import pypdfium2 as pdfium
+
+from .db import Database, utc_now
+from .gateway import ModelGateway
+
+SCAN_TEXT_MIN_CHARACTERS = 12
+VISION_SCHEMA_VERSION = "vision-page.v1"
+NATIVE_PARSE_VERSION = "pypdf-v2"
+FAKE_VISION_PARSE_VERSION = "fake-vision-v1"
+SCAN_DETECT_PARSE_VERSION = "scan-detect-v1"
+
+
+def is_scanned_page(text: str) -> bool:
+    meaningful = sum(1 for character in text if not character.isspace())
+    return meaningful < SCAN_TEXT_MIN_CHARACTERS
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        while chunk := source.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+class ScanVisionService:
+    def __init__(self, database: Database) -> None:
+        self.database = database
+        self.gateway = ModelGateway(database)
+
+    def analyze_pages(
+        self,
+        *,
+        project_id: str,
+        root: Path,
+        task_id: str,
+        source: Path,
+        filename: str,
+        page_text: list[str],
+        safe_point: Callable[[Path, str, Path], bool],
+    ) -> list[dict[str, Any]] | None:
+        project = self.database.get_project(project_id)
+        synthetic = bool(project["is_synthetic"])
+        analyses: list[dict[str, Any]] = []
+        for index, text in enumerate(page_text):
+            page_number = index + 1
+            if not is_scanned_page(text):
+                analyses.append(self._native_result(page_number, text))
+                continue
+            if not safe_point(root, task_id, source):
+                return None
+            if not synthetic:
+                analyses.append(self._pending_result(page_number))
+                continue
+            analyses.append(
+                self._fake_result(
+                    project_id=project_id,
+                    root=root,
+                    task_id=task_id,
+                    source=source,
+                    filename=filename,
+                    page_number=page_number,
+                )
+            )
+            if not safe_point(root, task_id, source):
+                return None
+        return analyses
+
+    @staticmethod
+    def _native_result(page_number: int, text: str) -> dict[str, Any]:
+        return {
+            "id": str(uuid.uuid4()),
+            "page_number": page_number,
+            "status": "not_required",
+            "provider_id": None,
+            "model_profile_id": None,
+            "provider_name": None,
+            "actual_model": None,
+            "model_call_id": None,
+            "schema_version": VISION_SCHEMA_VERSION,
+            "recognized_text": text,
+            "confidence": None,
+            "result_json": "{}",
+            "image_sha256": None,
+            "external_request": False,
+            "error_code": None,
+            "error_message": None,
+            "parse_method": "native_pdf",
+            "parse_version": NATIVE_PARSE_VERSION,
+        }
+
+    @staticmethod
+    def _pending_result(page_number: int) -> dict[str, Any]:
+        return {
+            "id": str(uuid.uuid4()),
+            "page_number": page_number,
+            "status": "requires_vision",
+            "provider_id": None,
+            "model_profile_id": None,
+            "provider_name": None,
+            "actual_model": None,
+            "model_call_id": None,
+            "schema_version": VISION_SCHEMA_VERSION,
+            "recognized_text": "",
+            "confidence": None,
+            "result_json": "{}",
+            "image_sha256": None,
+            "external_request": False,
+            "error_code": None,
+            "error_message": None,
+            "parse_method": "scan_detected",
+            "parse_version": SCAN_DETECT_PARSE_VERSION,
+        }
+
+    def _fake_result(
+        self,
+        *,
+        project_id: str,
+        root: Path,
+        task_id: str,
+        source: Path,
+        filename: str,
+        page_number: int,
+    ) -> dict[str, Any]:
+        temp_path = root / "temp" / f"{task_id}-page-{page_number}.png"
+        pdf_document = pdfium.PdfDocument(str(source))
+        page = pdf_document[page_number - 1]
+        bitmap = None
+        image = None
+        try:
+            bitmap = page.render(scale=1.5)
+            image = bitmap.to_pil()
+            image.save(temp_path, format="PNG", optimize=True)
+            width, height = image.size
+            image_sha256 = _sha256(temp_path)
+            response = self.gateway.analyze_fake_vision_page(
+                project_id,
+                task_id=task_id,
+                document_name=filename,
+                page_number=page_number,
+                image_sha256=image_sha256,
+                width=width,
+                height=height,
+            )
+            result = response["result"]
+            return {
+                "id": str(uuid.uuid4()),
+                "page_number": page_number,
+                "status": "completed",
+                "provider_id": response["provider_id"],
+                "model_profile_id": response["model_profile_id"],
+                "provider_name": response["provider"],
+                "actual_model": response["actual_model"],
+                "model_call_id": response["call_id"],
+                "schema_version": result["schema_version"],
+                "recognized_text": result["recognized_text"],
+                "confidence": result["confidence"],
+                "result_json": json.dumps(result, ensure_ascii=False, sort_keys=True),
+                "image_sha256": image_sha256,
+                "external_request": False,
+                "error_code": None,
+                "error_message": None,
+                "parse_method": "fake_vision",
+                "parse_version": FAKE_VISION_PARSE_VERSION,
+            }
+        finally:
+            if image is not None:
+                image.close()
+            if bitmap is not None:
+                bitmap.close()
+            page.close()
+            pdf_document.close()
+            temp_path.unlink(missing_ok=True)
+
+
+def vision_row_values(document_id: str, analysis: dict[str, Any]) -> tuple[Any, ...]:
+    now = utc_now()
+    return (
+        analysis["id"],
+        document_id,
+        analysis["page_number"],
+        analysis["status"],
+        analysis["provider_id"],
+        analysis["model_profile_id"],
+        analysis["provider_name"],
+        analysis["actual_model"],
+        analysis["model_call_id"],
+        analysis["schema_version"],
+        analysis["recognized_text"],
+        analysis["confidence"],
+        analysis["result_json"],
+        analysis["image_sha256"],
+        int(analysis["external_request"]),
+        analysis["error_code"],
+        analysis["error_message"],
+        now,
+        now,
+    )

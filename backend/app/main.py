@@ -52,6 +52,7 @@ from .schemas import (
     ModelProviderRecord,
     ModelProviderUpdate,
     OfflineModeUpdate,
+    PageVisionRecord,
     ProjectCreate,
     ProjectSummary,
     ResourceSnapshot,
@@ -572,7 +573,49 @@ def create_fake_risk_explanation(project_id: str, risk_id: str) -> dict:
 def list_documents(project_id: str) -> list[dict]:
     root = project_root_or_error(project_id)
     with database.connect(root / "app.db") as db:
-        rows = db.execute("SELECT * FROM documents ORDER BY created_at DESC").fetchall()
+        rows = db.execute(
+            """SELECT d.*,
+            CASE WHEN COUNT(v.id)=0 THEN d.page_count
+                 ELSE SUM(CASE WHEN v.status='not_required' THEN 1 ELSE 0 END) END
+                 native_page_count,
+            SUM(CASE WHEN v.status!='not_required' THEN 1 ELSE 0 END) scan_page_count,
+            SUM(CASE WHEN v.status='completed' THEN 1 ELSE 0 END) vision_page_count,
+            CASE WHEN SUM(CASE WHEN v.status='failed' THEN 1 ELSE 0 END)>0 THEN 'failed'
+                 WHEN SUM(CASE WHEN v.status='requires_vision' THEN 1 ELSE 0 END)>0
+                      THEN 'requires_vision'
+                 WHEN SUM(CASE WHEN v.status='completed' THEN 1 ELSE 0 END)>0 THEN 'completed'
+                 ELSE 'not_required' END vision_status
+            FROM documents d
+            LEFT JOIN page_vision_results v ON v.document_id=d.id
+            GROUP BY d.id ORDER BY d.created_at DESC"""
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/documents/{document_id}/page-analyses",
+    response_model=list[PageVisionRecord],
+    dependencies=[Depends(require_session)],
+)
+def list_page_analyses(project_id: str, document_id: str) -> list[dict]:
+    root = project_root_or_error(project_id)
+    with database.connect(root / "app.db") as db:
+        document = db.execute(
+            "SELECT id FROM documents WHERE id=?", (document_id,)
+        ).fetchone()
+        if document is None:
+            raise HTTPException(status_code=404, detail="文档不存在")
+        rows = db.execute(
+            """SELECT v.page_number, v.status, v.provider_name, v.actual_model,
+            v.model_call_id, v.schema_version, v.confidence, v.image_sha256,
+            v.external_request, v.error_code, v.error_message,
+            p.parse_method, p.parse_version
+            FROM page_vision_results v
+            JOIN pages p ON p.document_id=v.document_id
+                        AND p.page_number=v.page_number AND p.block_number=1
+            WHERE v.document_id=? ORDER BY v.page_number""",
+            (document_id,),
+        ).fetchall()
     return [dict(row) for row in rows]
 
 

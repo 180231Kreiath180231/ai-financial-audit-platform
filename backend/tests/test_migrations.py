@@ -37,6 +37,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (1, "initial_project"),
         (2, "risk_evidence_versions"),
         (3, "financial_datasets_and_rules"),
+        (4, "scanned_page_vision_results"),
     ]
     assert {
         "documents",
@@ -49,6 +50,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         "financial_import_previews",
         "financial_rule_runs",
         "financial_risk_evidence",
+        "page_vision_results",
         "audit_events",
         "schema_migrations",
     } <= tables
@@ -75,7 +77,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4]
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:

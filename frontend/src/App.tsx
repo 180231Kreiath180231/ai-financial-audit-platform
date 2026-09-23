@@ -118,7 +118,7 @@ export function App() {
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId) ?? null
-  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? tasks[0] ?? null
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
   const selectedRisk = risks.find((risk) => risk.id === selectedRiskId) ?? risks[0] ?? null
   const activeTaskCount = tasks.filter((task) => ['queued', 'running', 'pausing'].includes(task.status)).length
 
@@ -489,8 +489,17 @@ export function App() {
                   {documents.length === 0 ? (
                     <div className="compact-empty"><FilePdf aria-hidden="true" /><p>尚无可查看文档</p><span>导入原生 PDF 后，将在本机完成哈希与文本提取。</span></div>
                   ) : documents.map((document) => (
-                    <button key={document.id} className={`document-row ${selectedDocumentId === document.id ? 'active' : ''}`} type="button" onClick={() => { setSelectedDocumentId(document.id); setMobilePane('canvas') }}>
-                      <FilePdf aria-hidden="true" /><span><strong>{document.filename}</strong><small>{document.page_count} 页 · {formatBytes(document.size_bytes)}</small></span><b>{document.sha256.slice(0, 6)}</b>
+                    <button
+                      key={document.id}
+                      className={`document-row ${selectedDocumentId === document.id ? 'active' : ''}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDocumentId(document.id)
+                        setSelectedTaskId(tasks.find((task) => task.document_id === document.id)?.id ?? '')
+                        setMobilePane('canvas')
+                      }}
+                    >
+                      <FilePdf aria-hidden="true" /><span><strong>{document.filename}</strong><small>{document.page_count} 页 · {formatBytes(document.size_bytes)}{document.scan_page_count > 0 ? ` · 扫描页 ${document.scan_page_count}` : ''}</small>{document.vision_status === 'completed' && <small className="vision-state completed">合成视觉完成 · 外部请求 0 次</small>}{document.vision_status === 'requires_vision' && <small className="vision-state pending">扫描页等待视觉策略</small>}</span><b>{document.sha256.slice(0, 6)}</b>
                     </button>
                   ))}
                 </div>
@@ -531,7 +540,7 @@ export function App() {
                       <div><span>本机存储</span><strong>{resources.disk_free_gb || '—'}<em>GB</em></strong><small>可用磁盘空间</small></div>
                     </section>
                     <section className="onboarding">
-                      <div className="onboarding-copy"><span className="section-kicker">第一版可运行闭环</span><h3>从原始 PDF 到可复核页码</h3><p>文件先写入项目隔离目录，再由单工作器计算 SHA-256、检查 PDF 完整性、提取页级原文并保存解析版本。相同文件不会重复解析。</p></div>
+                      <div className="onboarding-copy"><span className="section-kicker">第一版可运行闭环</span><h3>从原始 PDF 到可复核页码</h3><p>文件先写入项目隔离目录，再由单工作器计算 SHA-256、检查 PDF 完整性、提取页级原文并识别扫描页。合成项目可用 Fake Vision 验证页级闭环，相同文件不会重复解析。</p></div>
                       <ol className="process-steps">
                         <li className="done"><span>01</span><div><b>创建隔离项目</b><small>独立目录与 SQLite 数据库</small></div></li>
                         <li className={tasks.length ? 'done' : ''}><span>02</span><div><b>导入并去重</b><small>损坏文件隔离，整批继续</small></div></li>
@@ -540,7 +549,7 @@ export function App() {
                       </ol>
                     </section>
                     <section className="security-ledger">
-                      <div><ShieldCheck aria-hidden="true" /><span><b>严格离线已生效</b><small>当前版本不包含任何模型、OCR、Embedding 或遥测外发。</small></span></div>
+                      <div><ShieldCheck aria-hidden="true" /><span><b>严格离线已生效</b><small>合成项目的 Fake Vision 只验证扫描页流程；真实页面、OCR、Embedding 和遥测均不会外发。</small></span></div>
                       <div><HardDrives aria-hidden="true" /><span><b>{selectedProject?.storage_path ?? '本地项目目录'}</b><small>原始文件、解析结果与任务轨迹均保存在本机。</small></span></div>
                     </section>
                   </div>

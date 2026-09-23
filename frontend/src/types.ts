@@ -124,6 +124,26 @@ export interface DocumentRecord {
   parse_method: string
   parse_version: string
   created_at: string
+  native_page_count: number
+  scan_page_count: number
+  vision_page_count: number
+  vision_status: 'not_required' | 'completed' | 'requires_vision' | 'failed'
+}
+
+export interface PageVisionRecord {
+  page_number: number
+  status: 'not_required' | 'completed' | 'requires_vision' | 'failed'
+  provider_name: string | null
+  actual_model: string | null
+  model_call_id: string | null
+  schema_version: string
+  confidence: number | null
+  image_sha256: string | null
+  external_request: boolean
+  error_code: string | null
+  error_message: string | null
+  parse_method: string
+  parse_version: string
 }
 
 export interface TaskRecord {

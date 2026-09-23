@@ -102,7 +102,15 @@ class Database:
                 self._project_migration_errors[project["id"]] = str(exc)
 
     def init_project_db(self, root: Path) -> None:
-        for folder in ("files", "incoming", "quarantine", "exports", "financial"):
+        for folder in (
+            "files",
+            "incoming",
+            "quarantine",
+            "exports",
+            "financial",
+            "derived",
+            "temp",
+        ):
             (root / folder).mkdir(parents=True, exist_ok=True)
         with self.connect(root / "app.db") as db:
             apply_migrations(db, "project", PROJECT_MIGRATIONS)

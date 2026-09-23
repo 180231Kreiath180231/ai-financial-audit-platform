@@ -368,6 +368,36 @@ def _project_v3(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v4(db: sqlite3.Connection) -> None:
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS page_vision_results (
+            id TEXT PRIMARY KEY,
+            document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+            page_number INTEGER NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('not_required', 'completed', 'requires_vision', 'failed')),
+            provider_id TEXT,
+            model_profile_id TEXT,
+            provider_name TEXT,
+            actual_model TEXT,
+            model_call_id TEXT,
+            schema_version TEXT NOT NULL,
+            recognized_text TEXT NOT NULL DEFAULT '',
+            confidence REAL,
+            result_json TEXT NOT NULL DEFAULT '{}',
+            image_sha256 TEXT,
+            external_request INTEGER NOT NULL DEFAULT 0 CHECK(external_request IN (0, 1)),
+            error_code TEXT,
+            error_message TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(document_id, page_number)
+        )"""
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_page_vision_document_status ON page_vision_results(document_id, status, page_number)"
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -377,6 +407,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_project", _project_v1),
     (2, "risk_evidence_versions", _project_v2),
     (3, "financial_datasets_and_rules", _project_v3),
+    (4, "scanned_page_vision_results", _project_v4),
 )
 
 

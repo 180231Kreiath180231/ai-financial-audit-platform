@@ -362,6 +362,28 @@ class DocumentRecord(BaseModel):
     parse_method: str
     parse_version: str
     created_at: datetime
+    native_page_count: int = 0
+    scan_page_count: int = 0
+    vision_page_count: int = 0
+    vision_status: Literal["not_required", "completed", "requires_vision", "failed"] = (
+        "not_required"
+    )
+
+
+class PageVisionRecord(BaseModel):
+    page_number: int
+    status: Literal["not_required", "completed", "requires_vision", "failed"]
+    provider_name: str | None = None
+    actual_model: str | None = None
+    model_call_id: str | None = None
+    schema_version: str
+    confidence: float | None = None
+    image_sha256: str | None = None
+    external_request: bool = False
+    error_code: str | None = None
+    error_message: str | None = None
+    parse_method: str
+    parse_version: str
 
 
 class UploadResult(BaseModel):

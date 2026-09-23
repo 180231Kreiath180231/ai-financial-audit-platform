@@ -3,7 +3,13 @@ import { ArrowLeft, ArrowRight, MagnifyingGlass, Minus, Plus } from '@phosphor-i
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { api } from '../api'
-import type { DocumentRecord, EvidenceDirection, EvidenceSelection, SearchHit } from '../types'
+import type {
+  DocumentRecord,
+  EvidenceDirection,
+  EvidenceSelection,
+  PageVisionRecord,
+  SearchHit,
+} from '../types'
 
 GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -29,6 +35,7 @@ export function PdfViewer({
   const [scale, setScale] = useState(1.15)
   const [query, setQuery] = useState(initialQuery)
   const [hits, setHits] = useState<SearchHit[]>([])
+  const [pageAnalyses, setPageAnalyses] = useState<PageVisionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,7 +46,13 @@ export function PdfViewer({
     setPage(initialPage)
     setQuery(initialQuery)
     setHits([])
+    setPageAnalyses([])
     const task = getDocument({ url: api.documentUrl(projectId, document.id), withCredentials: true })
+    api.listPageAnalyses(projectId, document.id)
+      .then((analyses) => active && setPageAnalyses(analyses))
+      .catch((reason: unknown) => {
+        if (active) setError(reason instanceof Error ? reason.message : '页面解析状态加载失败')
+      })
     task.promise
       .then((loaded) => {
         if (active) setPdf(loaded)
@@ -54,6 +67,8 @@ export function PdfViewer({
       setPdf(null)
     }
   }, [document.id, initialPage, initialQuery, projectId])
+
+  const currentAnalysis = pageAnalyses.find((analysis) => analysis.page_number === page)
 
   useEffect(() => {
     const trimmed = initialQuery.trim()
@@ -123,7 +138,7 @@ export function PdfViewer({
       <div className="viewer-toolbar">
         <div className="viewer-file">
           <strong>{document.filename}</strong>
-          <span>{document.page_count} 页 · 本地解析</span>
+          <span>{document.page_count} 页 · {document.scan_page_count > 0 ? `${document.scan_page_count} 个扫描页` : '原生文本解析'}</span>
         </div>
         <div className="viewer-controls" aria-label="PDF 页面与缩放控制">
           <button className="icon-button" type="button" aria-label="上一页" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ArrowLeft aria-hidden="true" /></button>
@@ -140,6 +155,18 @@ export function PdfViewer({
         <input aria-label="搜索文档原文" placeholder="搜索本地提取的原文" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void search()} />
         <button type="button" onClick={() => void search()}>查找</button>
       </div>
+      {currentAnalysis?.status === 'completed' && <div className="page-analysis-status completed" role="status">
+        <MagnifyingGlass aria-hidden="true" />
+        <span><b>第 {page} 页 · 合成视觉解析</b>{currentAnalysis.provider_name} / {currentAnalysis.actual_model} · 外部请求 {currentAnalysis.external_request ? 1 : 0} 次</span>
+      </div>}
+      {currentAnalysis?.status === 'requires_vision' && <div className="page-analysis-status pending" role="note">
+        <MagnifyingGlass aria-hidden="true" />
+        <span><b>第 {page} 页 · 已识别为扫描页</b>当前未上传页面；需要经批准的视觉模型策略后才能解析。</span>
+      </div>}
+      {currentAnalysis?.status === 'failed' && <div className="page-analysis-status failed" role="alert">
+        <MagnifyingGlass aria-hidden="true" />
+        <span><b>第 {page} 页 · 视觉解析失败</b>{currentAnalysis.error_message || '保留原页，可重试或人工处理。'}</span>
+      </div>}
       {hits.length > 0 && (
         <div className="search-hits" aria-live="polite">
           {hits.map((hit) => (

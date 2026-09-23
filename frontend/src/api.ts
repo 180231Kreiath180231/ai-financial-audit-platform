@@ -8,6 +8,7 @@ import type {
   ModelProfilePayload,
   ModelProvider,
   ModelProviderPayload,
+  PageVisionRecord,
   Project,
   ProjectPayload,
   ResourceSnapshot,
@@ -113,6 +114,10 @@ export const api = {
     ),
   listDocuments: (projectId: string) =>
     request<DocumentRecord[]>(`/api/v1/projects/${projectId}/documents`),
+  listPageAnalyses: (projectId: string, documentId: string) =>
+    request<PageVisionRecord[]>(
+      `/api/v1/projects/${projectId}/documents/${documentId}/page-analyses`,
+    ),
   listTasks: (projectId: string) => request<TaskRecord[]>(`/api/v1/projects/${projectId}/tasks`),
   uploadDocuments: (projectId: string, files: File[]) => {
     const form = new FormData()

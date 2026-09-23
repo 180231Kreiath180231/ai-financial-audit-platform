@@ -225,6 +225,93 @@ class ModelGateway:
             )
             raise
 
+    def analyze_fake_vision_page(
+        self,
+        project_id: str,
+        *,
+        task_id: str,
+        document_name: str,
+        page_number: int,
+        image_sha256: str,
+        width: int,
+        height: int,
+    ) -> dict[str, Any]:
+        """Return an explicitly synthetic page result without transmitting image bytes."""
+        call_id = str(uuid.uuid4())
+        started_at = utc_now()
+        started = time.perf_counter()
+        request = {
+            "schema_version": "vision-page.v1",
+            "document_name": document_name,
+            "page_number": page_number,
+            "image_sha256": image_sha256,
+            "width": width,
+            "height": height,
+        }
+        request_summary = hashlib.sha256(
+            json.dumps(request, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        evidence_refs = [f"page:{page_number}:image:{image_sha256}"]
+        try:
+            route = self.route(project_id, "vision", allow_fake=True)
+            if route.provider_kind != "fake":
+                raise GatewayError(
+                    "FAKE_PROVIDER_REQUIRED",
+                    "合成扫描页只能使用 Fake Provider",
+                    "保留并启用本地 Fake Provider",
+                )
+            recognized_text = (
+                f"合成扫描页 {page_number}：Fake Vision 已验证页级定位；"
+                "未识别或生成真实业务内容。"
+            )
+            result = {
+                "schema_version": "vision-page.v1",
+                "page_number": page_number,
+                "document_type": "合成扫描件",
+                "year": None,
+                "entity_name": None,
+                "recognized_text": recognized_text,
+                "confidence": 0.0,
+                "regions": [],
+                "synthetic": True,
+            }
+            self._record_call(
+                call_id=call_id,
+                project_id=project_id,
+                task_id=task_id,
+                capability="vision",
+                request_summary=request_summary,
+                route=route,
+                started_at=started_at,
+                started=started,
+                status="completed",
+                evidence_refs=evidence_refs,
+            )
+            return {
+                "call_id": call_id,
+                "provider_id": route.provider_id,
+                "provider": route.provider_name,
+                "model_profile_id": route.model_profile_id,
+                "actual_model": route.model_name,
+                "external_request": False,
+                "result": result,
+            }
+        except GatewayError as exc:
+            self._record_call(
+                call_id=call_id,
+                project_id=project_id,
+                task_id=task_id,
+                capability="vision",
+                request_summary=request_summary,
+                route=None,
+                started_at=started_at,
+                started=started,
+                status="blocked",
+                error_code=exc.code,
+                evidence_refs=evidence_refs,
+            )
+            raise
+
     def complete_external(
         self,
         project_id: str,
@@ -448,6 +535,7 @@ class ModelGateway:
         *,
         call_id: str,
         project_id: str,
+        task_id: str | None = None,
         capability: str,
         request_summary: str,
         route: Route | None,
@@ -468,14 +556,15 @@ class ModelGateway:
         with self.database.connect(self.database.registry_path) as db:
             db.execute(
                 """INSERT INTO model_calls
-                (id, project_id, provider_id, model_profile_id, capability, started_at,
+                (id, project_id, task_id, provider_id, model_profile_id, capability, started_at,
                  completed_at, duration_ms, evidence_refs_json, request_summary,
                  input_tokens, output_tokens, estimated_cost, cache_hit, retry_count, status,
                  error_code, route_role, fallback_from_model_profile_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     call_id,
                     project_id,
+                    task_id,
                     route.provider_id if route else None,
                     route.model_profile_id if route else None,
                     capability,

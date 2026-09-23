@@ -9,7 +9,13 @@ from backend.app.db import Database, utc_now
 from backend.app.schemas import ProjectCreate
 
 
-def create_project(database: Database, root: Path, name: str | None = None) -> dict:
+def create_project(
+    database: Database,
+    root: Path,
+    name: str | None = None,
+    *,
+    is_synthetic: bool = True,
+) -> dict:
     return database.create_project(
         ProjectCreate(
             name=name or f"合成项目-{root.name}",
@@ -19,7 +25,7 @@ def create_project(database: Database, root: Path, name: str | None = None) -> d
             storage_path=str(root),
             model_profile="严格离线 / Fake Provider",
         ),
-        is_synthetic=True,
+        is_synthetic=is_synthetic,
     )
 
 

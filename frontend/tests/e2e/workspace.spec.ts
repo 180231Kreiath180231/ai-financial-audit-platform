@@ -64,6 +64,31 @@ test('imports a synthetic PDF and jumps to a matching evidence page', async ({ p
   await expect(page.getByLabel('页码')).toHaveValue('1')
 })
 
+test('detects a scanned page and completes the local Fake Vision trace', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop', 'desktop scanned-page acceptance path')
+  await page.goto('/')
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'playwright-scanned-page.pdf',
+    mimeType: 'application/pdf',
+    buffer: syntheticTextPdf(''),
+  })
+  const documentList = page.getByLabel('已导入文档')
+  const documentRow = documentList.getByRole('button', { name: /playwright-scanned-page\.pdf/ })
+  await expect(documentRow).toContainText('扫描页 1', { timeout: 20_000 })
+  await expect(documentRow).toContainText('合成视觉完成 · 外部请求 0 次')
+  await documentRow.click()
+
+  const viewer = page.getByRole('region', { name: /playwright-scanned-page\.pdf 阅读器/ })
+  await expect(page.getByRole('complementary', { name: '复核与处置面板' }).getByRole('heading')).toHaveText('playwright-scanned-page.pdf')
+  await expect(viewer.getByRole('status')).toContainText('第 1 页 · 合成视觉解析')
+  await expect(viewer.getByRole('status')).toContainText('Fake Provider / fake-structured-v1 · 外部请求 0 次')
+  await viewer.getByRole('textbox', { name: '搜索文档原文' }).fill('Fake Vision')
+  await viewer.getByRole('button', { name: '查找' }).click()
+  await expect(viewer.getByRole('button', { name: /第 1 页/ })).toContainText('Fake Vision')
+  await expect(viewer.getByLabel('页码')).toHaveValue('1')
+})
+
 test('creates and reviews a versioned risk from resolved evidence', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop risk acceptance path')
   await page.goto('/')
