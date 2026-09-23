@@ -12,7 +12,17 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import psutil
-from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import Response as FastAPIResponse
@@ -32,6 +42,7 @@ from .risks import RiskError, RiskRepository
 from .schemas import (
     ApiError,
     DocumentRecord,
+    DocumentSearchHit,
     ExternalAccessUpdate,
     FakeRiskDraftResult,
     FinancialConfirmResult,
@@ -62,6 +73,7 @@ from .schemas import (
     TaskRecord,
     UploadResult,
 )
+from .search import search_project_pages
 from .security import SESSION_COOKIE, LocalSessionGuard
 from .worker import LocalTaskWorker
 
@@ -906,24 +918,47 @@ def document_file(project_id: str, document_id: str) -> FileResponse:
     return FileResponse(row["stored_path"], media_type="application/pdf", filename=row["filename"])
 
 
-@app.get("/api/v1/projects/{project_id}/documents/{document_id}/search", dependencies=[Depends(require_session)])
-def search_document(project_id: str, document_id: str, q: str) -> list[dict]:
+@app.get(
+    "/api/v1/projects/{project_id}/search",
+    response_model=list[DocumentSearchHit],
+    dependencies=[Depends(require_session)],
+)
+def search_project(
+    project_id: str,
+    q: str = Query(max_length=200),
+    document_id: str | None = None,
+    page_number: int | None = Query(default=None, ge=1),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> list[dict]:
     root = project_root_or_error(project_id)
-    term = q.strip()
-    if not term:
-        return []
     with database.connect(root / "app.db") as db:
-        rows = db.execute(
-            """SELECT page_number, block_number, parse_method, parse_version,
-            substr(original_text,
-                   max(1, instr(lower(original_text), lower(?)) - 100),
-                   320) snippet
-            FROM pages
-            WHERE document_id=? AND instr(lower(original_text), lower(?)) > 0
-            ORDER BY page_number LIMIT 20""",
-            (term, document_id, term),
-        ).fetchall()
-    return [dict(row) for row in rows]
+        return search_project_pages(
+            db,
+            q,
+            document_id=document_id,
+            page_number=page_number,
+            limit=limit,
+        )
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/documents/{document_id}/search",
+    response_model=list[DocumentSearchHit],
+    dependencies=[Depends(require_session)],
+)
+def search_document(
+    project_id: str,
+    document_id: str,
+    q: str = Query(max_length=200),
+) -> list[dict]:
+    root = project_root_or_error(project_id)
+    with database.connect(root / "app.db") as db:
+        document = db.execute(
+            "SELECT 1 FROM documents WHERE id=?", (document_id,)
+        ).fetchone()
+        if document is None:
+            raise HTTPException(status_code=404, detail="文档不存在")
+        return search_project_pages(db, q, document_id=document_id, limit=20)
 
 
 @app.get("/api/v1/resources", response_model=ResourceSnapshot, dependencies=[Depends(require_session)])

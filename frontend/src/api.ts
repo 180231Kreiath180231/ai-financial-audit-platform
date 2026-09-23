@@ -179,6 +179,10 @@ export const api = {
     request<SearchHit[]>(
       `/api/v1/projects/${projectId}/documents/${documentId}/search?q=${encodeURIComponent(query)}`,
     ),
+  searchProject: (projectId: string, query: string) =>
+    request<SearchHit[]>(
+      `/api/v1/projects/${projectId}/search?q=${encodeURIComponent(query)}&limit=20`,
+    ),
   listRisks: (projectId: string) =>
     request<RiskRecord[]>(`/api/v1/projects/${projectId}/risks`),
   getRisk: (projectId: string, riskId: string) =>

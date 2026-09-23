@@ -426,6 +426,41 @@ def _project_v5(db: sqlite3.Connection) -> None:
         )
 
 
+def _project_v6(db: sqlite3.Connection) -> None:
+    """Rebuild the derived full-text index for CJK substring search."""
+    db.execute("DROP TRIGGER IF EXISTS pages_ai")
+    db.execute("DROP TRIGGER IF EXISTS pages_ad")
+    db.execute("DROP TRIGGER IF EXISTS pages_au")
+    db.execute("DROP TABLE IF EXISTS pages_fts")
+    db.execute(
+        """CREATE VIRTUAL TABLE pages_fts USING fts5(
+            original_text,
+            content='pages',
+            content_rowid='rowid',
+            tokenize='trigram'
+        )"""
+    )
+    db.execute("INSERT INTO pages_fts(pages_fts) VALUES ('rebuild')")
+    db.execute(
+        """CREATE TRIGGER pages_ai AFTER INSERT ON pages BEGIN
+            INSERT INTO pages_fts(rowid, original_text) VALUES (new.rowid, new.original_text);
+        END"""
+    )
+    db.execute(
+        """CREATE TRIGGER pages_ad AFTER DELETE ON pages BEGIN
+            INSERT INTO pages_fts(pages_fts, rowid, original_text)
+            VALUES ('delete', old.rowid, old.original_text);
+        END"""
+    )
+    db.execute(
+        """CREATE TRIGGER pages_au AFTER UPDATE OF original_text ON pages BEGIN
+            INSERT INTO pages_fts(pages_fts, rowid, original_text)
+            VALUES ('delete', old.rowid, old.original_text);
+            INSERT INTO pages_fts(rowid, original_text) VALUES (new.rowid, new.original_text);
+        END"""
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -438,6 +473,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (3, "financial_datasets_and_rules", _project_v3),
     (4, "scanned_page_vision_results", _project_v4),
     (5, "scanned_page_remote_lifecycle", _project_v5),
+    (6, "cjk_trigram_full_text_index", _project_v6),
 )
 
 

@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 
 from backend.app.db import Database
-from backend.app.migrations import REGISTRY_MIGRATIONS, apply_migrations
+from backend.app.migrations import PROJECT_MIGRATIONS, REGISTRY_MIGRATIONS, apply_migrations
 from backend.tests.helpers import create_project
 
 
@@ -40,6 +40,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (3, "financial_datasets_and_rules"),
         (4, "scanned_page_vision_results"),
         (5, "scanned_page_remote_lifecycle"),
+        (6, "cjk_trigram_full_text_index"),
     ]
     assert {
         "documents",
@@ -79,7 +80,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6]
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:
@@ -113,3 +114,28 @@ def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -
         "model_calls",
         "cache_entries",
     } <= tables
+
+
+def test_project_v6_rebuilds_existing_pages_into_trigram_index(tmp_path: Path) -> None:
+    path = tmp_path / "legacy-project.db"
+    connection = sqlite3.connect(path, isolation_level=None)
+    try:
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS[:5])
+        connection.execute(
+            "INSERT INTO documents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("doc-1", "合成审计报告.pdf", "a" * 64, 12, 1, "native_pdf", "v1", "x.pdf", "now"),
+        )
+        connection.execute(
+            "INSERT INTO pages VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("page-1", "doc-1", 1, 1, "这是迁移前的合成审计证据。", "native_pdf", "v1"),
+        )
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS)
+
+        hit = connection.execute(
+            "SELECT original_text FROM pages_fts WHERE pages_fts MATCH ?",
+            ('"审计证据"',),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert hit == ("这是迁移前的合成审计证据。",)

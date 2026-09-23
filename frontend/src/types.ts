@@ -184,19 +184,20 @@ export interface ProjectPayload {
 }
 
 export interface SearchHit {
+  document_id: string
+  document_name: string
   page_number: number
   block_number: number
   parse_method: string
   parse_version: string
   snippet: string
+  match_kind: 'content' | 'filename'
 }
 
 export type EvidenceDirection = 'support' | 'counter'
 export type RiskStatus = '待复核' | '已核实' | '已排除' | '待补证' | '已关闭'
 
 export interface EvidenceSelection extends SearchHit {
-  document_id: string
-  document_name: string
   direction: EvidenceDirection
 }
 

@@ -55,7 +55,11 @@ test('imports a synthetic PDF and jumps to a matching evidence page', async ({ p
     timeout: 20_000,
   })
 
-  await documentRow.click()
+  const projectSearch = page.getByRole('region', { name: '项目全文检索' })
+  await projectSearch.getByRole('searchbox', { name: '搜索全部本地文档' }).fill('AUDIT-EVIDENCE-2025')
+  await projectSearch.getByRole('button', { name: '检索' }).click()
+  await expect(projectSearch.getByText('1 条命中 · 未调用外部服务')).toBeVisible()
+  await projectSearch.getByRole('button', { name: /playwright-evidence\.pdf/ }).click()
   await expect(page.getByRole('region', { name: /playwright-evidence\.pdf 阅读器/ })).toBeVisible()
   await page.getByRole('textbox', { name: '搜索文档原文' }).fill('AUDIT-EVIDENCE-2025')
   await page.getByRole('button', { name: '查找' }).click()
@@ -101,11 +105,10 @@ test('creates and reviews a versioned risk from resolved evidence', async ({ pag
   const documentList = page.getByLabel('已导入文档')
   const documentRow = documentList.getByRole('button', { name: /playwright-risk-evidence\.pdf/ })
   await expect(documentRow).toBeVisible({ timeout: 20_000 })
-  await documentRow.click()
-
-  await page.getByRole('textbox', { name: '搜索文档原文' }).fill('RISK-EVIDENCE-LOCAL-ONLY')
-  await page.getByRole('button', { name: '查找' }).click()
-  await page.getByRole('button', { name: '支持证据' }).click()
+  const projectSearch = page.getByRole('region', { name: '项目全文检索' })
+  await projectSearch.getByRole('searchbox', { name: '搜索全部本地文档' }).fill('RISK-EVIDENCE-LOCAL-ONLY')
+  await projectSearch.getByRole('button', { name: '检索' }).click()
+  await projectSearch.getByRole('button', { name: '支持证据' }).click()
 
   const decisionPanel = page.getByRole('complementary', { name: '复核与处置面板' })
   await expect(decisionPanel.getByRole('heading', { name: '证据草稿（1）' })).toBeVisible()

@@ -378,6 +378,17 @@ class DocumentRecord(BaseModel):
     )
 
 
+class DocumentSearchHit(BaseModel):
+    document_id: str
+    document_name: str
+    page_number: int
+    block_number: int
+    parse_method: str
+    parse_version: str
+    snippet: str
+    match_kind: Literal["content", "filename"]
+
+
 class PageVisionRecord(BaseModel):
     page_number: int
     status: Literal["not_required", "completed", "requires_vision", "failed"]

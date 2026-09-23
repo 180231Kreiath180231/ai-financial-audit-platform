@@ -66,6 +66,7 @@ scripts/              文档生成脚本
 - 模型网关支持对超时、限流和服务不可用进行可审计的备用模型切换；本地响应缓存可启停、统计和二次确认清空。
 - 服务商与模型档案支持二次确认删除；有关联模型的服务商会拒绝删除，历史调用审计始终保留。
 - 支持从本地 PDF 搜索命中选择支持证据或反证；服务端重新校验并固化页码、文本块、原文片段和解析版本。
+- 支持跨项目全部本地文档的 FTS5 中文全文检索、短词与文件名回退；命中可直接跳转 PDF 页码或加入支持证据/反证，全程不调用外部服务。
 - PDF 导入会识别无足够原生文本的扫描页；合成项目逐页本地渲染并用 Fake Vision 生成明确标注的固定 JSON，真实项目保持“等待视觉策略”且不会上传页面。
 - 可配置 PaddleOCR AI Studio 专用服务商与 `PaddleOCR-VL-1.6` 模型档案；只有关闭严格离线、项目显式授权且项目标记为 synthetic 时，才会逐页上传临时 PNG 并轮询异步 Job。整份 PDF、文件名和返回图片均不外发或下载。
 - PaddleOCR Access Token 通过 Windows DPAPI 加密，SQLite 仅保存引用；调用审计记录页码、图像摘要、Job ID 和远端清理状态。由于服务商示例未提供删除接口，真实审计资料继续被硬阻断。
@@ -87,6 +88,9 @@ scripts/              文档生成脚本
 PaddleOCR AI Studio 的合成数据专用接入、安全门禁和远端生命周期限制记录在
 [ADR-0006](docs/adr/0006-paddleocr-aistudio-synthetic-only.md) 与
 [专项验收记录](docs/acceptance/iteration-3-paddleocr-aistudio-2026-09-22.md)。
+项目级中文全文检索、精确证据片段和本地边界记录在
+[ADR-0007](docs/adr/0007-project-full-text-search.md) 与
+[项目检索验收记录](docs/acceptance/iteration-3-project-search-2026-09-22.md)。
 科目余额表数据契约、首批规则和风险边界记录在
 [ADR-0004](docs/adr/0004-trial-balance-csv-deterministic-rules.md)，实现范围和验证结果记录在
 [迭代四财务数据与确定性规则验收](docs/acceptance/iteration-4-financial-data-2026-09-22.md)。

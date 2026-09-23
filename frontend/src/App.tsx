@@ -21,6 +21,7 @@ import { api } from './api'
 import { FinancialDataWorkspace } from './components/FinancialDataWorkspace'
 import { GatewaySettings } from './components/GatewaySettings'
 import { ProjectDialog } from './components/ProjectDialog'
+import { ProjectSearch } from './components/ProjectSearch'
 import { RiskWorkspace } from './components/RiskWorkspace'
 import { StatusMark } from './components/StatusMark'
 import type {
@@ -34,6 +35,7 @@ import type {
   RiskEvidence,
   RiskRecord,
   RiskStatus,
+  SearchHit,
   TaskRecord,
 } from './types'
 
@@ -405,6 +407,19 @@ export function App() {
     setMobilePane('canvas')
   }
 
+  function openSearchHit(hit: SearchHit, query: string) {
+    setSelectedDocumentId(hit.document_id)
+    setSelectedTaskId(tasks.find((task) => task.document_id === hit.document_id)?.id ?? '')
+    setEvidenceTarget({
+      documentId: hit.document_id,
+      page: hit.page_number,
+      query,
+      token: Date.now(),
+    })
+    setView('documents')
+    setMobilePane('canvas')
+  }
+
   function updateProject(changed: Project) {
     setProjects((current) => current.map((project) => project.id === changed.id ? { ...project, ...changed } : project))
   }
@@ -481,6 +496,14 @@ export function App() {
                 </div>
                 {uploadNotice && <div className="notice success" role="status"><CheckCircle aria-hidden="true" />{uploadNotice}</div>}
                 {operationError && <div className="notice error" role="alert"><Warning aria-hidden="true" /><span>{operationError}</span><button aria-label="关闭错误" onClick={() => setOperationError(null)}><X aria-hidden="true" /></button></div>}
+                {selectedProject && (
+                  <ProjectSearch
+                    projectId={selectedProject.id}
+                    disabled={selectedProject.storage_available === false || documents.length === 0}
+                    onOpen={openSearchHit}
+                    onSelectEvidence={addEvidence}
+                  />
+                )}
                 <div className="queue-summary" aria-label="任务统计">
                   <span><b>{taskCounts.queued}</b>排队</span><span><b>{taskCounts.running}</b>运行</span><span><b>{taskCounts.failed}</b>失败</span><span><b>{taskCounts.completed}</b>完成</span>
                 </div>
