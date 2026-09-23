@@ -207,6 +207,16 @@ export interface TaskRecord {
   updated_at: string
 }
 
+export interface DemoLoadResult {
+  queued_task_ids: string[]
+  queued_task_count: number
+  reused_document_count: number
+  reused_task_count: number
+  reused_financial_dataset: boolean
+  message: string
+  external_request: false
+}
+
 export interface ResourceSnapshot {
   cpu_percent: number
   memory_percent: number

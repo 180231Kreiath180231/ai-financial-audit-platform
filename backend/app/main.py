@@ -30,6 +30,7 @@ from fastapi.responses import Response as FastAPIResponse
 
 from .config import load_settings
 from .db import Database, ProjectStorageUnavailable, utc_now
+from .demo_data import DemoDataError, DemoDataService
 from .documents import decode_document_row, update_document_metadata
 from .financial_data import (
     MAX_CSV_BYTES,
@@ -44,6 +45,7 @@ from .retrieval import retrieval_status
 from .risks import RiskError, RiskRepository
 from .schemas import (
     ApiError,
+    DemoLoadResult,
     DocumentMetadataUpdate,
     DocumentRecord,
     DocumentSearchHit,
@@ -97,6 +99,7 @@ worker = LocalTaskWorker(database)
 model_gateway = ModelGateway(database)
 risk_repository = RiskRepository(database)
 financial_data = FinancialDataService(database)
+demo_data = DemoDataService(database, financial_data, settings.demo_data_dir)
 
 
 def seed_synthetic_project() -> None:
@@ -694,6 +697,42 @@ def list_tasks(project_id: str) -> list[TaskRecord]:
     with database.connect(root / "app.db") as db:
         rows = db.execute("SELECT * FROM tasks ORDER BY created_at DESC").fetchall()
     return [task_from_row(row) for row in rows]
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/demo-data/load",
+    response_model=DemoLoadResult,
+    status_code=202,
+    dependencies=[Depends(require_session)],
+)
+def load_demo_data(project_id: str) -> dict:
+    project_or_404(project_id)
+    project_root_or_error(project_id)
+    try:
+        result = demo_data.load(project_id)
+    except DemoDataError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "DEMO_LOCAL_IO_ERROR",
+                "message": f"演示资料载入失败：{exc}",
+                "action": "检查 mock资料 与项目目录权限后重试",
+            },
+        ) from exc
+    logger.info(
+        "demo_data.load_requested",
+        extra={
+            "project_id": project_id,
+            "queued_task_count": result["queued_task_count"],
+            "external_request": False,
+        },
+    )
+    return result
 
 
 @app.post(

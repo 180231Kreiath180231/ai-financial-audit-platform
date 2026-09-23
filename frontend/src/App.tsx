@@ -19,6 +19,7 @@ import {
 } from '@phosphor-icons/react'
 import { api } from './api'
 import { FinancialDataWorkspace } from './components/FinancialDataWorkspace'
+import { DemoDataLoader } from './components/DemoDataLoader'
 import { GatewaySettings } from './components/GatewaySettings'
 import { ProjectDialog } from './components/ProjectDialog'
 import { ProjectSearch } from './components/ProjectSearch'
@@ -480,6 +481,13 @@ export function App() {
                   <CaretDown aria-hidden="true" />
                 </div>
                 {selectedProject?.is_synthetic && <div className="synthetic-note"><ShieldCheck aria-hidden="true" /><span><b>合成演示项目</b>不包含真实客户资料，也不会调用外部模型。</span></div>}
+                {selectedProject?.is_synthetic && (
+                  <DemoDataLoader
+                    projectId={selectedProject.id}
+                    disabled={selectedProject.storage_available === false}
+                    onLoaded={() => refreshProjectData(selectedProject.id)}
+                  />
+                )}
                 {selectedProject?.storage_available === false && <div className="notice error" role="alert"><Warning aria-hidden="true" /><span>项目目录不可用或项目数据库已移动；恢复原目录后才能继续处理。</span></div>}
                 <div
                   className={`drop-zone ${dragging ? 'dragging' : ''}`}

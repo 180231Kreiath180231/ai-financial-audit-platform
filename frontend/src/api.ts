@@ -1,5 +1,6 @@
 import type {
   DocumentRecord,
+  DemoLoadResult,
   DocumentMetadataPayload,
   FinancialDataset,
   FinancialPreview,
@@ -134,6 +135,10 @@ export const api = {
       `/api/v1/projects/${projectId}/documents/${documentId}/page-analyses`,
     ),
   listTasks: (projectId: string) => request<TaskRecord[]>(`/api/v1/projects/${projectId}/tasks`),
+  loadDemoData: (projectId: string) =>
+    request<DemoLoadResult>(`/api/v1/projects/${projectId}/demo-data/load`, {
+      method: 'POST',
+    }),
   uploadDocuments: (projectId: string, files: File[]) => {
     const form = new FormData()
     files.forEach((file) => form.append('files', file))

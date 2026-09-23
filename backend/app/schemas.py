@@ -360,6 +360,16 @@ class TaskRecord(BaseModel):
     updated_at: datetime
 
 
+class DemoLoadResult(BaseModel):
+    queued_task_ids: list[str]
+    queued_task_count: int
+    reused_document_count: int
+    reused_task_count: int
+    reused_financial_dataset: bool
+    message: str
+    external_request: bool = False
+
+
 class DocumentRecord(BaseModel):
     id: str
     filename: str
