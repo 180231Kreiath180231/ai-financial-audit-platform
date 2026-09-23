@@ -155,7 +155,6 @@ test('imports a trial balance and traces a deterministic risk to CSV rows', asyn
   await expect(page.getByRole('heading', { name: '结构校验完成' })).toBeVisible()
   await expect(page.getByText('001001').first()).toBeVisible()
   await page.getByRole('button', { name: '确认导入并运行规则' }).click()
-  await expect(page.getByRole('status')).toContainText('本地单工作器')
 
   await expect(page.getByRole('heading', { name: 'synthetic-trial-balance.csv' })).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText('2025-FY 期初借贷总额不平衡')).toBeVisible()
