@@ -68,6 +68,42 @@ test('imports a synthetic PDF and jumps to a matching evidence page', async ({ p
   await expect(page.getByLabel('页码')).toHaveValue('1')
 })
 
+test('versions document metadata and filters without a keyword', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop', 'desktop metadata acceptance path')
+  await page.goto('/')
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'playwright-metadata.pdf',
+    mimeType: 'application/pdf',
+    buffer: syntheticTextPdf('METADATA-EVIDENCE-2025'),
+  })
+  const documentList = page.getByLabel('已导入文档')
+  await expect(documentList.getByRole('button', { name: /playwright-metadata\.pdf/ })).toBeVisible({ timeout: 20_000 })
+
+  const projectSearch = page.getByRole('region', { name: '项目全文检索' })
+  await projectSearch.getByText('结构化筛选').click()
+  const filterGrid = projectSearch.locator('.project-search-filter-grid')
+  await filterGrid.locator('select').first().selectOption({ label: 'playwright-metadata.pdf' })
+  await projectSearch.getByRole('button', { name: '编辑所选文档标注' }).click()
+  const editor = projectSearch.locator('.document-metadata-editor')
+  await editor.getByRole('spinbutton', { name: '年度' }).fill('2025')
+  await editor.getByRole('textbox', { name: '主体' }).fill('E2E 合成主体')
+  await editor.getByRole('textbox', { name: '文档类型' }).fill('E2E 专项报告')
+  await editor.getByRole('textbox', { name: '科目标签' }).fill('E2E 营业收入，应收账款')
+  await editor.getByRole('button', { name: '保存标注' }).click()
+  await expect(editor.getByRole('status')).toContainText('标注已保存为版本 1')
+
+  await projectSearch.getByRole('button', { name: '清除筛选' }).click()
+  await filterGrid.getByRole('combobox', { name: '主体' }).fill('E2E 合成主体')
+  await filterGrid.getByRole('combobox', { name: '科目' }).fill('E2E 营业收入')
+  await filterGrid.getByRole('combobox', { name: '文档类型' }).fill('E2E 专项报告')
+  await projectSearch.getByRole('button', { name: '检索' }).click()
+
+  await expect(projectSearch.getByText('1 条命中 · 3 项筛选 · 未调用外部服务')).toBeVisible()
+  await projectSearch.getByRole('button', { name: /playwright-metadata\.pdf/ }).click()
+  await expect(page.getByRole('region', { name: /playwright-metadata\.pdf 阅读器/ })).toBeVisible()
+})
+
 test('detects a scanned page and completes the local Fake Vision trace', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop scanned-page acceptance path')
   await page.goto('/')

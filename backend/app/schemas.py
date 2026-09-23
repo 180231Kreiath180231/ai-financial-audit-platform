@@ -376,6 +376,45 @@ class DocumentRecord(BaseModel):
     vision_status: Literal["not_required", "completed", "requires_vision", "failed"] = (
         "not_required"
     )
+    fiscal_year: int | None = None
+    entity_name: str | None = None
+    document_type: str | None = None
+    account_names: list[str] = Field(default_factory=list)
+    metadata_version: int = 0
+    metadata_updated_at: datetime | None = None
+
+
+class DocumentMetadataUpdate(BaseModel):
+    fiscal_year: int | None = Field(default=None, ge=2000, le=2100)
+    entity_name: str | None = Field(default=None, max_length=120)
+    document_type: str | None = Field(default=None, max_length=80)
+    account_names: list[str] = Field(default_factory=list, max_length=20)
+    change_reason: str = Field(default="人工更新文档元数据", min_length=2, max_length=200)
+
+    @field_validator("entity_name", "document_type", mode="before")
+    @classmethod
+    def normalize_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @field_validator("account_names", mode="before")
+    @classmethod
+    def normalize_accounts(cls, value: list[str]) -> list[str]:
+        normalized: list[str] = []
+        for item in value:
+            account = item.strip()
+            if len(account) > 80:
+                raise ValueError("科目名称不能超过 80 个字符")
+            if account and account not in normalized:
+                normalized.append(account)
+        return normalized
+
+    @field_validator("change_reason", mode="before")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        return value.strip()
 
 
 class DocumentSearchHit(BaseModel):
@@ -386,7 +425,11 @@ class DocumentSearchHit(BaseModel):
     parse_method: str
     parse_version: str
     snippet: str
-    match_kind: Literal["content", "filename"]
+    match_kind: Literal["content", "filename", "metadata"]
+    fiscal_year: int | None = None
+    entity_name: str | None = None
+    document_type: str | None = None
+    account_names: list[str] = Field(default_factory=list)
 
 
 class PageVisionRecord(BaseModel):

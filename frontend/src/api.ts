@@ -1,5 +1,6 @@
 import type {
   DocumentRecord,
+  DocumentMetadataPayload,
   FinancialDataset,
   FinancialPreview,
   FinancialResultRows,
@@ -16,6 +17,7 @@ import type {
   RiskRecord,
   RiskStatus,
   SearchHit,
+  ProjectSearchFilters,
   TaskRecord,
 } from './types'
 
@@ -114,6 +116,18 @@ export const api = {
     ),
   listDocuments: (projectId: string) =>
     request<DocumentRecord[]>(`/api/v1/projects/${projectId}/documents`),
+  updateDocumentMetadata: (
+    projectId: string,
+    documentId: string,
+    payload: DocumentMetadataPayload,
+  ) => request<DocumentRecord>(
+    `/api/v1/projects/${projectId}/documents/${documentId}/metadata`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  ),
   listPageAnalyses: (projectId: string, documentId: string) =>
     request<PageVisionRecord[]>(
       `/api/v1/projects/${projectId}/documents/${documentId}/page-analyses`,
@@ -179,10 +193,13 @@ export const api = {
     request<SearchHit[]>(
       `/api/v1/projects/${projectId}/documents/${documentId}/search?q=${encodeURIComponent(query)}`,
     ),
-  searchProject: (projectId: string, query: string) =>
-    request<SearchHit[]>(
-      `/api/v1/projects/${projectId}/search?q=${encodeURIComponent(query)}&limit=20`,
-    ),
+  searchProject: (projectId: string, query: string, filters: ProjectSearchFilters = {}) => {
+    const parameters = new URLSearchParams({ q: query, limit: '20' })
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') parameters.set(key, String(value))
+    })
+    return request<SearchHit[]>(`/api/v1/projects/${projectId}/search?${parameters}`)
+  },
   listRisks: (projectId: string) =>
     request<RiskRecord[]>(`/api/v1/projects/${projectId}/risks`),
   getRisk: (projectId: string, riskId: string) =>

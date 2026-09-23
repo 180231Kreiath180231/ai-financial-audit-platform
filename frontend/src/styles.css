@@ -124,11 +124,33 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .drop-zone strong { color: var(--text); font-size: 13px; }
 .drop-zone span { font-size: 10px; }
 .project-search { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--panel-raised); }
-.project-search form { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; margin: 0 12px 11px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel); }
-.project-search form > svg { width: 16px; margin-left: 9px; color: var(--quiet); }
-.project-search input { min-width: 0; height: 36px; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 11px; }
-.project-search form button { align-self: stretch; min-width: 58px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--accent); font-size: 10px; font-weight: 700; }
-.project-search form button:hover:not(:disabled) { background: var(--accent-soft); }
+.project-search-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; margin: 0 12px 9px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel); }
+.project-search-bar > svg { width: 16px; margin-left: 9px; color: var(--quiet); }
+.project-search-bar input { min-width: 0; height: 36px; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 11px; }
+.project-search-bar button { align-self: stretch; min-width: 58px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--accent); font-size: 10px; font-weight: 700; }
+.project-search-bar button:hover:not(:disabled) { background: var(--accent-soft); }
+.project-search-filters { border-top: 1px solid var(--line); }
+.project-search-filters summary { min-height: 36px; display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 7px; padding: 0 12px; color: var(--muted); font-size: 10px; cursor: pointer; list-style: none; }
+.project-search-filters summary::-webkit-details-marker { display: none; }
+.project-search-filters summary > svg { width: 15px; color: var(--quiet); }
+.project-search-filters summary > svg:last-child { transition: transform 120ms ease; }
+.project-search-filters[open] summary > svg:last-child { transform: rotate(180deg); }
+.project-search-filters summary b { min-width: 20px; min-height: 20px; display: grid; place-items: center; border-radius: 3px; background: var(--accent-soft); color: var(--accent); font: 9px ui-monospace, Consolas, monospace; }
+.project-search-filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--panel); }
+.project-search-filter-grid label, .document-metadata-editor label { min-width: 0; display: grid; gap: 4px; color: var(--quiet); font-size: 9px; }
+.project-search-filter-grid input, .project-search-filter-grid select, .document-metadata-editor input { min-width: 0; width: 100%; height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-raised); color: var(--text); font-size: 11px; }
+.project-search-filter-actions { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
+.project-search-filter-actions button, .document-metadata-actions button { min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-right: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 9px; }
+.project-search-filter-actions button:last-child, .document-metadata-actions button:last-child { border-right: 0; color: var(--accent); }
+.project-search-filter-actions svg { width: 14px; }
+.document-metadata-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 11px 12px; border-top: 1px solid var(--line); background: var(--panel-raised); }
+.document-metadata-editor > div:first-child, .metadata-accounts, .document-metadata-actions, .document-metadata-editor > p { grid-column: 1 / -1; }
+.document-metadata-editor > div:first-child { display: grid; gap: 3px; }
+.document-metadata-editor strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.document-metadata-editor small { color: var(--quiet); font-size: 9px; }
+.document-metadata-actions { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); }
+.document-metadata-editor > p { margin: 0; color: var(--accent); font-size: 9px; line-height: 1.5; }
+.document-metadata-editor > p.error { color: var(--danger); }
 .project-search-message { display: flex; align-items: flex-start; gap: 7px; margin: 0 12px 11px; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .project-search-message.error { color: var(--danger); }
 .project-search-message svg { width: 15px; height: 15px; flex: 0 0 auto; }
@@ -142,6 +164,8 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .project-search-open > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .project-search-open strong { overflow: hidden; color: var(--text); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .project-search-open small { color: var(--quiet); font-size: 9px; }
+.search-hit-metadata { display: flex; flex-wrap: wrap; gap: 4px; padding: 1px 12px 5px; }
+.search-hit-metadata span { padding: 2px 5px; border: 1px solid var(--line); border-radius: 3px; color: var(--quiet); font-size: 8px; }
 .project-search-results article > p { display: -webkit-box; overflow: hidden; margin: 2px 12px 8px; color: var(--muted); font-size: 10px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow-wrap: anywhere; }
 .project-search-actions { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
 .project-search-actions button { min-height: 32px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 9px; }
@@ -650,9 +674,12 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
   .config-form .field-wide, .config-form .form-title, .config-form-actions, .capability-field { grid-column: auto; }
   .config-form .field input, .config-form .field select { min-height: 44px; font-size: 16px; }
   .config-row .button.compact, .capability-field label, .secret-visibility { min-height: 44px; }
-  .project-search input { height: 44px; font-size: 16px; }
-  .project-search form button { min-width: 66px; }
-  .project-search-open, .project-search-actions button { min-height: 44px; }
+  .project-search-bar input { height: 44px; font-size: 16px; }
+  .select-wrap select { height: 44px; font-size: 16px; }
+  .project-search-bar button { min-width: 66px; }
+  .project-search-filters summary, .project-search-filter-grid input, .project-search-filter-grid select, .document-metadata-editor input, .project-search-filter-actions button, .document-metadata-actions button, .project-search-open, .project-search-actions button { min-height: 44px; }
+  .project-search-filter-grid, .document-metadata-editor { grid-template-columns: 1fr; }
+  .document-metadata-editor > div:first-child, .metadata-accounts, .document-metadata-actions, .document-metadata-editor > p { grid-column: 1; }
   .search-hit-actions button { min-height: 44px; }
   .risk-page { padding: 14px 12px 28px; }
   .risk-page-head h1 { font-size: 24px; }
@@ -699,8 +726,8 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 @media (max-width: 940px) and (max-height: 620px) {
   .button, .icon-button { min-width: 44px; min-height: 44px; }
   .button.compact { min-height: 44px; }
-  .project-search input { height: 44px; font-size: 16px; }
-  .project-search form button, .project-search-open, .project-search-actions button { min-height: 44px; }
+  .project-search-bar input { height: 44px; font-size: 16px; }
+  .project-search-bar button, .project-search-filters summary, .project-search-filter-grid input, .project-search-filter-grid select, .document-metadata-editor input, .project-search-filter-actions button, .document-metadata-actions button, .project-search-open, .project-search-actions button { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

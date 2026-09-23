@@ -41,6 +41,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (4, "scanned_page_vision_results"),
         (5, "scanned_page_remote_lifecycle"),
         (6, "cjk_trigram_full_text_index"),
+        (7, "document_search_metadata"),
     ]
     assert {
         "documents",
@@ -54,6 +55,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         "financial_rule_runs",
         "financial_risk_evidence",
         "page_vision_results",
+        "document_metadata_versions",
         "audit_events",
         "schema_migrations",
     } <= tables
@@ -80,7 +82,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7]
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:
@@ -139,3 +141,23 @@ def test_project_v6_rebuilds_existing_pages_into_trigram_index(tmp_path: Path) -
         connection.close()
 
     assert hit == ("这是迁移前的合成审计证据。",)
+
+
+def test_project_v7_adds_nullable_metadata_without_guessing_values(tmp_path: Path) -> None:
+    path = tmp_path / "legacy-project.db"
+    connection = sqlite3.connect(path, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    try:
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS[:6])
+        connection.execute(
+            "INSERT INTO documents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("doc-1", "合成资料.pdf", "b" * 64, 12, 1, "native_pdf", "v1", "x.pdf", "now"),
+        )
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS)
+        document = connection.execute(
+            "SELECT fiscal_year, entity_name, document_type, account_names_json, metadata_version FROM documents"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert tuple(document) == (None, None, None, "[]", 0)

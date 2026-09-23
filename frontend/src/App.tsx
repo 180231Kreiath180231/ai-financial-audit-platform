@@ -499,9 +499,13 @@ export function App() {
                 {selectedProject && (
                   <ProjectSearch
                     projectId={selectedProject.id}
+                    documents={documents}
+                    yearStart={selectedProject.year_start}
+                    yearEnd={selectedProject.year_end}
                     disabled={selectedProject.storage_available === false || documents.length === 0}
                     onOpen={openSearchHit}
                     onSelectEvidence={addEvidence}
+                    onDocumentUpdated={(updated) => setDocuments((current) => current.map((document) => document.id === updated.id ? updated : document))}
                   />
                 )}
                 <div className="queue-summary" aria-label="任务统计">

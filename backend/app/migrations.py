@@ -461,6 +461,44 @@ def _project_v6(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v7(db: sqlite3.Connection) -> None:
+    """Add user-maintained document metadata without fabricating extracted values."""
+    document_columns = {
+        row[1] for row in db.execute("PRAGMA table_info(documents)").fetchall()
+    }
+    additions = (
+        ("fiscal_year", "INTEGER"),
+        ("entity_name", "TEXT"),
+        ("document_type", "TEXT"),
+        ("account_names_json", "TEXT NOT NULL DEFAULT '[]'"),
+        ("metadata_version", "INTEGER NOT NULL DEFAULT 0"),
+        ("metadata_updated_at", "TEXT"),
+    )
+    for name, definition in additions:
+        if name not in document_columns:
+            db.execute(f"ALTER TABLE documents ADD COLUMN {name} {definition}")
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS document_metadata_versions (
+            id TEXT PRIMARY KEY,
+            document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+            version INTEGER NOT NULL,
+            snapshot_json TEXT NOT NULL,
+            change_reason TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(document_id, version)
+        )"""
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_documents_fiscal_year ON documents(fiscal_year)"
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_documents_entity_name ON documents(entity_name)"
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_documents_document_type ON documents(document_type)"
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -474,6 +512,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (4, "scanned_page_vision_results", _project_v4),
     (5, "scanned_page_remote_lifecycle", _project_v5),
     (6, "cjk_trigram_full_text_index", _project_v6),
+    (7, "document_search_metadata", _project_v7),
 )
 
 

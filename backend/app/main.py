@@ -29,6 +29,7 @@ from fastapi.responses import Response as FastAPIResponse
 
 from .config import load_settings
 from .db import Database, ProjectStorageUnavailable, utc_now
+from .documents import decode_document_row, update_document_metadata
 from .financial_data import (
     MAX_CSV_BYTES,
     REQUIRED_COLUMNS,
@@ -41,6 +42,7 @@ from .logging_config import configure_logging
 from .risks import RiskError, RiskRepository
 from .schemas import (
     ApiError,
+    DocumentMetadataUpdate,
     DocumentRecord,
     DocumentSearchHit,
     ExternalAccessUpdate,
@@ -602,7 +604,51 @@ def list_documents(project_id: str) -> list[dict]:
             LEFT JOIN page_vision_results v ON v.document_id=d.id
             GROUP BY d.id ORDER BY d.created_at DESC"""
         ).fetchall()
-    return [dict(row) for row in rows]
+    return [decode_document_row(row) for row in rows]
+
+
+@app.patch(
+    "/api/v1/projects/{project_id}/documents/{document_id}/metadata",
+    response_model=DocumentRecord,
+    dependencies=[Depends(require_session)],
+)
+def patch_document_metadata(
+    project_id: str,
+    document_id: str,
+    payload: DocumentMetadataUpdate,
+) -> dict:
+    project = project_or_404(project_id)
+    root = project_root_or_error(project_id)
+    if payload.fiscal_year is not None and not (
+        project["year_start"] <= payload.fiscal_year <= project["year_end"]
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "DOCUMENT_YEAR_OUTSIDE_PROJECT",
+                "message": "文档年度不在项目年度范围内",
+                "action": f"填写 {project['year_start']} 至 {project['year_end']} 之间的年度",
+            },
+        )
+    try:
+        with database.connect(root / "app.db") as db:
+            updated = update_document_metadata(db, document_id, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="文档不存在") from exc
+    database.record_project_event(
+        root,
+        "document.metadata_updated",
+        details={
+            "document_id": document_id,
+            "metadata_version": updated["metadata_version"],
+            "fields": ["fiscal_year", "entity_name", "document_type", "account_names"],
+        },
+    )
+    logger.info(
+        "document.metadata_updated",
+        extra={"project_id": project_id, "document_id": document_id},
+    )
+    return next(document for document in list_documents(project_id) if document["id"] == document_id)
 
 
 @app.get(
@@ -928,6 +974,11 @@ def search_project(
     q: str = Query(max_length=200),
     document_id: str | None = None,
     page_number: int | None = Query(default=None, ge=1),
+    fiscal_year: int | None = Query(default=None, ge=2000, le=2100),
+    entity_name: str | None = Query(default=None, max_length=120),
+    account_name: str | None = Query(default=None, max_length=80),
+    document_type: str | None = Query(default=None, max_length=80),
+    parse_method: str | None = Query(default=None, max_length=40),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> list[dict]:
     root = project_root_or_error(project_id)
@@ -937,6 +988,11 @@ def search_project(
             q,
             document_id=document_id,
             page_number=page_number,
+            fiscal_year=fiscal_year,
+            entity_name=entity_name,
+            account_name=account_name,
+            document_type=document_type,
+            parse_method=parse_method,
             limit=limit,
         )
 

@@ -129,6 +129,29 @@ export interface DocumentRecord {
   vision_page_count: number
   external_vision_page_count: number
   vision_status: 'not_required' | 'completed' | 'requires_vision' | 'failed'
+  fiscal_year: number | null
+  entity_name: string | null
+  document_type: string | null
+  account_names: string[]
+  metadata_version: number
+  metadata_updated_at: string | null
+}
+
+export interface DocumentMetadataPayload {
+  fiscal_year: number | null
+  entity_name: string | null
+  document_type: string | null
+  account_names: string[]
+  change_reason?: string
+}
+
+export interface ProjectSearchFilters {
+  document_id?: string
+  fiscal_year?: number
+  entity_name?: string
+  account_name?: string
+  document_type?: string
+  parse_method?: string
 }
 
 export interface PageVisionRecord {
@@ -191,7 +214,11 @@ export interface SearchHit {
   parse_method: string
   parse_version: string
   snippet: string
-  match_kind: 'content' | 'filename'
+  match_kind: 'content' | 'filename' | 'metadata'
+  fiscal_year: number | null
+  entity_name: string | null
+  document_type: string | null
+  account_names: string[]
 }
 
 export type EvidenceDirection = 'support' | 'counter'
