@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import uuid
+from collections.abc import Callable
 from copy import copy
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,11 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from .db import Database, utc_now
 from .risks import RiskRepository
+from .word_output import (
+    WORD_TEMPLATE_PATH,
+    WORD_TEMPLATE_VERSION,
+    render_word_export,
+)
 
 OUTPUT_SCHEMA_VERSION = "output-snapshot-v1"
 RISK_REGISTER_TEMPLATE_VERSION = "format-neutral-risk-register-v1"
@@ -638,7 +644,7 @@ class OutputDraftService:
 
 
 class OutputExportService:
-    """Render immutable Excel exports from finalized draft versions."""
+    """Render immutable file exports from finalized draft versions."""
 
     def __init__(
         self,
@@ -663,7 +669,48 @@ class OutputExportService:
         return [self._public_record(project_id, dict(row)) for row in rows]
 
     def create_excel(self, project_id: str, draft_id: str) -> dict[str, Any]:
+        return self._create_export(
+            project_id,
+            draft_id,
+            export_format="xlsx",
+            template_path=EXCEL_TEMPLATE_PATH,
+            template_version=EXCEL_TEMPLATE_VERSION,
+            filename_prefix="风险清单",
+            renderer=self._render_excel,
+        )
+
+    def create_word(self, project_id: str, draft_id: str) -> dict[str, Any]:
         draft = self.drafts.get(project_id, draft_id)
+        if not draft["materials"] or not draft["interviews"]:
+            raise OutputError(
+                "OUTPUT_DRAFT_SECTIONS_REQUIRED",
+                "当前草稿不含完整的资料清单和访谈提纲，不能生成 Word",
+                "从原始快照新建草稿，核对三类成果后最终固化",
+            )
+        return self._create_export(
+            project_id,
+            draft_id,
+            export_format="docx",
+            template_path=WORD_TEMPLATE_PATH,
+            template_version=WORD_TEMPLATE_VERSION,
+            filename_prefix="审计工作成果",
+            renderer=render_word_export,
+            draft=draft,
+        )
+
+    def _create_export(
+        self,
+        project_id: str,
+        draft_id: str,
+        *,
+        export_format: str,
+        template_path: Path,
+        template_version: str,
+        filename_prefix: str,
+        renderer: Callable[[dict[str, Any], dict[str, Any], Path, str], None],
+        draft: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        draft = draft or self.drafts.get(project_id, draft_id)
         if draft["status"] != "finalized":
             raise OutputError(
                 "OUTPUT_DRAFT_NOT_FINALIZED",
@@ -671,11 +718,11 @@ class OutputExportService:
                 "确认标题、正文、顺序和备注后先执行最终固化",
             )
         snapshot = self.snapshots.get(project_id, draft["snapshot_id"])
-        if not EXCEL_TEMPLATE_PATH.is_file():
+        if not template_path.is_file():
             raise OutputError(
                 "OUTPUT_TEMPLATE_MISSING",
-                "Excel 模板文件不存在",
-                "恢复仓库 templates/risk-register-excel-v1.xlsx 后重试",
+                f"{export_format.upper()} 模板文件不存在",
+                f"恢复仓库 templates/{template_path.name} 后重试",
             )
         root = self.database.project_root(project_id)
         exports_dir = (root / "exports").resolve()
@@ -683,14 +730,17 @@ class OutputExportService:
         export_id = str(uuid.uuid4())
         created_at = utc_now()
         date_token = created_at[:10].replace("-", "")
-        filename = f"风险清单-{date_token}-v{draft['version']}-{export_id[:8]}.xlsx"
-        final_path = (exports_dir / f"{export_id}.xlsx").resolve()
-        temp_path = (root / "temp" / f"{export_id}.xlsx.tmp").resolve()
+        filename = (
+            f"{filename_prefix}-{date_token}-v{draft['version']}-{export_id[:8]}."
+            f"{export_format}"
+        )
+        final_path = (exports_dir / f"{export_id}.{export_format}").resolve()
+        temp_path = (root / "temp" / f"{export_id}.{export_format}.tmp").resolve()
         temp_path.parent.mkdir(parents=True, exist_ok=True)
         if exports_dir not in final_path.parents:
             raise OutputError("OUTPUT_PATH_INVALID", "导出路径无效", "检查项目存储目录后重试")
         try:
-            self._render_excel(snapshot, draft, temp_path, created_at)
+            renderer(snapshot, draft, temp_path, created_at)
             file_sha256 = self._sha256(temp_path)
             size_bytes = temp_path.stat().st_size
             os.replace(temp_path, final_path)
@@ -703,13 +753,14 @@ class OutputExportService:
                         (id, draft_id, draft_version, snapshot_id, export_format,
                          template_version, filename, stored_path, file_sha256,
                          size_bytes, created_at)
-                        VALUES (?, ?, ?, ?, 'xlsx', ?, ?, ?, ?, ?, ?)""",
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (
                             export_id,
                             draft_id,
                             draft["version"],
                             draft["snapshot_id"],
-                            EXCEL_TEMPLATE_VERSION,
+                            export_format,
+                            template_version,
                             filename,
                             relative_path,
                             file_sha256,
@@ -726,8 +777,8 @@ class OutputExportService:
                             "draft_id": draft_id,
                             "draft_version": draft["version"],
                             "snapshot_id": draft["snapshot_id"],
-                            "format": "xlsx",
-                            "template_version": EXCEL_TEMPLATE_VERSION,
+                            "format": export_format,
+                            "template_version": template_version,
                             "file_sha256": file_sha256,
                         },
                     )

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from docx import Document as WordDocument
 from openpyxl import load_workbook
 
 from backend.app.db import Database
@@ -146,6 +147,9 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     with pytest.raises(OutputError) as pending:
         exports.create_excel(project["id"], draft["id"])
     assert pending.value.code == "OUTPUT_DRAFT_NOT_FINALIZED"
+    with pytest.raises(OutputError) as pending_word:
+        exports.create_word(project["id"], draft["id"])
+    assert pending_word.value.code == "OUTPUT_DRAFT_NOT_FINALIZED"
 
     updated = drafts.update(
         project["id"],
@@ -226,6 +230,38 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert rule_sheet["A8"].value == "R-0001"
     assert evidence_sheet["B8"].value == "R-0001-E01"
     workbook.close()
+
+    first_word = exports.create_word(project["id"], draft["id"])
+    second_word = exports.create_word(project["id"], draft["id"])
+    assert first_word["id"] != second_word["id"]
+    assert first_word["filename"] != second_word["filename"]
+    assert first_word["export_format"] == "docx"
+    assert first_word["template_version"] == "audit-work-products-word-v1"
+    _, first_word_path = exports.get(project["id"], first_word["id"])
+    _, second_word_path = exports.get(project["id"], second_word["id"])
+    assert first_word_path != second_word_path
+    document = WordDocument(first_word_path)
+    text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+    table_text = "\n".join(
+        cell.text
+        for table in document.tables
+        for row in table.rows
+        for cell in row.cells
+    )
+    assert "合成审计风险清单（复核稿）" in table_text
+    assert "银行存款余额异常需补充复核" in text
+    assert "R-0001-E01" in table_text
+    assert "复核资料清单" in text
+    assert "银行回函及期后流水" in table_text
+    assert "复核访谈提纲" in text
+    assert updated["interviews"][0]["question"] in text
+    assert len(exports.list(project["id"], draft["id"])) == 4
+
+    with database.connect(root / "app.db") as db:
+        db.execute("UPDATE output_drafts SET materials_json='[]' WHERE id=?", (draft["id"],))
+    with pytest.raises(OutputError) as legacy_word:
+        exports.create_word(project["id"], draft["id"])
+    assert legacy_word.value.code == "OUTPUT_DRAFT_SECTIONS_REQUIRED"
 
     with database.connect(root / "app.db") as db:
         events = {

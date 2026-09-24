@@ -281,4 +281,9 @@ export const api = {
       `/api/v1/projects/${projectId}/outputs/drafts/${draftId}/exports/xlsx`,
       { method: 'POST' },
     ),
+  createWordExport: (projectId: string, draftId: string) =>
+    request<OutputExportRecord>(
+      `/api/v1/projects/${projectId}/outputs/drafts/${draftId}/exports/docx`,
+      { method: 'POST' },
+    ),
 }

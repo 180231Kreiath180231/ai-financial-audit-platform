@@ -496,7 +496,7 @@ class OutputExportRecord(BaseModel):
     draft_id: str
     draft_version: int
     snapshot_id: str
-    export_format: Literal["xlsx"]
+    export_format: Literal["xlsx", "docx"]
     template_version: str
     filename: str
     file_sha256: str

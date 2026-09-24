@@ -760,6 +760,25 @@ def create_excel_export(project_id: str, draft_id: str) -> dict:
         ) from exc
 
 
+@app.post(
+    "/api/v1/projects/{project_id}/outputs/drafts/{draft_id}/exports/docx",
+    response_model=OutputExportRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_word_export(project_id: str, draft_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return output_exports.create_word(project_id, draft_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="输出草稿或快照不存在") from exc
+    except OutputError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+
+
 @app.get(
     "/api/v1/projects/{project_id}/outputs/exports/{export_id}/file",
     dependencies=[Depends(require_session)],
@@ -775,11 +794,11 @@ def download_output_export(project_id: str, export_id: str) -> FileResponse:
             status_code=409,
             detail={"code": exc.code, "message": exc.message, "action": exc.action},
         ) from exc
-    return FileResponse(
-        path,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=record["filename"],
-    )
+    media_types = {
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    return FileResponse(path, media_type=media_types[record["export_format"]], filename=record["filename"])
 
 
 @app.get("/api/v1/projects/{project_id}/documents", response_model=list[DocumentRecord], dependencies=[Depends(require_session)])

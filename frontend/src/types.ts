@@ -445,7 +445,7 @@ export interface OutputExportRecord {
   draft_id: string
   draft_version: number
   snapshot_id: string
-  export_format: 'xlsx'
+  export_format: 'xlsx' | 'docx'
   template_version: string
   filename: string
   file_sha256: string

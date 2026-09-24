@@ -22,6 +22,7 @@ vi.mock('../api', () => ({
     finalizeOutputDraft: vi.fn(),
     listOutputExports: vi.fn(),
     createExcelExport: vi.fn(),
+    createWordExport: vi.fn(),
   },
 }))
 
@@ -196,6 +197,15 @@ const excel: OutputExportRecord = {
   download_url: '/api/v1/projects/project-1/outputs/exports/export-1/file',
 }
 
+const word: OutputExportRecord = {
+  ...excel,
+  id: 'export-2',
+  export_format: 'docx',
+  template_version: 'audit-work-products-word-v1',
+  filename: '审计工作成果-20260923-v3-export2.docx',
+  download_url: '/api/v1/projects/project-1/outputs/exports/export-2/file',
+}
+
 describe('OutputWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -258,6 +268,7 @@ describe('OutputWorkspace', () => {
     vi.mocked(api.updateOutputDraft).mockResolvedValue(saved)
     vi.mocked(api.finalizeOutputDraft).mockResolvedValue(finalized)
     vi.mocked(api.createExcelExport).mockResolvedValue(excel)
+    vi.mocked(api.createWordExport).mockResolvedValue(word)
     const user = userEvent.setup()
     render(<OutputWorkspace project={project} risks={[risk('已核实')]} onOpenRisks={vi.fn()} />)
 
@@ -293,5 +304,9 @@ describe('OutputWorkspace', () => {
     expect(await screen.findByText(excel.filename)).toBeVisible()
     expect(screen.getByRole('link', { name: '下载' })).toHaveAttribute('href', excel.download_url)
     expect(api.createExcelExport).toHaveBeenCalledWith(project.id, draft.id)
+    await user.click(screen.getByRole('button', { name: '生成 Word' }))
+    expect(await screen.findByText(word.filename)).toBeVisible()
+    expect(screen.getAllByRole('link', { name: '下载' })).toHaveLength(2)
+    expect(api.createWordExport).toHaveBeenCalledWith(project.id, draft.id)
   })
 })

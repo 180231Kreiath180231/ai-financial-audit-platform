@@ -656,6 +656,41 @@ def _project_v11(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v12(db: sqlite3.Connection) -> None:
+    """Allow Word files in the immutable output export history."""
+    db.execute(
+        """CREATE TABLE output_exports_v12 (
+            id TEXT PRIMARY KEY,
+            draft_id TEXT NOT NULL REFERENCES output_drafts(id),
+            draft_version INTEGER NOT NULL CHECK(draft_version > 0),
+            snapshot_id TEXT NOT NULL REFERENCES output_snapshots(id),
+            export_format TEXT NOT NULL CHECK(export_format IN ('xlsx', 'docx')),
+            template_version TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            stored_path TEXT NOT NULL UNIQUE,
+            file_sha256 TEXT NOT NULL,
+            size_bytes INTEGER NOT NULL CHECK(size_bytes > 0),
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(draft_id, draft_version)
+                REFERENCES output_draft_versions(draft_id, version)
+        )"""
+    )
+    db.execute(
+        """INSERT INTO output_exports_v12
+        (id, draft_id, draft_version, snapshot_id, export_format, template_version,
+         filename, stored_path, file_sha256, size_bytes, created_at)
+        SELECT id, draft_id, draft_version, snapshot_id, export_format, template_version,
+               filename, stored_path, file_sha256, size_bytes, created_at
+        FROM output_exports"""
+    )
+    db.execute("DROP TABLE output_exports")
+    db.execute("ALTER TABLE output_exports_v12 RENAME TO output_exports")
+    db.execute(
+        """CREATE INDEX idx_output_exports_draft
+        ON output_exports(draft_id, created_at DESC)"""
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -674,6 +709,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (9, "immutable_output_snapshots", _project_v9),
     (10, "output_drafts_and_exports", _project_v10),
     (11, "deterministic_materials_and_interview_drafts", _project_v11),
+    (12, "word_output_exports", _project_v12),
 )
 
 

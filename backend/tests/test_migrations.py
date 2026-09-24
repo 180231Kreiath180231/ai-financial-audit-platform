@@ -46,6 +46,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (9, "immutable_output_snapshots"),
         (10, "output_drafts_and_exports"),
         (11, "deterministic_materials_and_interview_drafts"),
+        (12, "word_output_exports"),
     ]
     assert {
         "documents",
@@ -94,7 +95,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:
@@ -243,3 +244,61 @@ def test_project_v11_adds_empty_sections_without_rewriting_existing_draft(tmp_pa
         connection.close()
 
     assert tuple(row) == (2, "旧草稿", "资料清单", "[]", "访谈提纲", "[]")
+
+
+def test_project_v12_preserves_excel_exports_and_allows_word(tmp_path: Path) -> None:
+    path = tmp_path / "legacy-project.db"
+    connection = sqlite3.connect(path, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    try:
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS[:11])
+        connection.execute(
+            """INSERT INTO output_snapshots
+            (id, output_kind, schema_version, template_version, risk_count,
+             content_sha256, snapshot_json, created_at)
+            VALUES ('snapshot-1', 'risk_register', 'v1', 'v1', 1, ?, '{}', 'now')""",
+            ("a" * 64,),
+        )
+        connection.execute(
+            """INSERT INTO output_drafts
+            (id, snapshot_id, output_kind, status, version, title, notes, items_json,
+             created_at, updated_at, finalized_at, materials_title, materials_json,
+             interview_title, interview_json)
+            VALUES ('draft-1', 'snapshot-1', 'risk_register', 'finalized', 1,
+                    '草稿', '', '[]', 'now', 'now', 'now', '资料清单', '[]',
+                    '访谈提纲', '[]')"""
+        )
+        connection.execute(
+            """INSERT INTO output_draft_versions
+            (draft_id, version, change_reason, draft_json, created_at)
+            VALUES ('draft-1', 1, '最终固化输出草稿', '{}', 'now')"""
+        )
+        connection.execute(
+            """INSERT INTO output_exports
+            (id, draft_id, draft_version, snapshot_id, export_format, template_version,
+             filename, stored_path, file_sha256, size_bytes, created_at)
+            VALUES ('excel-1', 'draft-1', 1, 'snapshot-1', 'xlsx', 'excel-v1',
+                    '风险清单.xlsx', 'exports/excel-1.xlsx', ?, 12, 'now')""",
+            ("b" * 64,),
+        )
+
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS)
+        preserved = connection.execute(
+            "SELECT id, export_format, filename FROM output_exports WHERE id='excel-1'"
+        ).fetchone()
+        connection.execute(
+            """INSERT INTO output_exports
+            (id, draft_id, draft_version, snapshot_id, export_format, template_version,
+             filename, stored_path, file_sha256, size_bytes, created_at)
+            VALUES ('word-1', 'draft-1', 1, 'snapshot-1', 'docx', 'word-v1',
+                    '审计工作成果.docx', 'exports/word-1.docx', ?, 12, 'later')""",
+            ("c" * 64,),
+        )
+        formats = connection.execute(
+            "SELECT export_format FROM output_exports ORDER BY id"
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert tuple(preserved) == ("excel-1", "xlsx", "风险清单.xlsx")
+    assert [row["export_format"] for row in formats] == ["xlsx", "docx"]
