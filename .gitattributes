@@ -1,2 +1,5 @@
 *.pdf binary
 *.csv text eol=lf
+uv.lock text eol=lf
+frontend/package-lock.json text eol=lf
+docs/licenses/production/** text eol=lf
