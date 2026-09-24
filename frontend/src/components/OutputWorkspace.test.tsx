@@ -2,7 +2,13 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api'
-import type { OutputSnapshotDetail, Project, RiskRecord } from '../types'
+import type {
+  OutputDraftRecord,
+  OutputExportRecord,
+  OutputSnapshotDetail,
+  Project,
+  RiskRecord,
+} from '../types'
 import { OutputWorkspace } from './OutputWorkspace'
 
 vi.mock('../api', () => ({
@@ -10,6 +16,12 @@ vi.mock('../api', () => ({
     listOutputSnapshots: vi.fn(),
     getOutputSnapshot: vi.fn(),
     createRiskRegisterSnapshot: vi.fn(),
+    listOutputDrafts: vi.fn(),
+    createOutputDraft: vi.fn(),
+    updateOutputDraft: vi.fn(),
+    finalizeOutputDraft: vi.fn(),
+    listOutputExports: vi.fn(),
+    createExcelExport: vi.fn(),
   },
 }))
 
@@ -124,10 +136,46 @@ const snapshot: OutputSnapshotDetail = {
   },
 }
 
+const draft: OutputDraftRecord = {
+  id: 'draft-1',
+  snapshot_id: snapshot.id,
+  output_kind: 'risk_register',
+  status: 'editing',
+  version: 1,
+  title: '2025 年度合成审计风险清单',
+  notes: '',
+  items: [{
+    risk_id: 'risk-1',
+    risk_number: 'R-0001',
+    heading: '银行存款期末余额需要复核',
+    body: '已核对原始回函。',
+  }],
+  created_at: '2026-09-23T02:10:00Z',
+  updated_at: '2026-09-23T02:10:00Z',
+  finalized_at: null,
+  versions: [{ version: 1, change_reason: '从不可变快照创建草稿', created_at: '2026-09-23T02:10:00Z' }],
+}
+
+const excel: OutputExportRecord = {
+  id: 'export-1',
+  draft_id: draft.id,
+  draft_version: 3,
+  snapshot_id: snapshot.id,
+  export_format: 'xlsx',
+  template_version: 'risk-register-excel-v1',
+  filename: '风险清单-20260923-v3-export1.xlsx',
+  file_sha256: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+  size_bytes: 24576,
+  created_at: '2026-09-23T02:30:00Z',
+  download_url: '/api/v1/projects/project-1/outputs/exports/export-1/file',
+}
+
 describe('OutputWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(api.listOutputSnapshots).mockResolvedValue([])
+    vi.mocked(api.listOutputDrafts).mockResolvedValue([])
+    vi.mocked(api.listOutputExports).mockResolvedValue([])
   })
 
   it('explains why no risk can be frozen and links back to review', async () => {
@@ -143,7 +191,7 @@ describe('OutputWorkspace', () => {
     expect(api.listOutputSnapshots).toHaveBeenCalledWith(project.id)
   })
 
-  it('creates an immutable preview while keeping undecided file formats disabled', async () => {
+  it('creates an immutable snapshot before exposing editable output fields', async () => {
     vi.mocked(api.createRiskRegisterSnapshot).mockResolvedValue(snapshot)
     const user = userEvent.setup()
     render(<OutputWorkspace project={project} risks={[risk('已核实')]} onOpenRisks={vi.fn()} />)
@@ -154,11 +202,63 @@ describe('OutputWorkspace', () => {
 
     expect(api.createRiskRegisterSnapshot).toHaveBeenCalledWith(project.id)
     expect(await screen.findByText(/已固化 1 项风险及其证据引用/)).toBeVisible()
-    expect(screen.getByText('R-0001')).toBeVisible()
+    expect(screen.getByText('快照已锁定，尚未创建草稿')).toBeVisible()
+    expect(screen.getByRole('button', { name: '创建可编辑草稿' })).toBeEnabled()
+  })
+
+  it('edits, versions, finalizes, and exports a draft through the real workflow', async () => {
+    vi.mocked(api.listOutputSnapshots).mockResolvedValue([snapshot])
+    vi.mocked(api.getOutputSnapshot).mockResolvedValue(snapshot)
+    vi.mocked(api.createOutputDraft).mockResolvedValue(draft)
+    const saved = {
+      ...draft,
+      version: 2,
+      title: '经复核的风险清单',
+      versions: [
+        { version: 2, change_reason: '人工编辑输出草稿', created_at: '2026-09-23T02:20:00Z' },
+        ...draft.versions,
+      ],
+    }
+    const finalized: OutputDraftRecord = {
+      ...saved,
+      status: 'finalized',
+      version: 3,
+      finalized_at: '2026-09-23T02:25:00Z',
+      versions: [
+        { version: 3, change_reason: '最终固化输出草稿', created_at: '2026-09-23T02:25:00Z' },
+        ...saved.versions,
+      ],
+    }
+    vi.mocked(api.updateOutputDraft).mockResolvedValue(saved)
+    vi.mocked(api.finalizeOutputDraft).mockResolvedValue(finalized)
+    vi.mocked(api.createExcelExport).mockResolvedValue(excel)
+    const user = userEvent.setup()
+    render(<OutputWorkspace project={project} risks={[risk('已核实')]} onOpenRisks={vi.fn()} />)
+
+    await user.click(await screen.findByRole('button', { name: '创建可编辑草稿' }))
     expect(screen.getByText('R-0001-E01')).toBeVisible()
-    expect(screen.getByText('已核对原始回函。')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Word' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Excel' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'PDF' })).toBeDisabled()
+    const title = screen.getByRole('textbox', { name: '成果标题' })
+    await user.clear(title)
+    await user.type(title, '经复核的风险清单')
+    await user.click(screen.getByRole('button', { name: '保存' }))
+
+    expect(api.updateOutputDraft).toHaveBeenCalledWith(
+      project.id,
+      draft.id,
+      expect.objectContaining({ title: '经复核的风险清单' }),
+    )
+    expect(await screen.findByText(/草稿已保存为 v2/)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: '最终固化' }))
+    expect(screen.getByText('确认最终固化草稿 v2？')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: '确认最终固化' }))
+
+    expect(await screen.findByText('最终草稿 v3')).toBeVisible()
+    expect(screen.getByText('最终固化输出草稿')).toBeVisible()
+    expect(screen.getByRole('textbox', { name: '成果标题' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '从快照新建草稿' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: '生成 Excel' }))
+    expect(await screen.findByText(excel.filename)).toBeVisible()
+    expect(screen.getByRole('link', { name: '下载' })).toHaveAttribute('href', excel.download_url)
+    expect(api.createExcelExport).toHaveBeenCalledWith(project.id, draft.id)
   })
 })

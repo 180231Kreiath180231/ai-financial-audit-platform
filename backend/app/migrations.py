@@ -586,6 +586,60 @@ def _project_v9(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v10(db: sqlite3.Connection) -> None:
+    """Add editable output drafts, immutable draft versions, and export history."""
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS output_drafts (
+            id TEXT PRIMARY KEY,
+            snapshot_id TEXT NOT NULL REFERENCES output_snapshots(id),
+            output_kind TEXT NOT NULL CHECK(output_kind IN ('risk_register')),
+            status TEXT NOT NULL CHECK(status IN ('editing', 'finalized')),
+            version INTEGER NOT NULL CHECK(version > 0),
+            title TEXT NOT NULL,
+            notes TEXT NOT NULL,
+            items_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            finalized_at TEXT
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS output_draft_versions (
+            draft_id TEXT NOT NULL REFERENCES output_drafts(id),
+            version INTEGER NOT NULL CHECK(version > 0),
+            change_reason TEXT NOT NULL,
+            draft_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(draft_id, version)
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS output_exports (
+            id TEXT PRIMARY KEY,
+            draft_id TEXT NOT NULL REFERENCES output_drafts(id),
+            draft_version INTEGER NOT NULL CHECK(draft_version > 0),
+            snapshot_id TEXT NOT NULL REFERENCES output_snapshots(id),
+            export_format TEXT NOT NULL CHECK(export_format IN ('xlsx')),
+            template_version TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            stored_path TEXT NOT NULL UNIQUE,
+            file_sha256 TEXT NOT NULL,
+            size_bytes INTEGER NOT NULL CHECK(size_bytes > 0),
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(draft_id, draft_version)
+                REFERENCES output_draft_versions(draft_id, version)
+        )"""
+    )
+    db.execute(
+        """CREATE INDEX IF NOT EXISTS idx_output_drafts_snapshot
+        ON output_drafts(snapshot_id, created_at DESC)"""
+    )
+    db.execute(
+        """CREATE INDEX IF NOT EXISTS idx_output_exports_draft
+        ON output_exports(draft_id, created_at DESC)"""
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -602,6 +656,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (7, "document_search_metadata", _project_v7),
     (8, "retrieval_chunks_and_vector_versions", _project_v8),
     (9, "immutable_output_snapshots", _project_v9),
+    (10, "output_drafts_and_exports", _project_v10),
 )
 
 

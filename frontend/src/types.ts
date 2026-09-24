@@ -377,6 +377,54 @@ export interface OutputSnapshotDetail extends OutputSnapshotSummary {
   }
 }
 
+export interface OutputDraftItem {
+  risk_id: string
+  risk_number: string
+  heading: string
+  body: string
+}
+
+export interface OutputDraftVersion {
+  version: number
+  change_reason: string
+  created_at: string
+}
+
+export interface OutputDraftRecord {
+  id: string
+  snapshot_id: string
+  output_kind: 'risk_register'
+  status: 'editing' | 'finalized'
+  version: number
+  title: string
+  notes: string
+  items: OutputDraftItem[]
+  created_at: string
+  updated_at: string
+  finalized_at: string | null
+  versions: OutputDraftVersion[]
+}
+
+export interface OutputDraftPayload {
+  title: string
+  notes: string
+  items: Array<Pick<OutputDraftItem, 'risk_id' | 'heading' | 'body'>>
+}
+
+export interface OutputExportRecord {
+  id: string
+  draft_id: string
+  draft_version: number
+  snapshot_id: string
+  export_format: 'xlsx'
+  template_version: string
+  filename: string
+  file_sha256: string
+  size_bytes: number
+  created_at: string
+  download_url: string
+}
+
 export interface FinancialPreviewIssue {
   code: string
   message: string

@@ -41,7 +41,7 @@ from .financial_data import (
 )
 from .gateway import GatewayError, ModelGateway
 from .logging_config import configure_logging
-from .outputs import OutputError, OutputSnapshotService
+from .outputs import OutputDraftService, OutputError, OutputExportService, OutputSnapshotService
 from .retrieval import retrieval_status
 from .risks import RiskError, RiskRepository
 from .schemas import (
@@ -70,6 +70,9 @@ from .schemas import (
     ModelProviderRecord,
     ModelProviderUpdate,
     OfflineModeUpdate,
+    OutputDraftRecord,
+    OutputDraftUpdate,
+    OutputExportRecord,
     OutputSnapshotDetail,
     OutputSnapshotSummary,
     PageVisionRecord,
@@ -104,6 +107,8 @@ risk_repository = RiskRepository(database)
 financial_data = FinancialDataService(database)
 demo_data = DemoDataService(database, financial_data, settings.demo_data_dir)
 output_snapshots = OutputSnapshotService(database)
+output_drafts = OutputDraftService(database, output_snapshots)
+output_exports = OutputExportService(database, output_snapshots, output_drafts)
 
 
 def seed_synthetic_project() -> None:
@@ -646,6 +651,131 @@ def create_risk_register_snapshot(project_id: str) -> dict:
         },
     )
     return snapshot
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/outputs/drafts",
+    response_model=list[OutputDraftRecord],
+    dependencies=[Depends(require_session)],
+)
+def list_output_drafts(project_id: str, snapshot_id: str | None = None) -> list[dict]:
+    project_root_or_error(project_id)
+    return output_drafts.list(project_id, snapshot_id)
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/outputs/snapshots/{snapshot_id}/drafts",
+    response_model=OutputDraftRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_output_draft(project_id: str, snapshot_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return output_drafts.create(project_id, snapshot_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="输出快照不存在") from exc
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/outputs/drafts/{draft_id}",
+    response_model=OutputDraftRecord,
+    dependencies=[Depends(require_session)],
+)
+def get_output_draft(project_id: str, draft_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return output_drafts.get(project_id, draft_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="输出草稿不存在") from exc
+
+
+@app.patch(
+    "/api/v1/projects/{project_id}/outputs/drafts/{draft_id}",
+    response_model=OutputDraftRecord,
+    dependencies=[Depends(require_session)],
+)
+def update_output_draft(project_id: str, draft_id: str, payload: OutputDraftUpdate) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return output_drafts.update(
+            project_id,
+            draft_id,
+            title=payload.title,
+            notes=payload.notes,
+            items=[item.model_dump() for item in payload.items],
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="输出草稿不存在") from exc
+    except OutputError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/outputs/drafts/{draft_id}/finalize",
+    response_model=OutputDraftRecord,
+    dependencies=[Depends(require_session)],
+)
+def finalize_output_draft(project_id: str, draft_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return output_drafts.finalize(project_id, draft_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="输出草稿不存在") from exc
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/outputs/exports",
+    response_model=list[OutputExportRecord],
+    dependencies=[Depends(require_session)],
+)
+def list_output_exports(project_id: str, draft_id: str | None = None) -> list[dict]:
+    project_root_or_error(project_id)
+    return output_exports.list(project_id, draft_id)
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/outputs/drafts/{draft_id}/exports/xlsx",
+    response_model=OutputExportRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_excel_export(project_id: str, draft_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return output_exports.create_excel(project_id, draft_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="输出草稿或快照不存在") from exc
+    except OutputError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/outputs/exports/{export_id}/file",
+    dependencies=[Depends(require_session)],
+)
+def download_output_export(project_id: str, export_id: str) -> FileResponse:
+    project_root_or_error(project_id)
+    try:
+        record, path = output_exports.get(project_id, export_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="导出记录不存在") from exc
+    except OutputError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    return FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=record["filename"],
+    )
 
 
 @app.get("/api/v1/projects/{project_id}/documents", response_model=list[DocumentRecord], dependencies=[Depends(require_session)])

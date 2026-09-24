@@ -384,6 +384,70 @@ class OutputSnapshotDetail(OutputSnapshotSummary):
     snapshot: dict
 
 
+class OutputDraftItem(BaseModel):
+    risk_id: str
+    risk_number: str
+    heading: str = Field(min_length=1, max_length=500)
+    body: str = Field(max_length=4000)
+
+
+class OutputDraftUpdateItem(BaseModel):
+    risk_id: str = Field(min_length=1, max_length=80)
+    heading: str = Field(min_length=1, max_length=500)
+    body: str = Field(max_length=4000)
+
+    @field_validator("heading", "body", mode="before")
+    @classmethod
+    def normalize_draft_item_text(cls, value: str) -> str:
+        return value.strip()
+
+
+class OutputDraftUpdate(BaseModel):
+    title: str = Field(min_length=2, max_length=200)
+    notes: str = Field(default="", max_length=4000)
+    items: list[OutputDraftUpdateItem] = Field(min_length=1, max_length=500)
+
+    @field_validator("title", "notes", mode="before")
+    @classmethod
+    def normalize_draft_text(cls, value: str) -> str:
+        return value.strip()
+
+
+class OutputDraftVersion(BaseModel):
+    version: int
+    change_reason: str
+    created_at: datetime
+
+
+class OutputDraftRecord(BaseModel):
+    id: str
+    snapshot_id: str
+    output_kind: Literal["risk_register"]
+    status: Literal["editing", "finalized"]
+    version: int
+    title: str
+    notes: str
+    items: list[OutputDraftItem]
+    created_at: datetime
+    updated_at: datetime
+    finalized_at: datetime | None
+    versions: list[OutputDraftVersion] = Field(default_factory=list)
+
+
+class OutputExportRecord(BaseModel):
+    id: str
+    draft_id: str
+    draft_version: int
+    snapshot_id: str
+    export_format: Literal["xlsx"]
+    template_version: str
+    filename: str
+    file_sha256: str
+    size_bytes: int
+    created_at: datetime
+    download_url: str
+
+
 class DocumentRecord(BaseModel):
     id: str
     filename: str

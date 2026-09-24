@@ -10,6 +10,9 @@ import type {
   ModelProfilePayload,
   ModelProvider,
   ModelProviderPayload,
+  OutputDraftPayload,
+  OutputDraftRecord,
+  OutputExportRecord,
   OutputSnapshotDetail,
   OutputSnapshotSummary,
   PageVisionRecord,
@@ -244,6 +247,38 @@ export const api = {
   createRiskRegisterSnapshot: (projectId: string) =>
     request<OutputSnapshotDetail>(
       `/api/v1/projects/${projectId}/outputs/risk-register/snapshots`,
+      { method: 'POST' },
+    ),
+  listOutputDrafts: (projectId: string, snapshotId: string) =>
+    request<OutputDraftRecord[]>(
+      `/api/v1/projects/${projectId}/outputs/drafts?snapshot_id=${encodeURIComponent(snapshotId)}`,
+    ),
+  createOutputDraft: (projectId: string, snapshotId: string) =>
+    request<OutputDraftRecord>(
+      `/api/v1/projects/${projectId}/outputs/snapshots/${snapshotId}/drafts`,
+      { method: 'POST' },
+    ),
+  updateOutputDraft: (projectId: string, draftId: string, payload: OutputDraftPayload) =>
+    request<OutputDraftRecord>(
+      `/api/v1/projects/${projectId}/outputs/drafts/${draftId}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+    ),
+  finalizeOutputDraft: (projectId: string, draftId: string) =>
+    request<OutputDraftRecord>(
+      `/api/v1/projects/${projectId}/outputs/drafts/${draftId}/finalize`,
+      { method: 'POST' },
+    ),
+  listOutputExports: (projectId: string, draftId: string) =>
+    request<OutputExportRecord[]>(
+      `/api/v1/projects/${projectId}/outputs/exports?draft_id=${encodeURIComponent(draftId)}`,
+    ),
+  createExcelExport: (projectId: string, draftId: string) =>
+    request<OutputExportRecord>(
+      `/api/v1/projects/${projectId}/outputs/drafts/${draftId}/exports/xlsx`,
       { method: 'POST' },
     ),
 }

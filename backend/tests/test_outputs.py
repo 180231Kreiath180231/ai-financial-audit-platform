@@ -4,9 +4,15 @@ import json
 from pathlib import Path
 
 import pytest
+from openpyxl import load_workbook
 
 from backend.app.db import Database
-from backend.app.outputs import OutputError, OutputSnapshotService
+from backend.app.outputs import (
+    OutputDraftService,
+    OutputError,
+    OutputExportService,
+    OutputSnapshotService,
+)
 from backend.app.risks import RiskRepository
 from backend.app.schemas import RiskCreate, RiskEvidenceCreate, RiskTransition
 from backend.tests.helpers import create_project
@@ -100,3 +106,125 @@ def test_snapshot_rejects_confirmed_risk_without_support_evidence(tmp_path: Path
 
     assert captured.value.code == "RISK_SUPPORT_EVIDENCE_REQUIRED"
     assert OutputSnapshotService(database).list(project["id"]) == []
+
+
+def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: Path) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "project")
+    root = Path(project["storage_path"])
+    document_id = seed_evidence(database, root)
+    repository = RiskRepository(database)
+    risk = create_manual_risk(database, project["id"], document_id)
+    repository.transition(
+        project["id"],
+        risk["id"],
+        RiskTransition(status="已核实", note="已逐页核对合成证据"),
+    )
+    snapshots = OutputSnapshotService(database)
+    snapshot = snapshots.create_risk_register(project["id"])
+    drafts = OutputDraftService(database, snapshots)
+    exports = OutputExportService(database, snapshots, drafts)
+
+    draft = drafts.create(project["id"], snapshot["id"])
+    assert draft["status"] == "editing"
+    assert draft["version"] == 1
+    assert draft["items"][0]["risk_number"] == "R-0001"
+
+    with pytest.raises(OutputError) as pending:
+        exports.create_excel(project["id"], draft["id"])
+    assert pending.value.code == "OUTPUT_DRAFT_NOT_FINALIZED"
+
+    updated = drafts.update(
+        project["id"],
+        draft["id"],
+        title="合成审计风险清单（复核稿）",
+        notes="仅用于离线验收。",
+        items=[
+            {
+                "risk_id": draft["items"][0]["risk_id"],
+                "heading": "银行存款余额异常需补充复核",
+                "body": "已核对回函，并记录后续程序。",
+            }
+        ],
+    )
+    assert updated["version"] == 2
+    assert [item["version"] for item in updated["versions"]] == [2, 1]
+
+    finalized = drafts.finalize(project["id"], draft["id"])
+    assert finalized["status"] == "finalized"
+    assert finalized["version"] == 3
+    assert finalized["finalized_at"] is not None
+    with pytest.raises(OutputError) as locked:
+        drafts.update(
+            project["id"],
+            draft["id"],
+            title="不应写入",
+            notes="",
+            items=updated["items"],
+        )
+    assert locked.value.code == "OUTPUT_DRAFT_FINALIZED"
+
+    first = exports.create_excel(project["id"], draft["id"])
+    second = exports.create_excel(project["id"], draft["id"])
+    assert first["id"] != second["id"]
+    assert first["filename"] != second["filename"]
+    assert len(first["file_sha256"]) == 64
+    assert first["draft_version"] == 3
+    first_record, first_path = exports.get(project["id"], first["id"])
+    second_record, second_path = exports.get(project["id"], second["id"])
+    assert first_record["download_url"].endswith(f"/{first['id']}/file")
+    assert first_path != second_path
+    assert first_path.is_file() and second_path.is_file()
+    assert len(exports.list(project["id"], draft["id"])) == 2
+
+    workbook = load_workbook(first_path, read_only=True)
+    risk_sheet, rule_sheet, evidence_sheet = workbook.worksheets
+    assert risk_sheet["A1"].value == "合成审计风险清单（复核稿）"
+    assert risk_sheet["B8"].value == "银行存款余额异常需补充复核"
+    assert risk_sheet["G8"].value == "已核对回函，并记录后续程序。"
+    assert rule_sheet["A8"].value == "R-0001"
+    assert evidence_sheet["B8"].value == "R-0001-E01"
+    workbook.close()
+
+    with database.connect(root / "app.db") as db:
+        events = {
+            row["event_type"]
+            for row in db.execute(
+                "SELECT event_type FROM audit_events WHERE event_type LIKE 'output.%'"
+            ).fetchall()
+        }
+    assert {
+        "output.snapshot_created",
+        "output.draft_created",
+        "output.draft_updated",
+        "output.draft_finalized",
+        "output.export_created",
+    } <= events
+
+
+def test_output_draft_rejects_risk_set_changes(tmp_path: Path) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "project")
+    root = Path(project["storage_path"])
+    document_id = seed_evidence(database, root)
+    repository = RiskRepository(database)
+    risk = create_manual_risk(database, project["id"], document_id)
+    repository.transition(
+        project["id"], risk["id"], RiskTransition(status="已核实", note="确认合成风险")
+    )
+    snapshots = OutputSnapshotService(database)
+    snapshot = snapshots.create_risk_register(project["id"])
+    drafts = OutputDraftService(database, snapshots)
+    draft = drafts.create(project["id"], snapshot["id"])
+
+    with pytest.raises(OutputError) as captured:
+        drafts.update(
+            project["id"],
+            draft["id"],
+            title=draft["title"],
+            notes="",
+            items=[{"risk_id": "other", "heading": "错误风险", "body": ""}],
+        )
+
+    assert captured.value.code == "OUTPUT_DRAFT_RISK_SET_CHANGED"
+    assert drafts.get(project["id"], draft["id"])["version"] == 1
