@@ -47,6 +47,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (10, "output_drafts_and_exports"),
         (11, "deterministic_materials_and_interview_drafts"),
         (12, "word_output_exports"),
+        (13, "external_vision_page_checkpoints"),
     ]
     assert {
         "documents",
@@ -69,6 +70,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         "output_drafts",
         "output_draft_versions",
         "output_exports",
+        "task_page_checkpoints",
         "audit_events",
         "schema_migrations",
     } <= tables
@@ -95,7 +97,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:

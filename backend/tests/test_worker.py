@@ -14,6 +14,7 @@ from backend.app.paddleocr_aistudio import (
     PaddleOcrHttpResponse,
 )
 from backend.app.schemas import ModelProfileCreate, ModelProviderCreate
+from backend.app.vision import ScanVisionService
 from backend.app.worker import LocalTaskWorker
 from backend.tests.helpers import create_project, enqueue, write_pdf
 
@@ -166,6 +167,84 @@ def test_synthetic_scanned_page_uses_fake_vision_and_cleans_temp(tmp_path: Path)
     assert call["status"] == "completed"
     assert call["task_id"] == task_id
     assert list((root / "temp").iterdir()) == []
+
+
+def test_completed_external_page_checkpoint_is_reused_after_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "checkpoint-scan")
+    root = Path(project["storage_path"])
+    source = root / "incoming" / "checkpoint.part"
+    write_pdf(source, "scan")
+    task_id = enqueue(database, root, "checkpoint.pdf", source)
+    database.set_strict_offline(False)
+    database.set_project_external_access(project["id"], True)
+    service = ScanVisionService(database)
+    calls = 0
+
+    monkeypatch.setattr(service.gateway, "route", lambda *_args, **_kwargs: object())
+
+    def analyze_page(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        return {
+            "call_id": "call-checkpoint",
+            "provider_id": "provider-checkpoint",
+            "provider": "PaddleOCR Fixture",
+            "model_profile_id": "model-checkpoint",
+            "actual_model": "PaddleOCR-VL-1.6",
+            "external_request": True,
+            "remote_request_id": "job-checkpoint",
+            "remote_cleanup_status": "unsupported",
+            "result": {
+                "schema_version": "vision-page.v1",
+                "recognized_text": "CHECKPOINTED-OCR-TEXT",
+                "confidence": None,
+            },
+        }
+
+    monkeypatch.setattr(service.gateway, "analyze_paddleocr_page", analyze_page)
+    def safe_point(*_args) -> bool:
+        return True
+
+    first = service.analyze_pages(
+        project_id=project["id"],
+        root=root,
+        task_id=task_id,
+        source=source,
+        filename="checkpoint.pdf",
+        page_text=[""],
+        safe_point=safe_point,
+    )
+    second = service.analyze_pages(
+        project_id=project["id"],
+        root=root,
+        task_id=task_id,
+        source=source,
+        filename="checkpoint.pdf",
+        page_text=[""],
+        safe_point=safe_point,
+    )
+
+    assert calls == 1
+    assert first == second
+    assert second is not None
+    assert second[0]["recognized_text"] == "CHECKPOINTED-OCR-TEXT"
+    with database.connect(root / "app.db") as db:
+        checkpoint = db.execute(
+            "SELECT * FROM task_page_checkpoints WHERE task_id=?", (task_id,)
+        ).fetchone()
+        event_types = [
+            row["event_type"]
+            for row in db.execute(
+                "SELECT event_type FROM audit_events WHERE task_id=? ORDER BY created_at",
+                (task_id,),
+            ).fetchall()
+        ]
+    assert checkpoint["page_number"] == 1
+    assert "task.external_vision_checkpoint_saved" in event_types
+    assert "task.external_vision_checkpoint_reused" in event_types
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Gateway credential resolution uses DPAPI")

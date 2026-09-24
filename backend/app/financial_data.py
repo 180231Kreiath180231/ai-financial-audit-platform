@@ -23,6 +23,8 @@ MAX_CSV_ROWS = 500_000
 MONEY_QUANTUM = Decimal("0.01")
 RULE_SET_VERSION = "TB-RULESET-v1"
 RULE_VERSION = "v1"
+ACCOUNT_ROLLFORWARD_RULE_ID = "TB-ACCOUNT-ROLLFORWARD-001"
+PERIOD_CONTINUITY_RULE_ID = "TB-PERIOD-CONTINUITY-001"
 REQUIRED_COLUMNS = (
     "年度",
     "期间",
@@ -890,7 +892,7 @@ class FinancialDataService:
                     db,
                     run_id,
                     dataset_id,
-                    "TB-ROLLFORWARD-001",
+                    ACCOUNT_ROLLFORWARD_RULE_ID,
                     period_key,
                     status,
                     f"{period_key} 单科目余额公式{'通过' if status == 'pass' else f'存在 {len(affected)} 条异常'}",
@@ -913,7 +915,7 @@ class FinancialDataService:
                     db,
                     run_id,
                     dataset_id,
-                    "TB-ROLLFORWARD-001",
+                    PERIOD_CONTINUITY_RULE_ID,
                     first_key,
                     "unavailable",
                     f"{first_key} 没有前置期间，无法执行跨期衔接检查",
@@ -934,7 +936,7 @@ class FinancialDataService:
                         db,
                         run_id,
                         dataset_id,
-                        "TB-ROLLFORWARD-001",
+                        PERIOD_CONTINUITY_RULE_ID,
                         current_key,
                         "unavailable",
                         f"{previous_key} 至 {current_key} 期间不连续，未跨期计算",
@@ -970,7 +972,7 @@ class FinancialDataService:
                     db,
                     run_id,
                     dataset_id,
-                    "TB-ROLLFORWARD-001",
+                    PERIOD_CONTINUITY_RULE_ID,
                     current_key,
                     status,
                     f"{previous_key} 至 {current_key} 跨期衔接{'通过' if status == 'pass' else f'存在 {len(affected)} 条异常'}",

@@ -75,6 +75,21 @@ class ScanVisionService:
                 continue
             if not safe_point(root, task_id, source):
                 return None
+            checkpoint = self._load_external_checkpoint(root, task_id, page_number)
+            if checkpoint is not None:
+                analyses.append(checkpoint)
+                self.database.record_project_event(
+                    root,
+                    "task.external_vision_checkpoint_reused",
+                    task_id=task_id,
+                    details={
+                        "page_number": page_number,
+                        "model_call_id": checkpoint["model_call_id"],
+                    },
+                )
+                if not safe_point(root, task_id, source):
+                    return None
+                continue
             if not synthetic:
                 analyses.append(self._pending_result(page_number))
                 continue
@@ -100,10 +115,63 @@ class ScanVisionService:
             )
             if result is None:
                 return None
+            if result["status"] == "completed" and result["external_request"]:
+                self._save_external_checkpoint(root, task_id, result)
             analyses.append(result)
             if not safe_point(root, task_id, source):
                 return None
         return analyses
+
+    def _load_external_checkpoint(
+        self, root: Path, task_id: str, page_number: int
+    ) -> dict[str, Any] | None:
+        with self.database.connect(root / "app.db") as db:
+            row = db.execute(
+                """SELECT analysis_json FROM task_page_checkpoints
+                WHERE task_id=? AND page_number=? AND checkpoint_kind='external_vision'""",
+                (task_id, page_number),
+            ).fetchone()
+        if row is None:
+            return None
+        analysis = json.loads(row["analysis_json"])
+        if (
+            analysis.get("status") != "completed"
+            or not analysis.get("external_request")
+            or analysis.get("parse_version") != PADDLEOCR_PARSE_VERSION
+        ):
+            return None
+        return analysis
+
+    def _save_external_checkpoint(
+        self, root: Path, task_id: str, analysis: dict[str, Any]
+    ) -> None:
+        now = utc_now()
+        serialized = json.dumps(
+            analysis,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        with self.database.connect(root / "app.db") as db:
+            db.execute(
+                """INSERT INTO task_page_checkpoints
+                (task_id, page_number, checkpoint_kind, analysis_json, created_at, updated_at)
+                VALUES (?, ?, 'external_vision', ?, ?, ?)
+                ON CONFLICT(task_id, page_number, checkpoint_kind) DO UPDATE SET
+                    analysis_json=excluded.analysis_json,
+                    updated_at=excluded.updated_at""",
+                (task_id, analysis["page_number"], serialized, now, now),
+            )
+        self.database.record_project_event(
+            root,
+            "task.external_vision_checkpoint_saved",
+            task_id=task_id,
+            details={
+                "page_number": analysis["page_number"],
+                "model_call_id": analysis["model_call_id"],
+                "remote_request_id": analysis["remote_request_id"],
+            },
+        )
 
     @staticmethod
     def _native_result(page_number: int, text: str) -> dict[str, Any]:

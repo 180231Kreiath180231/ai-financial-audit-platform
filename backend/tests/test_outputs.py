@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from docx import Document as WordDocument
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 from backend.app.db import Database
 from backend.app.outputs import (
@@ -356,3 +356,24 @@ def test_output_draft_rejects_material_set_and_interview_risk_link_changes(
             interviews=changed,
         )
     assert relinked.value.code == "OUTPUT_DRAFT_ITEM_LINK_CHANGED"
+
+
+@pytest.mark.parametrize("value", ["=1+1", "+cmd", "-2+3", "@SUM(A1:A2)", "\t=1+1"])
+def test_excel_export_writes_untrusted_formula_prefixes_as_text(
+    tmp_path: Path, value: str
+) -> None:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet["A7"] = "字段"
+    sheet["A8"] = "模板"
+
+    OutputExportService._write_rows(sheet, [[value]], "SafeTextTable")
+    target = tmp_path / "safe.xlsx"
+    workbook.save(target)
+    workbook.close()
+
+    reopened = load_workbook(target, data_only=False)
+    cell = reopened.active["A8"]
+    assert cell.value == value
+    assert cell.data_type == "s"
+    reopened.close()

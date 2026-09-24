@@ -76,8 +76,13 @@ def test_preview_import_rules_and_financial_risks_are_traceable(tmp_path: Path) 
         "TB-BAL-OPEN-001",
         "TB-BAL-MOVEMENT-001",
         "TB-BAL-CLOSE-001",
-        "TB-ROLLFORWARD-001",
+        "TB-PERIOD-CONTINUITY-001",
     }
+    rule_scope_kinds: dict[str, set[str]] = {}
+    for result in dataset["rule_results"]:
+        rule_scope_kinds.setdefault(result["rule_id"], set()).add(result["scope"]["kind"])
+    assert rule_scope_kinds["TB-ACCOUNT-ROLLFORWARD-001"] == {"formula"}
+    assert rule_scope_kinds["TB-PERIOD-CONTINUITY-001"] == {"continuity"}
     opening = next(result for result in failed if result["rule_id"] == "TB-BAL-OPEN-001")
     assert opening["calculation_result"]["difference"] == "-100.00"
     detail = service.result_rows(

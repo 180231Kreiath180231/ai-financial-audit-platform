@@ -214,6 +214,12 @@ class RiskRepository:
                 ).fetchone()
                 if current is None:
                     raise KeyError(risk_id)
+                if current["status"] != "待复核":
+                    raise RiskError(
+                        "RISK_EXPLANATION_REVIEW_REQUIRED",
+                        "只有待复核风险可以生成或更新模型解释",
+                        "如有新证据，先按受控流程生成新版本并重新进入待复核",
+                    )
                 next_version = int(current["version"]) + 1
                 db.execute(
                     """UPDATE risk_items SET model_explanation=?, uncertainty=?,

@@ -113,7 +113,7 @@ export function RiskWorkspace({
 
                 <section className="risk-detail-section" aria-labelledby="explanation-heading">
                   <div className="risk-section-title"><Sparkle aria-hidden="true" /><div><h3 id="explanation-heading">AI 解释</h3><p>{selectedRisk.actual_model ? `${selectedRisk.model_provider} / ${selectedRisk.actual_model}` : '尚未生成 · 仅允许 Fake Provider'}</p></div></div>
-                  {selectedRisk.model_explanation ? <div className="model-draft"><p>{selectedRisk.model_explanation}</p><small>{selectedRisk.uncertainty}</small></div> : <button className="button secondary" type="button" disabled={busy !== null} onClick={() => void onFakeExplanation(selectedRisk)}><Sparkle aria-hidden="true" />生成合成解释草稿</button>}
+                  {selectedRisk.model_explanation ? <div className="model-draft"><p>{selectedRisk.model_explanation}</p><small>{selectedRisk.uncertainty}</small></div> : selectedRisk.status === '待复核' ? <button className="button secondary" type="button" disabled={busy !== null} onClick={() => void onFakeExplanation(selectedRisk)}><Sparkle aria-hidden="true" />生成合成解释草稿</button> : <div className="completed-note" role="status"><ShieldCheck aria-hidden="true" /><span><b>当前状态不允许生成解释</b>{selectedRisk.status === '待补证' ? '完成补证并重新进入待复核后再生成。' : '人工确认后的风险不会被新的模型内容静默改变。'}</span></div>}
                 </section>
 
                 <section className="risk-detail-section" aria-labelledby="action-heading">

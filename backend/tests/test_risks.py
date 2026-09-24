@@ -152,6 +152,36 @@ def test_fake_explanation_is_local_audited_and_versioned(tmp_path: Path) -> None
     assert call["capability"] == "json_schema"
 
 
+def test_fake_explanation_cannot_change_human_confirmed_risk(tmp_path: Path) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "project")
+    document_id = seed_evidence(database, Path(project["storage_path"]))
+    repository = RiskRepository(database)
+    risk = create_manual_risk(database, project["id"], document_id)
+    verified = repository.transition(
+        project["id"],
+        risk["id"],
+        RiskTransition(status="已核实", note="人工已经确认当前内容"),
+    )
+
+    with pytest.raises(RiskError) as captured:
+        repository.apply_fake_explanation(
+            project["id"],
+            risk["id"],
+            explanation="未经复核的新解释",
+            uncertainty="未经复核",
+            provider="Fake Provider",
+            actual_model="fake-structured-v1",
+            model_call_id="call-after-review",
+        )
+
+    assert captured.value.code == "RISK_EXPLANATION_REVIEW_REQUIRED"
+    unchanged = repository.get(project["id"], risk["id"])
+    assert unchanged["status"] == "已核实"
+    assert unchanged["version"] == verified["version"]
+    assert unchanged["model_explanation"] is None
+
+
 def test_risk_creation_rejects_unknown_evidence_block(tmp_path: Path) -> None:
     database = Database(tmp_path / "registry")
     project = create_project(database, tmp_path / "project")

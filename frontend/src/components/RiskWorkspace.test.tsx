@@ -100,4 +100,12 @@ describe('RiskWorkspace', () => {
     expect(props.onFakeExplanation).toHaveBeenCalledWith(risk)
     expect(screen.getByText('尚未生成 · 仅允许 Fake Provider')).toBeVisible()
   })
+
+  it('does not offer a model explanation after human confirmation', () => {
+    renderWorkspace({ selectedRisk: { ...risk, status: '已核实' } })
+
+    expect(screen.queryByRole('button', { name: '生成合成解释草稿' })).not.toBeInTheDocument()
+    expect(screen.getByText('当前状态不允许生成解释')).toBeVisible()
+    expect(screen.getByText('人工确认后的风险不会被新的模型内容静默改变。')).toBeVisible()
+  })
 })

@@ -928,7 +928,8 @@ class OutputExportService:
         for row_index, values in enumerate(rows, start=template_row):
             for column_index, value in enumerate(values, start=1):
                 source = sheet.cell(template_row, column_index)
-                cell = sheet.cell(row_index, column_index, value=value)
+                cell = sheet.cell(row_index, column_index)
+                OutputExportService._set_excel_cell_value(cell, value)
                 if row_index != template_row:
                     cell._style = copy(source._style)  # noqa: SLF001
                     cell.font = copy(source.font)
@@ -950,3 +951,11 @@ class OutputExportService:
             showColumnStripes=False,
         )
         sheet.add_table(table)
+
+    @staticmethod
+    def _set_excel_cell_value(cell, value: Any) -> None:
+        cell.value = value
+        if isinstance(value, str):
+            candidate = value.lstrip("\t\r\n")
+            if candidate.startswith(("=", "+", "-", "@")):
+                cell.data_type = "s"

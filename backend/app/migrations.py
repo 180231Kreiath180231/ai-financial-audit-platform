@@ -691,6 +691,21 @@ def _project_v12(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v13(db: sqlite3.Connection) -> None:
+    """Checkpoint completed external page analysis before the document commit."""
+    db.execute(
+        """CREATE TABLE task_page_checkpoints (
+            task_id TEXT NOT NULL REFERENCES tasks(id),
+            page_number INTEGER NOT NULL CHECK(page_number > 0),
+            checkpoint_kind TEXT NOT NULL CHECK(checkpoint_kind IN ('external_vision')),
+            analysis_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(task_id, page_number, checkpoint_kind)
+        )"""
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -710,6 +725,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (10, "output_drafts_and_exports", _project_v10),
     (11, "deterministic_materials_and_interview_drafts", _project_v11),
     (12, "word_output_exports", _project_v12),
+    (13, "external_vision_page_checkpoints", _project_v13),
 )
 
 

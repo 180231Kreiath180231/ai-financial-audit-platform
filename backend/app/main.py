@@ -109,6 +109,15 @@ demo_data = DemoDataService(database, financial_data, settings.demo_data_dir)
 output_snapshots = OutputSnapshotService(database)
 output_drafts = OutputDraftService(database, output_snapshots)
 output_exports = OutputExportService(database, output_snapshots, output_drafts)
+MIN_IMPORT_FREE_BYTES = 10 * 1024**3
+
+
+class _ImportDiskSpaceLow(RuntimeError):
+    pass
+
+
+def _has_import_disk_capacity(root: Path, pending_bytes: int = 0) -> bool:
+    return shutil.disk_usage(root).free - pending_bytes >= MIN_IMPORT_FREE_BYTES
 
 
 def seed_synthetic_project() -> None:
@@ -557,6 +566,12 @@ def create_fake_risk_explanation(project_id: str, risk_id: str) -> dict:
     project_root_or_error(project_id)
     try:
         risk = risk_repository.get(project_id, risk_id)
+        if risk["status"] != "待复核":
+            raise RiskError(
+                "RISK_EXPLANATION_REVIEW_REQUIRED",
+                "只有待复核风险可以生成或更新模型解释",
+                "如有新证据，先按受控流程生成新版本并重新进入待复核",
+            )
         support_refs = [
             (
                 f"{item['document_id']}:{item['page_number']}:{item['block_number']}"
@@ -593,6 +608,11 @@ def create_fake_risk_explanation(project_id: str, risk_id: str) -> dict:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="风险卡不存在") from exc
     except GatewayError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    except RiskError as exc:
         raise HTTPException(
             status_code=409,
             detail={"code": exc.code, "message": exc.message, "action": exc.action},
@@ -1142,24 +1162,52 @@ async def upload_documents(project_id: str, files: list[UploadFile] = File(...))
         filename = Path(upload.filename or "unnamed.pdf").name
         if Path(filename).suffix.lower() != ".pdf":
             rejected.append(ApiError(code="FILE_TYPE_UNSUPPORTED", message=f"{filename} 不是 PDF", action="仅选择 PDF 文件"))
+            await upload.close()
             continue
         task_id = str(uuid.uuid4())
         incoming = root / "incoming" / f"{task_id}.part"
         try:
+            if not _has_import_disk_capacity(root):
+                raise _ImportDiskSpaceLow
             with incoming.open("wb") as destination:
                 while chunk := await upload.read(1024 * 1024):
+                    if not _has_import_disk_capacity(root, len(chunk)):
+                        raise _ImportDiskSpaceLow
                     destination.write(chunk)
+            now = utc_now()
+            with database.connect(root / "app.db") as db:
+                db.execute(
+                    """INSERT INTO tasks
+                    (id, task_type, filename, incoming_path, status, progress, current_step, created_at, updated_at)
+                    VALUES (?, 'pdf_import', ?, ?, 'queued', 0, '等待单工作器', ?, ?)""",
+                    (task_id, filename, str(incoming), now, now),
+                )
+                row = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+        except _ImportDiskSpaceLow:
+            incoming.unlink(missing_ok=True)
+            rejected.append(
+                ApiError(
+                    code="DISK_SPACE_LOW",
+                    message=f"{filename} 未导入：项目磁盘剩余空间低于 10GB 安全线",
+                    action="释放磁盘空间或选择其他项目目录后重试",
+                )
+            )
+            continue
+        except OSError:
+            incoming.unlink(missing_ok=True)
+            rejected.append(
+                ApiError(
+                    code="LOCAL_IO_ERROR",
+                    message=f"{filename} 写入本地暂存目录失败",
+                    action="检查磁盘空间和项目目录权限后重试",
+                )
+            )
+            continue
+        except Exception:
+            incoming.unlink(missing_ok=True)
+            raise
         finally:
             await upload.close()
-        now = utc_now()
-        with database.connect(root / "app.db") as db:
-            db.execute(
-                """INSERT INTO tasks
-                (id, task_type, filename, incoming_path, status, progress, current_step, created_at, updated_at)
-                VALUES (?, 'pdf_import', ?, ?, 'queued', 0, '等待单工作器', ?, ?)""",
-                (task_id, filename, str(incoming), now, now),
-            )
-            row = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         database.record_project_event(root, "task.queued", task_id=task_id)
         logger.info("task.queued", extra={"project_id": project_id, "task_id": task_id})
         accepted.append(task_from_row(row))
