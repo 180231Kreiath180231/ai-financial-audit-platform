@@ -11,7 +11,7 @@ if (Test-Path -LiteralPath $dataDir) {
 }
 
 try {
-    & (Join-Path $PSScriptRoot 'dev.ps1') -NoOpen -BackendPort 8100 -FrontendPort 5174 -DataDir $dataDir
+    & (Join-Path $PSScriptRoot 'dev.ps1') -NoOpen -BackendPort 8100 -FrontendPort 5174 -DataDir $dataDir -BackendApp 'backend.tests.e2e_app:app'
 } finally {
     if ($dataDir -eq (Join-Path $runtimeRoot 'e2e-data') -and (Test-Path -LiteralPath $dataDir)) {
         Remove-Item -LiteralPath $dataDir -Recurse -Force -ErrorAction SilentlyContinue

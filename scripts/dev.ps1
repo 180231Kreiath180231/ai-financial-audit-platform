@@ -2,7 +2,8 @@ param(
     [switch]$NoOpen,
     [int]$BackendPort = 8000,
     [int]$FrontendPort = 5173,
-    [string]$DataDir = ''
+    [string]$DataDir = '',
+    [string]$BackendApp = 'backend.app.main:app'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,7 +33,7 @@ $backendErr = Join-Path $runtimeDir "backend-$BackendPort.err.log"
 $frontendOut = Join-Path $runtimeDir "frontend-$FrontendPort.out.log"
 $frontendErr = Join-Path $runtimeDir "frontend-$FrontendPort.err.log"
 
-$backend = Start-Process -FilePath 'uv' -ArgumentList @('run', 'uvicorn', 'backend.app.main:app', '--host', '127.0.0.1', '--port', "$BackendPort") -WorkingDirectory $repoRoot -RedirectStandardOutput $backendOut -RedirectStandardError $backendErr -WindowStyle Hidden -PassThru
+$backend = Start-Process -FilePath 'uv' -ArgumentList @('run', 'uvicorn', $BackendApp, '--host', '127.0.0.1', '--port', "$BackendPort") -WorkingDirectory $repoRoot -RedirectStandardOutput $backendOut -RedirectStandardError $backendErr -WindowStyle Hidden -PassThru
 $frontend = Start-Process -FilePath 'npm.cmd' -ArgumentList @('--prefix', 'frontend', 'run', 'dev', '--', '--port', "$FrontendPort") -WorkingDirectory $repoRoot -RedirectStandardOutput $frontendOut -RedirectStandardError $frontendErr -WindowStyle Hidden -PassThru
 
 try {
