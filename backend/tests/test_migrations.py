@@ -51,6 +51,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (14, "pdf_output_exports"),
         (15, "resource_pause_reasons"),
         (16, "audit_notes"),
+        (17, "deterministic_management_materials"),
     ]
     assert {
         "documents",
@@ -103,7 +104,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
 
 def test_project_v15_backfills_existing_pauses_as_user_owned(tmp_path: Path) -> None:
@@ -270,12 +271,22 @@ def test_project_v11_adds_empty_sections_without_rewriting_existing_draft(tmp_pa
         apply_migrations(connection, "project", PROJECT_MIGRATIONS)
         row = connection.execute(
             """SELECT version, title, materials_title, materials_json,
-            interview_title, interview_json FROM output_drafts WHERE id='draft-1'"""
+            interview_title, interview_json, management_title, management_json
+            FROM output_drafts WHERE id='draft-1'"""
         ).fetchone()
     finally:
         connection.close()
 
-    assert tuple(row) == (2, "旧草稿", "资料清单", "[]", "访谈提纲", "[]")
+    assert tuple(row) == (
+        2,
+        "旧草稿",
+        "资料清单",
+        "[]",
+        "访谈提纲",
+        "[]",
+        "管理层沟通材料",
+        "[]",
+    )
 
 
 def test_project_v14_preserves_excel_and_word_exports_and_allows_pdf(tmp_path: Path) -> None:

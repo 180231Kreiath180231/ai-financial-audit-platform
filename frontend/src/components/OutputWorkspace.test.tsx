@@ -24,6 +24,7 @@ vi.mock('../api', () => ({
     createExcelExport: vi.fn(),
     createWordExport: vi.fn(),
     createPdfExport: vi.fn(),
+    createEvidencePackageExport: vi.fn(),
   },
 }))
 
@@ -178,6 +179,15 @@ const draft: OutputDraftRecord = {
     question: '支持材料如何形成和复核？',
     objective: '了解证据形成过程。',
   }],
+  management_title: '管理层沟通材料',
+  management: [{
+    id: 'G-001',
+    risk_id: 'risk-1',
+    risk_number: 'R-0001',
+    heading: '银行存款期末余额需要复核',
+    summary: '已核对原始回函。',
+    response_request: '请确认形成原因、后续措施和预计完成时间。',
+  }],
   created_at: '2026-09-23T02:10:00Z',
   updated_at: '2026-09-23T02:10:00Z',
   finalized_at: null,
@@ -190,6 +200,7 @@ const excel: OutputExportRecord = {
   draft_version: 3,
   snapshot_id: snapshot.id,
   export_format: 'xlsx',
+  artifact_kind: 'risk_register',
   template_version: 'risk-register-excel-v1',
   filename: '风险清单-20260923-v3-export1.xlsx',
   file_sha256: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
@@ -202,7 +213,8 @@ const word: OutputExportRecord = {
   ...excel,
   id: 'export-2',
   export_format: 'docx',
-  template_version: 'audit-work-products-word-v1',
+  artifact_kind: 'work_products',
+  template_version: 'audit-work-products-word-v2',
   filename: '审计工作成果-20260923-v3-export2.docx',
   download_url: '/api/v1/projects/project-1/outputs/exports/export-2/file',
 }
@@ -211,9 +223,19 @@ const pdf: OutputExportRecord = {
   ...excel,
   id: 'export-3',
   export_format: 'pdf',
-  template_version: 'audit-work-products-pdf-v1',
+  artifact_kind: 'work_products',
+  template_version: 'audit-work-products-pdf-v2',
   filename: '审计工作成果归档件-20260923-v3-export3.pdf',
   download_url: '/api/v1/projects/project-1/outputs/exports/export-3/file',
+}
+
+const evidencePackage: OutputExportRecord = {
+  ...excel,
+  id: 'export-4',
+  artifact_kind: 'evidence_package',
+  template_version: 'evidence-package-excel-v1',
+  filename: '审计证据包索引-20260923-v3-export4.xlsx',
+  download_url: '/api/v1/projects/project-1/outputs/exports/export-4/file',
 }
 
 describe('OutputWorkspace', () => {
@@ -280,6 +302,7 @@ describe('OutputWorkspace', () => {
     vi.mocked(api.createExcelExport).mockResolvedValue(excel)
     vi.mocked(api.createWordExport).mockResolvedValue(word)
     vi.mocked(api.createPdfExport).mockResolvedValue(pdf)
+    vi.mocked(api.createEvidencePackageExport).mockResolvedValue(evidencePackage)
     const user = userEvent.setup()
     render(<OutputWorkspace project={project} risks={[risk('已核实')]} onOpenRisks={vi.fn()} />)
 
@@ -287,6 +310,9 @@ describe('OutputWorkspace', () => {
     expect(screen.getByText('R-0001-E01')).toBeVisible()
     expect(screen.getByRole('tab', { name: '资料清单 1' })).toBeVisible()
     expect(screen.getByRole('tab', { name: '访谈提纲 2' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: '管理层材料 1' })).toBeVisible()
+    await user.click(screen.getByRole('tab', { name: '管理层材料 1' }))
+    expect(screen.getByRole('textbox', { name: '需管理层回复' })).toHaveValue('请确认形成原因、后续措施和预计完成时间。')
     await user.click(screen.getByRole('tab', { name: '资料清单 1' }))
     expect(screen.getByRole('textbox', { name: '资料名称' })).toHaveValue('R-0001 原始文件、审批记录及补充支持材料')
     await user.click(screen.getByRole('tab', { name: '访谈提纲 2' }))
@@ -323,6 +349,10 @@ describe('OutputWorkspace', () => {
     expect(await screen.findByText(pdf.filename)).toBeVisible()
     expect(screen.getAllByRole('link', { name: '下载' })).toHaveLength(3)
     expect(api.createPdfExport).toHaveBeenCalledWith(project.id, draft.id)
+    await user.click(screen.getByRole('button', { name: '生成证据包' }))
+    expect(await screen.findByText(evidencePackage.filename)).toBeVisible()
+    expect(screen.getAllByRole('link', { name: '下载' })).toHaveLength(4)
+    expect(api.createEvidencePackageExport).toHaveBeenCalledWith(project.id, draft.id)
   })
 
   it('announces a PDF export in progress and prevents duplicate submission', async () => {

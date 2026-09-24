@@ -826,6 +826,8 @@ def update_output_draft(project_id: str, draft_id: str, payload: OutputDraftUpda
             materials=[item.model_dump() for item in payload.materials],
             interview_title=payload.interview_title,
             interviews=[item.model_dump() for item in payload.interviews],
+            management_title=payload.management_title,
+            management=[item.model_dump() for item in payload.management],
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="输出草稿不存在") from exc
@@ -907,6 +909,25 @@ def create_pdf_export(project_id: str, draft_id: str) -> dict:
     project_root_or_error(project_id)
     try:
         return output_exports.create_pdf(project_id, draft_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="输出草稿或快照不存在") from exc
+    except OutputError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/outputs/drafts/{draft_id}/exports/evidence-package-xlsx",
+    response_model=OutputExportRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_evidence_package_export(project_id: str, draft_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return output_exports.create_evidence_package(project_id, draft_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="输出草稿或快照不存在") from exc
     except OutputError as exc:

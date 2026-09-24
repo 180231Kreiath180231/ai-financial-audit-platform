@@ -10,9 +10,9 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
-WORD_TEMPLATE_VERSION = "audit-work-products-word-v1"
+WORD_TEMPLATE_VERSION = "audit-work-products-word-v2"
 WORD_TEMPLATE_PATH = (
-    Path(__file__).resolve().parents[2] / "templates" / "audit-work-products-word-v1.docx"
+    Path(__file__).resolve().parents[2] / "templates" / "audit-work-products-word-v2.docx"
 )
 
 _NAVY = "17365D"
@@ -42,11 +42,13 @@ def render_word_export(
     document.core_properties.keywords = snapshot["content_sha256"]
 
     document.add_paragraph(f"{project['name']} 审计工作成果", style="Title")
-    subtitle = document.add_paragraph("风险清单 资料清单 访谈提纲", style="Subtitle")
+    subtitle = document.add_paragraph(
+        "管理层沟通材料 风险清单 资料清单 访谈提纲", style="Subtitle"
+    )
     subtitle.alignment = WD_ALIGN_PARAGRAPH.LEFT
     introduction = document.add_paragraph(
-        "本文件汇集已最终固化的风险清单、资料索取项目和访谈问题。"
-        "风险事实、规则计算和证据引用来自不可变快照；资料要求与访谈问题用于后续审计程序准备。"
+        "本文件汇集已最终固化的管理层沟通材料、风险清单、资料索取项目和访谈问题。"
+        "风险事实、规则计算和证据引用来自不可变快照；管理层沟通内容用于确认事实和后续安排。"
     )
     introduction.paragraph_format.space_after = Pt(12)
 
@@ -76,13 +78,57 @@ def render_word_export(
     counts.paragraph_format.space_before = Pt(10)
     counts.add_run("成果范围  ").bold = True
     counts.add_run(
-        f"风险 {len(draft['items'])} 项  ·  资料 {len(draft['materials'])} 项  ·  "
-        f"访谈问题 {len(draft['interviews'])} 项"
+        f"管理层事项 {len(draft['management'])} 项  ·  风险 {len(draft['items'])} 项  ·  "
+        f"资料 {len(draft['materials'])} 项  ·  访谈问题 {len(draft['interviews'])} 项"
     )
     if draft["notes"]:
         notes = document.add_paragraph()
         notes.add_run("编制备注  ").bold = True
         notes.add_run(draft["notes"])
+
+    document.add_page_break()
+    document.add_heading(draft["management_title"], level=1)
+    document.add_paragraph(
+        "以下内容用于管理层沟通准备。风险状态、风险等级和证据编号保持源快照记录；"
+        "管理层意见和后续安排应由相关人员确认后另行留痕。"
+    )
+    for item in draft["management"]:
+        risk = risks[item["risk_id"]]
+        document.add_heading(f"{risk['risk_number']} {item['heading']}", level=2)
+        management_table = document.add_table(rows=1, cols=2)
+        management_table.alignment = WD_TABLE_ALIGNMENT.LEFT
+        management_table.autofit = False
+        management_table.columns[0].width = Inches(1.25)
+        management_table.columns[1].width = Inches(5.55)
+        _set_cell(
+            management_table.cell(0, 0),
+            "字段",
+            bold=True,
+            fill=_NAVY,
+            white=True,
+            center=True,
+        )
+        _set_cell(
+            management_table.cell(0, 1),
+            "内容",
+            bold=True,
+            fill=_NAVY,
+            white=True,
+            center=True,
+        )
+        _repeat_header(management_table.rows[0])
+        citations = "、".join(evidence["citation"] for evidence in risk["evidence"])
+        for label, value in (
+            ("风险等级", risk["risk_level"]),
+            ("风险状态", risk["status"]),
+            ("事项摘要", item["summary"]),
+            ("需管理层回复", item["response_request"]),
+            ("证据编号", citations),
+        ):
+            cells = management_table.add_row().cells
+            _set_cell(cells[0], label, bold=True, fill=_PALE_GRAY)
+            _set_cell(cells[1], str(value or ""))
+        _format_table(management_table, font_size=9.5)
 
     document.add_page_break()
     document.add_heading("风险清单", level=1)
@@ -149,7 +195,7 @@ def render_word_export(
     materials_table = document.add_table(rows=1, cols=6)
     materials_table.alignment = WD_TABLE_ALIGNMENT.LEFT
     materials_table.autofit = False
-    for index, width in enumerate((0.5, 0.65, 1.65, 1.65, 1.7, 0.65)):
+    for index, width in enumerate((0.45, 0.55, 1.35, 1.55, 1.7, 0.55)):
         materials_table.columns[index].width = Inches(width)
     for index, label in enumerate(("编号", "风险", "资料名称", "取证用途", "索取范围", "优先级")):
         _set_cell(materials_table.cell(0, index), label, bold=True, fill=_NAVY, white=True, center=True)

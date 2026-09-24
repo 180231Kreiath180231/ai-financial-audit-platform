@@ -144,6 +144,17 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
         }
     ]
     assert [item["id"] for item in draft["interviews"]] == ["Q-001", "Q-002"]
+    assert draft["management_title"] == "管理层沟通材料"
+    assert draft["management"] == [
+        {
+            "id": "G-001",
+            "risk_id": risk["id"],
+            "risk_number": "R-0001",
+            "heading": "Synthetic evidence needs human review",
+            "summary": "已逐页核对合成证据",
+            "response_request": "请管理层确认相关事实，并说明拟采取的措施、责任安排和预计完成时间。",
+        }
+    ]
 
     with pytest.raises(OutputError) as pending:
         exports.create_excel(project["id"], draft["id"])
@@ -154,6 +165,9 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     with pytest.raises(OutputError) as pending_pdf:
         exports.create_pdf(project["id"], draft["id"])
     assert pending_pdf.value.code == "OUTPUT_DRAFT_NOT_FINALIZED"
+    with pytest.raises(OutputError) as pending_evidence:
+        exports.create_evidence_package(project["id"], draft["id"])
+    assert pending_evidence.value.code == "OUTPUT_DRAFT_NOT_FINALIZED"
 
     updated = drafts.update(
         project["id"],
@@ -189,6 +203,16 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
             }
             for item in reversed(draft["interviews"])
         ],
+        management_title="管理层审阅事项",
+        management=[
+            {
+                "id": draft["management"][0]["id"],
+                "risk_id": draft["management"][0]["risk_id"],
+                "heading": "银行存款余额事项",
+                "summary": "余额变动已取得回函支持，仍需管理层确认形成原因。",
+                "response_request": "请确认形成原因、后续措施和预计完成时间。",
+            }
+        ],
     )
     assert updated["version"] == 2
     assert updated["materials"][0]["title"] == "银行回函及期后流水"
@@ -210,6 +234,8 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
             materials=updated["materials"],
             interview_title=updated["interview_title"],
             interviews=updated["interviews"],
+            management_title=updated["management_title"],
+            management=updated["management"],
         )
     assert locked.value.code == "OUTPUT_DRAFT_FINALIZED"
 
@@ -219,6 +245,7 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert first["filename"] != second["filename"]
     assert len(first["file_sha256"]) == 64
     assert first["draft_version"] == 3
+    assert first["artifact_kind"] == "risk_register"
     first_record, first_path = exports.get(project["id"], first["id"])
     second_record, second_path = exports.get(project["id"], second["id"])
     assert first_record["download_url"].endswith(f"/{first['id']}/file")
@@ -240,7 +267,8 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert first_word["id"] != second_word["id"]
     assert first_word["filename"] != second_word["filename"]
     assert first_word["export_format"] == "docx"
-    assert first_word["template_version"] == "audit-work-products-word-v1"
+    assert first_word["template_version"] == "audit-work-products-word-v2"
+    assert first_word["artifact_kind"] == "work_products"
     _, first_word_path = exports.get(project["id"], first_word["id"])
     _, second_word_path = exports.get(project["id"], second_word["id"])
     assert first_word_path != second_word_path
@@ -259,6 +287,8 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert "银行回函及期后流水" in table_text
     assert "复核访谈提纲" in text
     assert updated["interviews"][0]["question"] in text
+    assert "管理层审阅事项" in text
+    assert "请确认形成原因、后续措施和预计完成时间" in table_text
     assert len(exports.list(project["id"], draft["id"])) == 4
 
     first_pdf = exports.create_pdf(project["id"], draft["id"])
@@ -266,12 +296,13 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert first_pdf["id"] != second_pdf["id"]
     assert first_pdf["filename"] != second_pdf["filename"]
     assert first_pdf["export_format"] == "pdf"
-    assert first_pdf["template_version"] == "audit-work-products-pdf-v1"
+    assert first_pdf["template_version"] == "audit-work-products-pdf-v2"
+    assert first_pdf["artifact_kind"] == "work_products"
     _, first_pdf_path = exports.get(project["id"], first_pdf["id"])
     _, second_pdf_path = exports.get(project["id"], second_pdf["id"])
     assert first_pdf_path != second_pdf_path
     reader = PdfReader(first_pdf_path)
-    assert len(reader.pages) >= 4
+    assert len(reader.pages) >= 5
     assert reader.metadata.title == "合成审计风险清单（复核稿）"
     embedded_fonts = []
     for page in reader.pages:
@@ -293,10 +324,30 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert "银行回函及期后流水" in pdf_text
     assert "复核访谈提纲" in pdf_text
     assert updated["interviews"][0]["question"] in pdf_text
+    assert "管理层审阅事项" in pdf_text
+    assert "请确认形成原因、后续措施和预计完成时间" in pdf_text
     assert len(exports.list(project["id"], draft["id"])) == 6
 
+    evidence_package = exports.create_evidence_package(project["id"], draft["id"])
+    assert evidence_package["export_format"] == "xlsx"
+    assert evidence_package["artifact_kind"] == "evidence_package"
+    assert evidence_package["template_version"] == "evidence-package-excel-v1"
+    _, evidence_package_path = exports.get(project["id"], evidence_package["id"])
+    evidence_workbook = load_workbook(evidence_package_path, read_only=True)
+    assert evidence_workbook.sheetnames == ["证据包说明", "风险索引", "证据索引"]
+    assert evidence_workbook["证据包说明"]["B4"].value == snapshot["id"]
+    assert evidence_workbook["风险索引"]["B2"].value == project["name"]
+    assert evidence_workbook["风险索引"]["E5"].value == 1
+    assert evidence_workbook["风险索引"]["A8"].value == "R-0001"
+    assert evidence_workbook["证据索引"]["B4"].value == snapshot["id"]
+    assert evidence_workbook["证据索引"]["E5"].value == 2
+    assert evidence_workbook["证据索引"]["A8"].value == "R-0001-E01"
+    assert evidence_workbook["证据索引"]["I8"].value
+    evidence_workbook.close()
+    assert len(exports.list(project["id"], draft["id"])) == 7
+
     with database.connect(root / "app.db") as db:
-        db.execute("UPDATE output_drafts SET materials_json='[]' WHERE id=?", (draft["id"],))
+        db.execute("UPDATE output_drafts SET management_json='[]' WHERE id=?", (draft["id"],))
     with pytest.raises(OutputError) as legacy_word:
         exports.create_word(project["id"], draft["id"])
     assert legacy_word.value.code == "OUTPUT_DRAFT_SECTIONS_REQUIRED"
@@ -346,6 +397,8 @@ def test_output_draft_rejects_risk_set_changes(tmp_path: Path) -> None:
             materials=draft["materials"],
             interview_title=draft["interview_title"],
             interviews=draft["interviews"],
+            management_title=draft["management_title"],
+            management=draft["management"],
         )
 
     assert captured.value.code == "OUTPUT_DRAFT_RISK_SET_CHANGED"
@@ -374,6 +427,7 @@ def test_output_draft_rejects_material_set_and_interview_risk_link_changes(
         "items": draft["items"],
         "materials_title": draft["materials_title"],
         "interview_title": draft["interview_title"],
+        "management_title": draft["management_title"],
     }
 
     with pytest.raises(OutputError) as removed:
@@ -383,6 +437,7 @@ def test_output_draft_rejects_material_set_and_interview_risk_link_changes(
             **common,
             materials=[],
             interviews=draft["interviews"],
+            management=draft["management"],
         )
     assert removed.value.code == "OUTPUT_DRAFT_ITEM_SET_CHANGED"
 
@@ -395,8 +450,20 @@ def test_output_draft_rejects_material_set_and_interview_risk_link_changes(
             **common,
             materials=draft["materials"],
             interviews=changed,
+            management=draft["management"],
         )
     assert relinked.value.code == "OUTPUT_DRAFT_ITEM_LINK_CHANGED"
+
+    with pytest.raises(OutputError) as removed_management:
+        drafts.update(
+            project["id"],
+            draft["id"],
+            **common,
+            materials=draft["materials"],
+            interviews=draft["interviews"],
+            management=[],
+        )
+    assert removed_management.value.code == "OUTPUT_DRAFT_ITEM_SET_CHANGED"
 
 
 @pytest.mark.parametrize("value", ["=1+1", "+cmd", "-2+3", "@SUM(A1:A2)", "\t=1+1"])

@@ -522,6 +522,28 @@ class OutputInterviewUpdateItem(BaseModel):
         return value.strip()
 
 
+class OutputManagementItem(BaseModel):
+    id: str
+    risk_id: str
+    risk_number: str
+    heading: str = Field(min_length=1, max_length=500)
+    summary: str = Field(max_length=4000)
+    response_request: str = Field(max_length=2000)
+
+
+class OutputManagementUpdateItem(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    risk_id: str = Field(min_length=1, max_length=80)
+    heading: str = Field(min_length=1, max_length=500)
+    summary: str = Field(max_length=4000)
+    response_request: str = Field(max_length=2000)
+
+    @field_validator("heading", "summary", "response_request", mode="before")
+    @classmethod
+    def normalize_management_text(cls, value: str) -> str:
+        return value.strip()
+
+
 class OutputDraftUpdate(BaseModel):
     title: str = Field(min_length=2, max_length=200)
     notes: str = Field(default="", max_length=4000)
@@ -530,8 +552,17 @@ class OutputDraftUpdate(BaseModel):
     materials: list[OutputMaterialUpdateItem] = Field(max_length=500)
     interview_title: str = Field(min_length=2, max_length=200)
     interviews: list[OutputInterviewUpdateItem] = Field(max_length=1000)
+    management_title: str = Field(min_length=2, max_length=200)
+    management: list[OutputManagementUpdateItem] = Field(max_length=500)
 
-    @field_validator("title", "notes", "materials_title", "interview_title", mode="before")
+    @field_validator(
+        "title",
+        "notes",
+        "materials_title",
+        "interview_title",
+        "management_title",
+        mode="before",
+    )
     @classmethod
     def normalize_draft_text(cls, value: str) -> str:
         return value.strip()
@@ -556,6 +587,8 @@ class OutputDraftRecord(BaseModel):
     materials: list[OutputMaterialItem]
     interview_title: str
     interviews: list[OutputInterviewItem]
+    management_title: str
+    management: list[OutputManagementItem]
     created_at: datetime
     updated_at: datetime
     finalized_at: datetime | None
@@ -568,6 +601,7 @@ class OutputExportRecord(BaseModel):
     draft_version: int
     snapshot_id: str
     export_format: Literal["xlsx", "docx", "pdf"]
+    artifact_kind: Literal["risk_register", "work_products", "evidence_package"]
     template_version: str
     filename: str
     file_sha256: str

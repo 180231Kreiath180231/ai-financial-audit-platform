@@ -791,6 +791,17 @@ def _project_v16(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v17(db: sqlite3.Connection) -> None:
+    """Add deterministic management communication sections to output drafts."""
+    db.execute(
+        "ALTER TABLE output_drafts ADD COLUMN management_title TEXT NOT NULL "
+        "DEFAULT '管理层沟通材料'"
+    )
+    db.execute(
+        "ALTER TABLE output_drafts ADD COLUMN management_json TEXT NOT NULL DEFAULT '[]'"
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -814,6 +825,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (14, "pdf_output_exports", _project_v14),
     (15, "resource_pause_reasons", _project_v15),
     (16, "audit_notes", _project_v16),
+    (17, "deterministic_management_materials", _project_v17),
 )
 
 

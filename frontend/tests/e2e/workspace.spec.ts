@@ -184,6 +184,9 @@ test('creates, reviews, and freezes a versioned risk from resolved evidence', as
   await expect(page.getByRole('textbox', { name: '资料名称' })).toHaveValue(/R-0001/)
   await page.getByRole('tab', { name: '访谈提纲 2' }).click()
   await expect(page.getByRole('textbox', { name: '访谈问题' })).toHaveCount(2)
+  await page.getByRole('tab', { name: '管理层材料 1' }).click()
+  await expect(page.getByRole('textbox', { name: '沟通事项' })).toHaveValue('核对本地合成证据对应事项')
+  await expect(page.getByRole('textbox', { name: '需管理层回复' })).toHaveValue(/责任安排和预计完成时间/)
   await page.getByRole('button', { name: '最终固化' }).click()
   await page.getByRole('button', { name: '确认最终固化' }).click()
   await expect(page.getByText('最终草稿 v2')).toBeVisible()
@@ -201,6 +204,11 @@ test('creates, reviews, and freezes a versioned risk from resolved evidence', as
   const pdfDownload = page.waitForEvent('download')
   await page.getByRole('link', { name: '下载' }).first().click()
   await expect((await pdfDownload).suggestedFilename()).toMatch(/^审计工作成果归档件-\d{8}-v2-[a-f0-9]{8}\.pdf$/)
+  await page.getByRole('button', { name: '生成证据包' }).click()
+  await expect(page.getByText(/^审计证据包索引-\d{8}-v2-[a-f0-9]{8}\.xlsx$/)).toBeVisible()
+  const evidenceDownload = page.waitForEvent('download')
+  await page.getByRole('link', { name: '下载' }).first().click()
+  await expect((await evidenceDownload).suggestedFilename()).toMatch(/^审计证据包索引-\d{8}-v2-[a-f0-9]{8}\.xlsx$/)
 
   await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '资料' }).click()
   await page.locator('input[type="file"]').setInputFiles({

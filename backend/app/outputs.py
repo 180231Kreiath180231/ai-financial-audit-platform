@@ -34,6 +34,10 @@ EXCEL_TEMPLATE_VERSION = "risk-register-excel-v1"
 EXCEL_TEMPLATE_PATH = (
     Path(__file__).resolve().parents[2] / "templates" / "risk-register-excel-v1.xlsx"
 )
+EVIDENCE_PACKAGE_TEMPLATE_VERSION = "evidence-package-excel-v1"
+EVIDENCE_PACKAGE_TEMPLATE_PATH = (
+    Path(__file__).resolve().parents[2] / "templates" / "evidence-package-excel-v1.xlsx"
+)
 
 
 class OutputError(RuntimeError):
@@ -281,8 +285,10 @@ class OutputDraftService:
         title = f"{snapshot['snapshot']['project']['name']}风险清单"
         materials = self._build_materials(snapshot["snapshot"])
         interviews = self._build_interviews(snapshot["snapshot"])
+        management = self._build_management(snapshot["snapshot"])
         materials_title = "资料清单"
         interview_title = "访谈提纲"
+        management_title = "管理层沟通材料"
         serialized_items = self._serialize(items)
         draft_state = self._version_state(
             status="editing",
@@ -293,6 +299,8 @@ class OutputDraftService:
             materials=materials,
             interview_title=interview_title,
             interviews=interviews,
+            management_title=management_title,
+            management=management,
         )
         with self.database.connect(root / "app.db") as db:
             db.execute("BEGIN IMMEDIATE")
@@ -301,9 +309,9 @@ class OutputDraftService:
                     """INSERT INTO output_drafts
                     (id, snapshot_id, output_kind, status, version, title, notes, items_json,
                      created_at, updated_at, finalized_at, materials_title, materials_json,
-                     interview_title, interview_json)
+                     interview_title, interview_json, management_title, management_json)
                     VALUES (?, ?, 'risk_register', 'editing', 1, ?, '', ?, ?, ?, NULL,
-                            ?, ?, ?, ?)""",
+                            ?, ?, ?, ?, ?, ?)""",
                     (
                         draft_id,
                         snapshot_id,
@@ -315,6 +323,8 @@ class OutputDraftService:
                         self._serialize(materials),
                         interview_title,
                         self._serialize(interviews),
+                        management_title,
+                        self._serialize(management),
                     ),
                 )
                 self._insert_version(db, draft_id, 1, "从不可变快照创建草稿", draft_state, now)
@@ -342,6 +352,8 @@ class OutputDraftService:
         materials: list[dict[str, str]],
         interview_title: str,
         interviews: list[dict[str, str]],
+        management_title: str,
+        management: list[dict[str, str]],
     ) -> dict[str, Any]:
         root = self.database.project_root(project_id)
         now = utc_now()
@@ -390,6 +402,13 @@ class OutputDraftService:
                     kind="访谈提纲",
                     editable_fields=("audience", "question", "objective"),
                 )
+                current_management = json.loads(row["management_json"])
+                normalized_management = self._normalize_linked_items(
+                    current_management,
+                    management,
+                    kind="管理层沟通材料",
+                    editable_fields=("heading", "summary", "response_request"),
+                )
                 if (
                     title == row["title"]
                     and notes == row["notes"]
@@ -398,6 +417,8 @@ class OutputDraftService:
                     and normalized_materials == current_materials
                     and interview_title == row["interview_title"]
                     and normalized_interviews == current_interviews
+                    and management_title == row["management_title"]
+                    and normalized_management == current_management
                 ):
                     db.execute("ROLLBACK")
                     return self.get(project_id, draft_id)
@@ -405,7 +426,7 @@ class OutputDraftService:
                 db.execute(
                     """UPDATE output_drafts SET version=?, title=?, notes=?, items_json=?,
                     materials_title=?, materials_json=?, interview_title=?, interview_json=?,
-                    updated_at=? WHERE id=?""",
+                    management_title=?, management_json=?, updated_at=? WHERE id=?""",
                     (
                         version,
                         title,
@@ -415,6 +436,8 @@ class OutputDraftService:
                         self._serialize(normalized_materials),
                         interview_title,
                         self._serialize(normalized_interviews),
+                        management_title,
+                        self._serialize(normalized_management),
                         now,
                         draft_id,
                     ),
@@ -428,6 +451,8 @@ class OutputDraftService:
                     materials=normalized_materials,
                     interview_title=interview_title,
                     interviews=normalized_interviews,
+                    management_title=management_title,
+                    management=normalized_management,
                 )
                 self._insert_version(db, draft_id, version, "人工编辑输出草稿", state, now)
                 self._audit(
@@ -470,6 +495,8 @@ class OutputDraftService:
                     materials=json.loads(row["materials_json"]),
                     interview_title=row["interview_title"],
                     interviews=json.loads(row["interview_json"]),
+                    management_title=row["management_title"],
+                    management=json.loads(row["management_json"]),
                 )
                 self._insert_version(db, draft_id, version, "最终固化输出草稿", state, now)
                 self._audit(
@@ -491,6 +518,7 @@ class OutputDraftService:
         result["items"] = json.loads(result.pop("items_json"))
         result["materials"] = json.loads(result.pop("materials_json"))
         result["interviews"] = json.loads(result.pop("interview_json"))
+        result["management"] = json.loads(result.pop("management_json"))
         versions = db.execute(
             """SELECT version, change_reason, created_at FROM output_draft_versions
             WHERE draft_id=? ORDER BY version DESC""",
@@ -514,6 +542,8 @@ class OutputDraftService:
         materials: list[dict[str, Any]],
         interview_title: str,
         interviews: list[dict[str, Any]],
+        management_title: str,
+        management: list[dict[str, Any]],
     ) -> dict[str, Any]:
         return {
             "status": status,
@@ -524,6 +554,8 @@ class OutputDraftService:
             "materials": materials,
             "interview_title": interview_title,
             "interviews": interviews,
+            "management_title": management_title,
+            "management": management,
         }
 
     @staticmethod
@@ -587,6 +619,28 @@ class OutputDraftService:
                         "objective": f"了解 {number} 的证据形成、复核责任和潜在反证。",
                     },
                 ]
+            )
+        return result
+
+    @staticmethod
+    def _build_management(snapshot: dict[str, Any]) -> list[dict[str, str]]:
+        result: list[dict[str, str]] = []
+        for index, risk in enumerate(snapshot["risks"], start=1):
+            result.append(
+                {
+                    "id": f"G-{index:03d}",
+                    "risk_id": risk["risk_id"],
+                    "risk_number": risk["risk_number"],
+                    "heading": risk["summary"],
+                    "summary": (
+                        risk["human_opinion"]
+                        or risk["model_explanation"]
+                        or risk["summary"]
+                    ),
+                    "response_request": (
+                        "请管理层确认相关事实，并说明拟采取的措施、责任安排和预计完成时间。"
+                    ),
+                }
             )
         return result
 
@@ -687,11 +741,11 @@ class OutputExportService:
 
     def create_word(self, project_id: str, draft_id: str) -> dict[str, Any]:
         draft = self.drafts.get(project_id, draft_id)
-        if not draft["materials"] or not draft["interviews"]:
+        if not self._has_complete_sections(draft):
             raise OutputError(
                 "OUTPUT_DRAFT_SECTIONS_REQUIRED",
-                "当前草稿不含完整的资料清单和访谈提纲，不能生成 Word",
-                "从原始快照新建草稿，核对三类成果后最终固化",
+                "当前草稿不含完整的资料清单、访谈提纲和管理层材料，不能生成 Word",
+                "从原始快照新建草稿，核对四类成果后最终固化",
             )
         return self._create_export(
             project_id,
@@ -706,11 +760,11 @@ class OutputExportService:
 
     def create_pdf(self, project_id: str, draft_id: str) -> dict[str, Any]:
         draft = self.drafts.get(project_id, draft_id)
-        if not draft["materials"] or not draft["interviews"]:
+        if not self._has_complete_sections(draft):
             raise OutputError(
                 "OUTPUT_DRAFT_SECTIONS_REQUIRED",
-                "当前草稿不含完整的资料清单和访谈提纲，不能生成 PDF",
-                "从原始快照新建草稿，核对三类成果后最终固化",
+                "当前草稿不含完整的资料清单、访谈提纲和管理层材料，不能生成 PDF",
+                "从原始快照新建草稿，核对四类成果后最终固化",
             )
         return self._create_export(
             project_id,
@@ -722,6 +776,21 @@ class OutputExportService:
             renderer=render_pdf_export,
             draft=draft,
         )
+
+    def create_evidence_package(self, project_id: str, draft_id: str) -> dict[str, Any]:
+        return self._create_export(
+            project_id,
+            draft_id,
+            export_format="xlsx",
+            template_path=EVIDENCE_PACKAGE_TEMPLATE_PATH,
+            template_version=EVIDENCE_PACKAGE_TEMPLATE_VERSION,
+            filename_prefix="审计证据包索引",
+            renderer=self._render_evidence_package,
+        )
+
+    @staticmethod
+    def _has_complete_sections(draft: dict[str, Any]) -> bool:
+        return bool(draft["materials"] and draft["interviews"] and draft["management"])
 
     def _create_export(
         self,
@@ -843,6 +912,12 @@ class OutputExportService:
     @staticmethod
     def _public_record(project_id: str, record: dict[str, Any]) -> dict[str, Any]:
         record.pop("stored_path", None)
+        if record["template_version"] == EVIDENCE_PACKAGE_TEMPLATE_VERSION:
+            record["artifact_kind"] = "evidence_package"
+        elif record["export_format"] == "xlsx":
+            record["artifact_kind"] = "risk_register"
+        else:
+            record["artifact_kind"] = "work_products"
         record["download_url"] = (
             f"/api/v1/projects/{project_id}/outputs/exports/{record['id']}/file"
         )
@@ -948,6 +1023,113 @@ class OutputExportService:
         self._write_rows(risk_sheet, risk_rows, "RiskRegisterTable")
         self._write_rows(rule_sheet, rule_rows, "RuleDetailsTable")
         self._write_rows(evidence_sheet, evidence_rows, "EvidenceIndexTable")
+        workbook.save(target)
+
+    def _render_evidence_package(
+        self,
+        snapshot: dict[str, Any],
+        draft: dict[str, Any],
+        target: Path,
+        created_at: str,
+    ) -> None:
+        workbook = load_workbook(EVIDENCE_PACKAGE_TEMPLATE_PATH)
+        cover_sheet, risk_sheet, evidence_sheet = workbook.worksheets
+        project = snapshot["snapshot"]["project"]
+        snapshot_risks = {
+            risk["risk_id"]: risk for risk in snapshot["snapshot"]["risks"]
+        }
+        ordered = [(item, snapshot_risks[item["risk_id"]]) for item in draft["items"]]
+        evidence_count = sum(len(risk["evidence"]) for _, risk in ordered)
+
+        metadata = (
+            ("B2", project["name"]),
+            ("E2", EVIDENCE_PACKAGE_TEMPLATE_VERSION),
+            ("B3", project["entity_name"]),
+            ("E3", f"{project['year_start']}—{project['year_end']}"),
+            ("B4", snapshot["id"]),
+            ("E4", f"{draft['id']} / v{draft['version']}"),
+            ("B5", snapshot["content_sha256"]),
+            ("E5", created_at),
+            ("B6", len(ordered)),
+            ("E6", evidence_count),
+        )
+        for cell, value in metadata:
+            self._set_excel_cell_value(cover_sheet[cell], value)
+        for sheet, count in (
+            (risk_sheet, len(ordered)),
+            (evidence_sheet, evidence_count),
+        ):
+            for cell, value in (
+                ("B2", project["name"]),
+                ("E2", EVIDENCE_PACKAGE_TEMPLATE_VERSION),
+                ("B3", project["entity_name"]),
+                ("E3", f"{project['year_start']}—{project['year_end']}"),
+                ("B4", snapshot["id"]),
+                ("E4", created_at),
+                ("B5", snapshot["content_sha256"]),
+                ("E5", count),
+            ):
+                self._set_excel_cell_value(sheet[cell], value)
+        workbook.properties.title = f"{project['name']} 审计证据包索引"
+        workbook.properties.subject = (
+            f"不可变快照 {snapshot['id']} / 最终草稿 {draft['id']} v{draft['version']}"
+        )
+        workbook.properties.keywords = snapshot["content_sha256"]
+
+        risk_rows: list[list[Any]] = []
+        evidence_rows: list[list[Any]] = []
+        for item, risk in ordered:
+            supports = [
+                evidence["citation"]
+                for evidence in risk["evidence"]
+                if evidence["direction"] == "support"
+            ]
+            counters = [
+                evidence["citation"]
+                for evidence in risk["evidence"]
+                if evidence["direction"] == "counter"
+            ]
+            risk_rows.append(
+                [
+                    risk["risk_number"],
+                    risk["risk_version"],
+                    risk["status"],
+                    risk["risk_level"],
+                    item["heading"],
+                    "、".join(supports),
+                    "、".join(counters),
+                ]
+            )
+            for evidence in risk["evidence"]:
+                evidence_rows.append(
+                    [
+                        evidence["citation"],
+                        risk["risk_number"],
+                        "支持" if evidence["direction"] == "support" else "反证",
+                        evidence["kind"],
+                        evidence["source_reference"],
+                        evidence["quote"],
+                        evidence["parse_method"] or "",
+                        evidence["parse_version"] or "",
+                        evidence["source_evidence_id"],
+                        evidence.get("document_id") or "",
+                        evidence.get("dataset_id") or "",
+                        evidence.get("page_number") or "",
+                        evidence.get("block_number") or "",
+                        evidence.get("line_start") or "",
+                        evidence.get("line_end") or "",
+                        evidence.get("period_key") or "",
+                        evidence.get("account_code") or "",
+                    ]
+                )
+        self._write_rows(risk_sheet, risk_rows, "EvidencePackageRisks")
+        self._write_rows(evidence_sheet, evidence_rows, "EvidencePackageIndex")
+        for sheet in workbook.worksheets:
+            sheet.sheet_properties.pageSetUpPr.fitToPage = True
+            sheet.page_setup.fitToWidth = 1
+            sheet.page_setup.fitToHeight = 0
+        risk_sheet.print_title_rows = "1:7"
+        evidence_sheet.print_title_rows = "1:7"
         workbook.save(target)
 
     @staticmethod

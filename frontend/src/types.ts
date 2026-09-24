@@ -450,6 +450,15 @@ export interface OutputInterviewItem {
   objective: string
 }
 
+export interface OutputManagementItem {
+  id: string
+  risk_id: string
+  risk_number: string
+  heading: string
+  summary: string
+  response_request: string
+}
+
 export interface OutputDraftVersion {
   version: number
   change_reason: string
@@ -469,6 +478,8 @@ export interface OutputDraftRecord {
   materials: OutputMaterialItem[]
   interview_title: string
   interviews: OutputInterviewItem[]
+  management_title: string
+  management: OutputManagementItem[]
   created_at: string
   updated_at: string
   finalized_at: string | null
@@ -483,6 +494,8 @@ export interface OutputDraftPayload {
   materials: Array<Pick<OutputMaterialItem, 'id' | 'risk_id' | 'title' | 'purpose' | 'requested_scope' | 'priority'>>
   interview_title: string
   interviews: Array<Pick<OutputInterviewItem, 'id' | 'risk_id' | 'audience' | 'question' | 'objective'>>
+  management_title: string
+  management: Array<Pick<OutputManagementItem, 'id' | 'risk_id' | 'heading' | 'summary' | 'response_request'>>
 }
 
 export interface OutputExportRecord {
@@ -491,6 +504,7 @@ export interface OutputExportRecord {
   draft_version: number
   snapshot_id: string
   export_format: 'xlsx' | 'docx' | 'pdf'
+  artifact_kind: 'risk_register' | 'work_products' | 'evidence_package'
   template_version: string
   filename: string
   file_sha256: string

@@ -22,9 +22,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-PDF_TEMPLATE_VERSION = "audit-work-products-pdf-v1"
+PDF_TEMPLATE_VERSION = "audit-work-products-pdf-v2"
 PDF_TEMPLATE_PATH = (
-    Path(__file__).resolve().parents[2] / "templates" / "audit-work-products-pdf-v1.json"
+    Path(__file__).resolve().parents[2] / "templates" / "audit-work-products-pdf-v2.json"
 )
 
 _FONT_CANDIDATES = (
@@ -82,7 +82,7 @@ def render_pdf_export(
             Paragraph("审计工作成果归档件", styles["subtitle"]),
             Spacer(1, 10 * mm),
             Paragraph(
-                "本文件汇集最终固化的风险清单、资料索取项目和访谈问题。"
+                "本文件汇集最终固化的管理层沟通材料、风险清单、资料索取项目和访谈问题。"
                 "风险事实、规则计算和证据引用来自不可变快照。",
                 styles["body"],
             ),
@@ -98,8 +98,8 @@ def render_pdf_export(
         ("生成时间", created_at),
         (
             "成果范围",
-            f"风险 {len(draft['items'])} 项 / 资料 {len(draft['materials'])} 项 / "
-            f"访谈问题 {len(draft['interviews'])} 项",
+            f"管理层事项 {len(draft['management'])} 项 / 风险 {len(draft['items'])} 项 / "
+            f"资料 {len(draft['materials'])} 项 / 访谈问题 {len(draft['interviews'])} 项",
         ),
     ]
     story.append(_key_value_table(metadata, styles, palette, (34 * mm, 136 * mm)))
@@ -108,6 +108,41 @@ def render_pdf_export(
             [
                 Spacer(1, 5 * mm),
                 Paragraph(f"<b>编制备注</b>  {_paragraph_text(draft['notes'])}", styles["body"]),
+            ]
+        )
+
+    story.extend(
+        [PageBreak(), Paragraph(_paragraph_text(draft["management_title"]), styles["h1"])]
+    )
+    story.append(
+        Paragraph(
+            "以下内容用于管理层沟通准备。风险状态、风险等级和证据编号保持源快照记录；"
+            "管理层意见和后续安排应由相关人员确认后另行留痕。",
+            styles["body"],
+        )
+    )
+    for item in draft["management"]:
+        risk = risks[item["risk_id"]]
+        citations = "、".join(evidence["citation"] for evidence in risk["evidence"])
+        story.extend(
+            [
+                Spacer(1, 4 * mm),
+                Paragraph(
+                    f"{_paragraph_text(risk['risk_number'])} {_paragraph_text(item['heading'])}",
+                    styles["h2"],
+                ),
+                _key_value_table(
+                    [
+                        ("风险等级", risk["risk_level"]),
+                        ("风险状态", risk["status"]),
+                        ("事项摘要", item["summary"]),
+                        ("需管理层回复", item["response_request"]),
+                        ("证据编号", citations),
+                    ],
+                    styles,
+                    palette,
+                    (32 * mm, 138 * mm),
+                ),
             ]
         )
 

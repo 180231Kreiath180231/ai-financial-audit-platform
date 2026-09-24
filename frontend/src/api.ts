@@ -334,4 +334,9 @@ export const api = {
       `/api/v1/projects/${projectId}/outputs/drafts/${draftId}/exports/pdf`,
       { method: 'POST' },
     ),
+  createEvidencePackageExport: (projectId: string, draftId: string) =>
+    request<OutputExportRecord>(
+      `/api/v1/projects/${projectId}/outputs/drafts/${draftId}/exports/evidence-package-xlsx`,
+      { method: 'POST' },
+    ),
 }
