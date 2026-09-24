@@ -484,6 +484,9 @@ class OutputMaterialItem(BaseModel):
     purpose: str = Field(max_length=2000)
     requested_scope: str = Field(max_length=500)
     priority: OutputPriority
+    status: str = Field(min_length=1, max_length=80)
+    responsible_party: str = Field(min_length=1, max_length=200)
+    notes: str = Field(max_length=2000)
 
 
 class OutputMaterialUpdateItem(BaseModel):
@@ -493,8 +496,19 @@ class OutputMaterialUpdateItem(BaseModel):
     purpose: str = Field(max_length=2000)
     requested_scope: str = Field(max_length=500)
     priority: OutputPriority
+    status: str = Field(min_length=1, max_length=80)
+    responsible_party: str = Field(min_length=1, max_length=200)
+    notes: str = Field(max_length=2000)
 
-    @field_validator("title", "purpose", "requested_scope", mode="before")
+    @field_validator(
+        "title",
+        "purpose",
+        "requested_scope",
+        "status",
+        "responsible_party",
+        "notes",
+        mode="before",
+    )
     @classmethod
     def normalize_material_text(cls, value: str) -> str:
         return value.strip()

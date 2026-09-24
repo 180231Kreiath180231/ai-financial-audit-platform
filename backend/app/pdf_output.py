@@ -22,9 +22,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-PDF_TEMPLATE_VERSION = "audit-work-products-pdf-v2"
+PDF_TEMPLATE_VERSION = "audit-work-products-pdf-v3"
 PDF_TEMPLATE_PATH = (
-    Path(__file__).resolve().parents[2] / "templates" / "audit-work-products-pdf-v2.json"
+    Path(__file__).resolve().parents[2] / "templates" / "audit-work-products-pdf-v3.json"
 )
 
 _FONT_CANDIDATES = (
@@ -224,8 +224,11 @@ def render_pdf_export(
                     [
                         ("关联风险", item["risk_number"]),
                         ("优先级", item["priority"]),
+                        ("状态", item["status"]),
+                        ("责任对象", item["responsible_party"]),
                         ("取证用途", item["purpose"]),
                         ("索取范围", item["requested_scope"]),
+                        ("备注", item["notes"] or "—"),
                     ],
                     styles,
                     palette,

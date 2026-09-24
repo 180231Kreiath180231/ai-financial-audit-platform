@@ -82,7 +82,7 @@ scripts/              文档生成脚本
 - CSV 科目余额表已作为正式结构化输入进入迭代四：导入前执行严格预览校验，确认后由本地单工作器写入不可变数据集，并使用 DuckDB 与 Decimal 复算借贷平衡、余额公式和跨期衔接。
 - 规则失败只生成“待评估”风险草稿；风险可回溯至原文件 SHA-256、数据集版本和 CSV 行级明细，同一文件及同一规则版本不会重复计算。
 - 单科目余额公式与跨期衔接使用不同的稳定规则编号；修复前已保存的历史结果保持不变。
-- 输出区可从“已核实”或“已关闭”风险生成格式无关的不可变快照，再本地确定性生成管理层沟通材料、风险清单、资料清单和访谈提纲。四类内容共用可编辑草稿、版本历史和最终固化门禁；当前已固化草稿可按仓库中文模板生成 Excel 风险清单、Word 工作成果包、PDF 归档件和独立证据包索引。PDF 直接读取固化草稿并嵌入 Windows 中文字体，不从 Word 反向转换；证据包保存风险与证据定位元数据但不复制原始文件。每次导出均记录成果类型、格式、模板、草稿版本、源快照和文件 SHA-256，历史文件只增不覆盖。
+- 输出区可从“已核实”或“已关闭”风险生成格式无关的不可变快照，再本地确定性生成管理层沟通材料、风险清单、资料清单和访谈提纲。资料清单支持人工维护状态、责任对象和备注；项目编号、风险关联及数量仍由服务端锁定。四类内容共用可编辑草稿、版本历史和最终固化门禁；当前已固化草稿可按仓库中文模板生成 Excel 风险清单、Word 工作成果包、PDF 归档件和独立证据包索引。PDF 直接读取固化草稿并嵌入 Windows 中文字体，不从 Word 反向转换；证据包保存风险与证据定位元数据但不复制原始文件。每次导出均记录成果类型、格式、模板、草稿版本、源快照和文件 SHA-256，历史文件只增不覆盖。
 - Excel 导出把人工、模型和证据文本强制保存为文本单元格，阻止公式前缀被解释为工作簿公式。
 
 真实审计资料的外部视觉服务、真实文本模型业务调用、统计异常分析和自动风险分级仍未启用，不代表功能已实现。PaddleOCR 当前只完成合成数据专项接入；Excel、Word 与 PDF 导出完全在本地生成，不调用外部模型。
@@ -134,6 +134,7 @@ PDF 归档件的直接生成、字体嵌入、导出审计和逐页渲染结果�
 [迭代九资源治理验收](docs/acceptance/iteration-9-resource-governance-2026-09-23.md)。
 规定时长的空闲采样、原生 PDF 持续负载、CPU/内存保护、批量强退恢复和前台响应实测记录在
 [迭代十四 Windows 实机性能验收](docs/acceptance/iteration-14-windows-performance-2026-09-24.md)。
+[迭代十五批量导入与资料跟踪验收](docs/acceptance/iteration-15-batch-import-material-tracking-2026-09-24.md)记录 500 文件单次上传实测、资料跟踪字段和 Word/PDF v3 逐页检查。
 项目级审计备忘录、风险与页码关联、模型读取许可和删除审计边界记录在
 [ADR-0018](docs/adr/0018-project-audit-notes.md)，实现范围和自动化结果记录在
 [迭代十审计备忘录验收](docs/acceptance/iteration-10-audit-notes-2026-09-23.md)。
@@ -217,6 +218,7 @@ uv run python scripts/measure_performance_acceptance.py native-load --output .ru
 uv run python scripts/measure_performance_acceptance.py cpu-guard --output .runtime/performance/cpu-guard.json
 uv run python scripts/measure_performance_acceptance.py memory-guard --output .runtime/performance/memory-guard.json
 uv run python scripts/measure_performance_acceptance.py restart-recovery --output .runtime/performance/restart-recovery.json
+uv run python scripts/measure_performance_acceptance.py batch-import --output .runtime/performance/f01-500-files.json
 ```
 
 `cpu-guard` 会短时制造整机 CPU 压力；`memory-guard` 会在至少保留 6GB 可用内存的前提下，

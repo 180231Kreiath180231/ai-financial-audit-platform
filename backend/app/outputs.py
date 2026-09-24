@@ -393,7 +393,15 @@ class OutputDraftService:
                     current_materials,
                     materials,
                     kind="资料清单",
-                    editable_fields=("title", "purpose", "requested_scope", "priority"),
+                    editable_fields=(
+                        "title",
+                        "purpose",
+                        "requested_scope",
+                        "priority",
+                        "status",
+                        "responsible_party",
+                        "notes",
+                    ),
                 )
                 current_interviews = json.loads(row["interview_json"])
                 normalized_interviews = self._normalize_linked_items(
@@ -517,6 +525,10 @@ class OutputDraftService:
         result = dict(row)
         result["items"] = json.loads(result.pop("items_json"))
         result["materials"] = json.loads(result.pop("materials_json"))
+        for material in result["materials"]:
+            material.setdefault("status", "待确认")
+            material.setdefault("responsible_party", "待确认")
+            material.setdefault("notes", "")
         result["interviews"] = json.loads(result.pop("interview_json"))
         result["management"] = json.loads(result.pop("management_json"))
         versions = db.execute(
@@ -586,6 +598,9 @@ class OutputDraftService:
                     ),
                     "requested_scope": requested_scope,
                     "priority": priorities.get(risk["risk_level"], "待评估"),
+                    "status": "待确认",
+                    "responsible_party": "待确认",
+                    "notes": "",
                 }
             )
         return result

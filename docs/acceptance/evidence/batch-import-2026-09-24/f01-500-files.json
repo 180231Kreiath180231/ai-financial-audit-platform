@@ -1,0 +1,639 @@
+{
+  "measured_at": "2026-09-24T08:35:06.960338+00:00",
+  "host": {
+    "captured_at": "2026-09-24T08:35:06.971743+00:00",
+    "platform": "Windows-11-10.0.22631-SP0",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "physical_cpu_count": 12,
+    "logical_cpu_count": 16,
+    "memory_total_gb": 31.53,
+    "memory_available_gb": 9.65,
+    "disk_free_gb": 65.77,
+    "python": "3.12.13"
+  },
+  "fixture": {
+    "synthetic": true,
+    "external_requests": 0,
+    "single_multipart_request": true,
+    "documents": 500,
+    "valid_documents": 480,
+    "corrupt_documents": 20,
+    "pages_per_valid_document": 1
+  },
+  "f01_scale": {
+    "passed": true,
+    "upload_http_status": 202,
+    "upload_seconds": 5.14,
+    "accepted_count": 500,
+    "rejected_count": 0,
+    "final_task_counts": {
+      "failed": 20,
+      "completed": 480
+    },
+    "document_count": 480,
+    "pdf_corrupt_failure_count": 20,
+    "quarantine_count": 20
+  },
+  "samples": [
+    {
+      "elapsed_seconds": 0.02,
+      "application_cpu_percent": 0.06,
+      "application_memory_mb": 123.4,
+      "system_cpu_percent": 9.9,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "queued": 500
+      }
+    },
+    {
+      "elapsed_seconds": 1.02,
+      "application_cpu_percent": 0.39,
+      "application_memory_mb": 123.6,
+      "system_cpu_percent": 13.1,
+      "system_memory_percent": 69.3,
+      "task_counts": {
+        "failed": 1,
+        "completed": 12,
+        "queued": 487
+      }
+    },
+    {
+      "elapsed_seconds": 2.02,
+      "application_cpu_percent": 0.0,
+      "application_memory_mb": 123.6,
+      "system_cpu_percent": 6.6,
+      "system_memory_percent": 69.3,
+      "task_counts": {
+        "failed": 1,
+        "completed": 12,
+        "queued": 487
+      }
+    },
+    {
+      "elapsed_seconds": 3.05,
+      "application_cpu_percent": 0.19,
+      "application_memory_mb": 123.7,
+      "system_cpu_percent": 8.5,
+      "system_memory_percent": 69.3,
+      "task_counts": {
+        "failed": 1,
+        "completed": 14,
+        "running": 1,
+        "queued": 484
+      }
+    },
+    {
+      "elapsed_seconds": 4.0,
+      "application_cpu_percent": 1.95,
+      "application_memory_mb": 123.7,
+      "system_cpu_percent": 6.0,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 2,
+        "completed": 26,
+        "running": 1,
+        "queued": 471
+      }
+    },
+    {
+      "elapsed_seconds": 5.02,
+      "application_cpu_percent": 0.29,
+      "application_memory_mb": 124.7,
+      "system_cpu_percent": 17.1,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 2,
+        "completed": 28,
+        "queued": 470
+      }
+    },
+    {
+      "elapsed_seconds": 6.02,
+      "application_cpu_percent": 0.97,
+      "application_memory_mb": 123.8,
+      "system_cpu_percent": 10.0,
+      "system_memory_percent": 69.7,
+      "task_counts": {
+        "failed": 2,
+        "completed": 35,
+        "running": 1,
+        "queued": 462
+      }
+    },
+    {
+      "elapsed_seconds": 7.03,
+      "application_cpu_percent": 1.25,
+      "application_memory_mb": 123.8,
+      "system_cpu_percent": 10.0,
+      "system_memory_percent": 69.7,
+      "task_counts": {
+        "failed": 2,
+        "completed": 43,
+        "running": 1,
+        "queued": 454
+      }
+    },
+    {
+      "elapsed_seconds": 8.02,
+      "application_cpu_percent": 1.39,
+      "application_memory_mb": 123.9,
+      "system_cpu_percent": 8.1,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 3,
+        "completed": 55,
+        "queued": 442
+      }
+    },
+    {
+      "elapsed_seconds": 9.03,
+      "application_cpu_percent": 0.59,
+      "application_memory_mb": 123.9,
+      "system_cpu_percent": 11.2,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 3,
+        "completed": 59,
+        "running": 1,
+        "queued": 437
+      }
+    },
+    {
+      "elapsed_seconds": 10.02,
+      "application_cpu_percent": 1.86,
+      "application_memory_mb": 123.9,
+      "system_cpu_percent": 10.8,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 3,
+        "completed": 71,
+        "running": 1,
+        "queued": 425
+      }
+    },
+    {
+      "elapsed_seconds": 11.03,
+      "application_cpu_percent": 0.88,
+      "application_memory_mb": 123.9,
+      "system_cpu_percent": 6.1,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 4,
+        "completed": 76,
+        "running": 1,
+        "queued": 419
+      }
+    },
+    {
+      "elapsed_seconds": 12.06,
+      "application_cpu_percent": 0.74,
+      "application_memory_mb": 124.0,
+      "system_cpu_percent": 7.2,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 4,
+        "completed": 85,
+        "running": 1,
+        "queued": 410
+      }
+    },
+    {
+      "elapsed_seconds": 13.05,
+      "application_cpu_percent": 0.69,
+      "application_memory_mb": 124.0,
+      "system_cpu_percent": 10.5,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 5,
+        "completed": 96,
+        "queued": 399
+      }
+    },
+    {
+      "elapsed_seconds": 14.02,
+      "application_cpu_percent": 0.3,
+      "application_memory_mb": 124.0,
+      "system_cpu_percent": 8.4,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 5,
+        "completed": 101,
+        "queued": 394
+      }
+    },
+    {
+      "elapsed_seconds": 15.03,
+      "application_cpu_percent": 0.48,
+      "application_memory_mb": 124.1,
+      "system_cpu_percent": 18.9,
+      "system_memory_percent": 69.7,
+      "task_counts": {
+        "failed": 5,
+        "completed": 108,
+        "running": 1,
+        "queued": 386
+      }
+    },
+    {
+      "elapsed_seconds": 16.02,
+      "application_cpu_percent": 0.3,
+      "application_memory_mb": 124.1,
+      "system_cpu_percent": 11.9,
+      "system_memory_percent": 69.8,
+      "task_counts": {
+        "failed": 5,
+        "completed": 114,
+        "queued": 381
+      }
+    },
+    {
+      "elapsed_seconds": 17.03,
+      "application_cpu_percent": 1.18,
+      "application_memory_mb": 124.2,
+      "system_cpu_percent": 14.6,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 6,
+        "completed": 124,
+        "running": 1,
+        "queued": 369
+      }
+    },
+    {
+      "elapsed_seconds": 18.02,
+      "application_cpu_percent": 1.18,
+      "application_memory_mb": 124.2,
+      "system_cpu_percent": 13.1,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 6,
+        "completed": 133,
+        "queued": 361
+      }
+    },
+    {
+      "elapsed_seconds": 19.02,
+      "application_cpu_percent": 0.86,
+      "application_memory_mb": 124.2,
+      "system_cpu_percent": 17.4,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 6,
+        "completed": 141,
+        "running": 1,
+        "queued": 352
+      }
+    },
+    {
+      "elapsed_seconds": 20.03,
+      "application_cpu_percent": 0.68,
+      "application_memory_mb": 124.2,
+      "system_cpu_percent": 14.6,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 7,
+        "completed": 149,
+        "running": 1,
+        "queued": 343
+      }
+    },
+    {
+      "elapsed_seconds": 21.03,
+      "application_cpu_percent": 1.18,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 7.1,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 7,
+        "completed": 161,
+        "running": 1,
+        "queued": 331
+      }
+    },
+    {
+      "elapsed_seconds": 22.05,
+      "application_cpu_percent": 1.06,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 10.3,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 7,
+        "completed": 166,
+        "running": 1,
+        "queued": 326
+      }
+    },
+    {
+      "elapsed_seconds": 23.02,
+      "application_cpu_percent": 1.31,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 8.7,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 8,
+        "completed": 176,
+        "running": 1,
+        "queued": 315
+      }
+    },
+    {
+      "elapsed_seconds": 24.02,
+      "application_cpu_percent": 1.46,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 12.2,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 8,
+        "completed": 188,
+        "running": 1,
+        "queued": 303
+      }
+    },
+    {
+      "elapsed_seconds": 25.02,
+      "application_cpu_percent": 1.27,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 10.0,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 9,
+        "completed": 198,
+        "running": 1,
+        "queued": 292
+      }
+    },
+    {
+      "elapsed_seconds": 26.02,
+      "application_cpu_percent": 1.27,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 6.6,
+      "system_memory_percent": 69.7,
+      "task_counts": {
+        "failed": 9,
+        "completed": 213,
+        "queued": 278
+      }
+    },
+    {
+      "elapsed_seconds": 27.03,
+      "application_cpu_percent": 1.18,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 7.2,
+      "system_memory_percent": 69.7,
+      "task_counts": {
+        "failed": 10,
+        "completed": 223,
+        "running": 1,
+        "queued": 266
+      }
+    },
+    {
+      "elapsed_seconds": 28.02,
+      "application_cpu_percent": 1.27,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 8.9,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 10,
+        "completed": 238,
+        "running": 1,
+        "queued": 251
+      }
+    },
+    {
+      "elapsed_seconds": 29.02,
+      "application_cpu_percent": 1.27,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 12.3,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 11,
+        "completed": 248,
+        "running": 1,
+        "queued": 240
+      }
+    },
+    {
+      "elapsed_seconds": 30.03,
+      "application_cpu_percent": 2.21,
+      "application_memory_mb": 124.3,
+      "system_cpu_percent": 7.4,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 11,
+        "completed": 263,
+        "running": 1,
+        "queued": 225
+      }
+    },
+    {
+      "elapsed_seconds": 31.03,
+      "application_cpu_percent": 2.18,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 7.6,
+      "system_memory_percent": 69.5,
+      "task_counts": {
+        "failed": 12,
+        "completed": 274,
+        "queued": 214
+      }
+    },
+    {
+      "elapsed_seconds": 32.03,
+      "application_cpu_percent": 1.54,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 8.6,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 13,
+        "completed": 288,
+        "queued": 199
+      }
+    },
+    {
+      "elapsed_seconds": 33.03,
+      "application_cpu_percent": 1.27,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 6.2,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 13,
+        "completed": 303,
+        "queued": 184
+      }
+    },
+    {
+      "elapsed_seconds": 34.03,
+      "application_cpu_percent": 1.27,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 6.4,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 14,
+        "completed": 317,
+        "running": 1,
+        "queued": 168
+      }
+    },
+    {
+      "elapsed_seconds": 35.02,
+      "application_cpu_percent": 1.69,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 14.9,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 14,
+        "completed": 329,
+        "running": 1,
+        "queued": 156
+      }
+    },
+    {
+      "elapsed_seconds": 36.05,
+      "application_cpu_percent": 1.32,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 5.6,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 15,
+        "completed": 341,
+        "running": 1,
+        "queued": 143
+      }
+    },
+    {
+      "elapsed_seconds": 37.02,
+      "application_cpu_percent": 1.11,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 5.8,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 15,
+        "completed": 356,
+        "queued": 129
+      }
+    },
+    {
+      "elapsed_seconds": 38.02,
+      "application_cpu_percent": 1.95,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 9.3,
+      "system_memory_percent": 69.9,
+      "task_counts": {
+        "failed": 16,
+        "completed": 369,
+        "queued": 115
+      }
+    },
+    {
+      "elapsed_seconds": 39.03,
+      "application_cpu_percent": 1.27,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 12.6,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 16,
+        "completed": 384,
+        "queued": 100
+      }
+    },
+    {
+      "elapsed_seconds": 40.03,
+      "application_cpu_percent": 1.54,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 8.9,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 17,
+        "completed": 398,
+        "queued": 85
+      }
+    },
+    {
+      "elapsed_seconds": 41.03,
+      "application_cpu_percent": 1.07,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 7.6,
+      "system_memory_percent": 69.6,
+      "task_counts": {
+        "failed": 18,
+        "completed": 411,
+        "running": 1,
+        "queued": 70
+      }
+    },
+    {
+      "elapsed_seconds": 42.09,
+      "application_cpu_percent": 1.01,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 7.9,
+      "system_memory_percent": 69.7,
+      "task_counts": {
+        "failed": 18,
+        "completed": 424,
+        "queued": 58
+      }
+    },
+    {
+      "elapsed_seconds": 43.05,
+      "application_cpu_percent": 1.25,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 14.1,
+      "system_memory_percent": 69.4,
+      "task_counts": {
+        "failed": 19,
+        "completed": 433,
+        "running": 1,
+        "queued": 47
+      }
+    },
+    {
+      "elapsed_seconds": 44.05,
+      "application_cpu_percent": 2.21,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 8.4,
+      "system_memory_percent": 69.5,
+      "task_counts": {
+        "failed": 19,
+        "completed": 446,
+        "running": 1,
+        "queued": 34
+      }
+    },
+    {
+      "elapsed_seconds": 45.05,
+      "application_cpu_percent": 1.46,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 7.0,
+      "system_memory_percent": 69.7,
+      "task_counts": {
+        "failed": 20,
+        "completed": 460,
+        "queued": 20
+      }
+    },
+    {
+      "elapsed_seconds": 46.05,
+      "application_cpu_percent": 1.76,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 6.0,
+      "system_memory_percent": 69.7,
+      "task_counts": {
+        "failed": 20,
+        "completed": 475,
+        "queued": 5
+      }
+    },
+    {
+      "elapsed_seconds": 47.06,
+      "application_cpu_percent": 0.39,
+      "application_memory_mb": 124.4,
+      "system_cpu_percent": 7.5,
+      "system_memory_percent": 69.7,
+      "task_counts": {
+        "failed": 20,
+        "completed": 480
+      }
+    }
+  ]
+}

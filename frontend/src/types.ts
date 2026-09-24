@@ -439,6 +439,9 @@ export interface OutputMaterialItem {
   purpose: string
   requested_scope: string
   priority: OutputPriority
+  status: string
+  responsible_party: string
+  notes: string
 }
 
 export interface OutputInterviewItem {
@@ -491,7 +494,7 @@ export interface OutputDraftPayload {
   notes: string
   items: Array<Pick<OutputDraftItem, 'risk_id' | 'heading' | 'body'>>
   materials_title: string
-  materials: Array<Pick<OutputMaterialItem, 'id' | 'risk_id' | 'title' | 'purpose' | 'requested_scope' | 'priority'>>
+  materials: Array<Pick<OutputMaterialItem, 'id' | 'risk_id' | 'title' | 'purpose' | 'requested_scope' | 'priority' | 'status' | 'responsible_party' | 'notes'>>
   interview_title: string
   interviews: Array<Pick<OutputInterviewItem, 'id' | 'risk_id' | 'audience' | 'question' | 'objective'>>
   management_title: string

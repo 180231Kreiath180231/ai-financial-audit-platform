@@ -1,0 +1,19 @@
+{
+  "template_version": "audit-work-products-pdf-v3",
+  "page_size": "A4",
+  "font_family": "Microsoft YaHei",
+  "margins_mm": {
+    "top": 18,
+    "right": 18,
+    "bottom": 18,
+    "left": 18
+  },
+  "colors": {
+    "navy": "#17365D",
+    "pale_blue": "#EAF1F8",
+    "pale_gray": "#F5F7F9",
+    "border": "#D9D9D9",
+    "text": "#1F2937",
+    "muted": "#4E5B6C"
+  }
+}

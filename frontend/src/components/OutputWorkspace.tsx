@@ -35,7 +35,7 @@ function payloadFromDraft(draft: OutputDraftRecord): OutputDraftPayload {
     notes: draft.notes,
     items: draft.items.map(({ risk_id, heading, body }) => ({ risk_id, heading, body })),
     materials_title: draft.materials_title,
-    materials: draft.materials.map(({ id, risk_id, title, purpose, requested_scope, priority }) => ({ id, risk_id, title, purpose, requested_scope, priority })),
+    materials: draft.materials.map(({ id, risk_id, title, purpose, requested_scope, priority, status, responsible_party, notes }) => ({ id, risk_id, title, purpose, requested_scope, priority, status, responsible_party, notes })),
     interview_title: draft.interview_title,
     interviews: draft.interviews.map(({ id, risk_id, audience, question, objective }) => ({ id, risk_id, audience, question, objective })),
     management_title: draft.management_title,
@@ -504,6 +504,9 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
                           <label className="span-two">取证用途<textarea rows={2} value={item.purpose} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, purpose: event.target.value } : current) })} /></label>
                           <label>索取范围<input value={item.requested_scope} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, requested_scope: event.target.value } : current) })} /></label>
                           <label>优先级<select aria-label={`${item.id} 优先级`} value={item.priority} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, priority: event.target.value as typeof item.priority } : current) })}><option>高</option><option>中</option><option>低</option><option>待评估</option></select></label>
+                          <label>状态<input value={item.status} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, status: event.target.value } : current) })} /></label>
+                          <label>责任对象<input value={item.responsible_party} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, responsible_party: event.target.value } : current) })} /></label>
+                          <label className="span-two">备注<textarea rows={2} value={item.notes} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, notes: event.target.value } : current) })} /></label>
                         </div>
                       </article>)}
                     </div>

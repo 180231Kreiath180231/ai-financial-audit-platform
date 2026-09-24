@@ -21,6 +21,7 @@ from statistics import mean, median
 from typing import Any
 
 import psutil
+import requests
 from reportlab.pdfgen import canvas
 
 from backend.app.db import Database, utc_now
@@ -845,8 +846,134 @@ def measure_restart_recovery(args: argparse.Namespace) -> dict[str, Any]:
         }
 
 
+def measure_batch_import(args: argparse.Namespace) -> dict[str, Any]:
+    repo_root = Path(__file__).resolve().parents[1]
+    with tempfile.TemporaryDirectory(prefix="hengjian-batch-import-") as temp:
+        base = Path(temp)
+        data_dir = base / "data"
+        root = base / "project"
+        database = Database(data_dir)
+        project = create_project(database, root)
+        template = base / "native-template.pdf"
+        create_native_pdf(template, 1)
+        valid_payload = template.read_bytes()
+        corrupt_indexes = set(range(0, args.documents, args.corrupt_interval))
+        if len(corrupt_indexes) != args.corrupt:
+            raise ValueError(
+                "documents、corrupt 与 corrupt-interval 未形成预期损坏文件数量"
+            )
+
+        port = free_port()
+        backend = start_backend(repo_root, data_dir, port)
+        tracked = prime_cpu(backend)
+        session = requests.Session()
+        upload_started = time.perf_counter()
+        task_ids: list[str] = []
+        upload_status: int | None = None
+        accepted_count = 0
+        rejected_count = 0
+        samples: list[dict[str, Any]] = []
+        try:
+            session.post(f"http://127.0.0.1:{port}/api/v1/session", timeout=10).raise_for_status()
+            files = []
+            for index in range(args.documents):
+                payload = (
+                    b"synthetic-corrupt-pdf"
+                    if index in corrupt_indexes
+                    else valid_payload + f"\n% batch-{index + 1:03d}\n".encode()
+                )
+                files.append(
+                    (
+                        "files",
+                        (f"batch-{index + 1:03d}.pdf", payload, "application/pdf"),
+                    )
+                )
+            response = session.post(
+                f"http://127.0.0.1:{port}/api/v1/projects/{project['id']}/documents",
+                files=files,
+                timeout=args.upload_timeout,
+            )
+            upload_status = response.status_code
+            response.raise_for_status()
+            upload_result = response.json()
+            task_ids = [item["id"] for item in upload_result["accepted"]]
+            accepted_count = len(task_ids)
+            rejected_count = len(upload_result["rejected"])
+            upload_seconds = time.perf_counter() - upload_started
+
+            processing_started = time.monotonic()
+            deadline = processing_started + args.timeout
+            while time.monotonic() < deadline:
+                loop_started = time.monotonic()
+                rows = task_rows(database, root, task_ids)
+                counts = task_counts(rows)
+                samples.append(
+                    {
+                        "elapsed_seconds": round(time.monotonic() - processing_started, 2),
+                        **sample_process(backend, tracked),
+                        "task_counts": counts,
+                    }
+                )
+                if sum(counts.get(status, 0) for status in ("completed", "failed", "cancelled")) == len(task_ids):
+                    break
+                remaining = 1.0 - (time.monotonic() - loop_started)
+                if remaining > 0:
+                    time.sleep(remaining)
+        finally:
+            session.close()
+            stop_tree(backend)
+
+        final_rows = task_rows(database, root, task_ids)
+        final_counts = task_counts(final_rows)
+        with database.connect(root / "app.db") as connection:
+            document_count = int(
+                connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+            )
+            corrupt_failure_count = int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM tasks WHERE status='failed' AND error_code='PDF_CORRUPT'"
+                ).fetchone()[0]
+            )
+        quarantine_count = len(list((root / "quarantine").glob("*.pdf")))
+        valid_count = args.documents - args.corrupt
+        passed = (
+            upload_status == 202
+            and accepted_count == args.documents
+            and rejected_count == 0
+            and final_counts == {"completed": valid_count, "failed": args.corrupt}
+            and document_count == valid_count
+            and corrupt_failure_count == args.corrupt
+            and quarantine_count == args.corrupt
+        )
+        return {
+            "measured_at": datetime.now(UTC).isoformat(),
+            "host": host_info(),
+            "fixture": {
+                "synthetic": True,
+                "external_requests": 0,
+                "single_multipart_request": True,
+                "documents": args.documents,
+                "valid_documents": valid_count,
+                "corrupt_documents": args.corrupt,
+                "pages_per_valid_document": 1,
+            },
+            "f01_scale": {
+                "passed": passed,
+                "upload_http_status": upload_status,
+                "upload_seconds": round(upload_seconds, 2),
+                "accepted_count": accepted_count,
+                "rejected_count": rejected_count,
+                "final_task_counts": final_counts,
+                "document_count": document_count,
+                "pdf_corrupt_failure_count": corrupt_failure_count,
+                "quarantine_count": quarantine_count,
+            },
+            "samples": samples,
+        }
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="P02 至 P06 Windows 实机性能验收")
+    parser = argparse.ArgumentParser(description="F01 与 P02 至 P06 Windows 实机验收")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     native = subparsers.add_parser("native-load", help="测量 P02 与 P06")
@@ -877,6 +1004,14 @@ def build_parser() -> argparse.ArgumentParser:
     restart.add_argument("--timeout", type=int, default=180)
     restart.add_argument("--output", type=Path, required=True)
 
+    batch = subparsers.add_parser("batch-import", help="测量 F01 的 500 文件批量容错")
+    batch.add_argument("--documents", type=int, default=500)
+    batch.add_argument("--corrupt", type=int, default=20)
+    batch.add_argument("--corrupt-interval", type=int, default=25)
+    batch.add_argument("--upload-timeout", type=int, default=120)
+    batch.add_argument("--timeout", type=int, default=300)
+    batch.add_argument("--output", type=Path, required=True)
+
     burn = subparsers.add_parser("_cpu-burn")
     burn.add_argument("--duration", type=int, required=True)
 
@@ -895,7 +1030,9 @@ def main() -> None:
     if args.command == "_memory-hold":
         run_memory_hold(args.target_percent, args.max_gb, args.duration)
         return
-    if args.command == "native-load":
+    if args.command == "batch-import":
+        result = measure_batch_import(args)
+    elif args.command == "native-load":
         result = measure_native_load(args)
     elif args.command == "cpu-guard":
         result = measure_cpu_guard(args)

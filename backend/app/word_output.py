@@ -10,9 +10,9 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
-WORD_TEMPLATE_VERSION = "audit-work-products-word-v2"
+WORD_TEMPLATE_VERSION = "audit-work-products-word-v3"
 WORD_TEMPLATE_PATH = (
-    Path(__file__).resolve().parents[2] / "templates" / "audit-work-products-word-v2.docx"
+    Path(__file__).resolve().parents[2] / "templates" / "audit-work-products-word-v3.docx"
 )
 
 _NAVY = "17365D"
@@ -62,9 +62,7 @@ def render_word_export(
     ]
     table = document.add_table(rows=1, cols=2)
     table.alignment = WD_TABLE_ALIGNMENT.LEFT
-    table.autofit = False
-    table.columns[0].width = Inches(1.25)
-    table.columns[1].width = Inches(5.55)
+    _set_table_widths(table, (1.25, 5.55))
     _set_cell(table.cell(0, 0), "字段", bold=True, fill=_NAVY, white=True, center=True)
     _set_cell(table.cell(0, 1), "内容", bold=True, fill=_NAVY, white=True, center=True)
     _repeat_header(table.rows[0])
@@ -87,7 +85,8 @@ def render_word_export(
         notes.add_run(draft["notes"])
 
     document.add_page_break()
-    document.add_heading(draft["management_title"], level=1)
+    section_heading = document.add_heading(draft["management_title"], level=1)
+    section_heading.paragraph_format.left_indent = Inches(0)
     document.add_paragraph(
         "以下内容用于管理层沟通准备。风险状态、风险等级和证据编号保持源快照记录；"
         "管理层意见和后续安排应由相关人员确认后另行留痕。"
@@ -97,9 +96,7 @@ def render_word_export(
         document.add_heading(f"{risk['risk_number']} {item['heading']}", level=2)
         management_table = document.add_table(rows=1, cols=2)
         management_table.alignment = WD_TABLE_ALIGNMENT.LEFT
-        management_table.autofit = False
-        management_table.columns[0].width = Inches(1.25)
-        management_table.columns[1].width = Inches(5.55)
+        _set_table_widths(management_table, (1.25, 5.55))
         _set_cell(
             management_table.cell(0, 0),
             "字段",
@@ -131,7 +128,8 @@ def render_word_export(
         _format_table(management_table, font_size=9.5)
 
     document.add_page_break()
-    document.add_heading("风险清单", level=1)
+    section_heading = document.add_heading("风险清单", level=1)
+    section_heading.paragraph_format.left_indent = Inches(0)
     document.add_paragraph(
         "以下内容按最终草稿顺序列示。风险编号、状态、规则、版本和证据引用保持源快照记录。"
     )
@@ -150,9 +148,7 @@ def render_word_export(
         ]
         detail_table = document.add_table(rows=1, cols=2)
         detail_table.alignment = WD_TABLE_ALIGNMENT.LEFT
-        detail_table.autofit = False
-        detail_table.columns[0].width = Inches(1.15)
-        detail_table.columns[1].width = Inches(5.65)
+        _set_table_widths(detail_table, (1.15, 5.65))
         _set_cell(detail_table.cell(0, 0), "字段", bold=True, fill=_NAVY, white=True, center=True)
         _set_cell(detail_table.cell(0, 1), "内容", bold=True, fill=_NAVY, white=True, center=True)
         _repeat_header(detail_table.rows[0])
@@ -164,9 +160,7 @@ def render_word_export(
         document.add_heading("证据索引", level=3)
         evidence_table = document.add_table(rows=1, cols=4)
         evidence_table.alignment = WD_TABLE_ALIGNMENT.LEFT
-        evidence_table.autofit = False
-        for index, width in enumerate((0.8, 0.65, 2.0, 3.35)):
-            evidence_table.columns[index].width = Inches(width)
+        _set_table_widths(evidence_table, (0.8, 0.65, 2.0, 3.35))
         for index, label in enumerate(("编号", "方向", "来源定位", "原文引用")):
             _set_cell(evidence_table.cell(0, index), label, bold=True, fill=_NAVY, white=True, center=True)
         _repeat_header(evidence_table.rows[0])
@@ -188,35 +182,37 @@ def render_word_export(
         _format_table(evidence_table, font_size=9)
 
     document.add_page_break()
-    document.add_heading(draft["materials_title"], level=1)
+    section_heading = document.add_heading(draft["materials_title"], level=1)
+    section_heading.paragraph_format.left_indent = Inches(0)
     document.add_paragraph(
         "资料项目按最终草稿顺序列示。项目编号和关联风险保持锁定，具体提供方式与时间由审计人员另行确认。"
     )
-    materials_table = document.add_table(rows=1, cols=6)
-    materials_table.alignment = WD_TABLE_ALIGNMENT.LEFT
-    materials_table.autofit = False
-    for index, width in enumerate((0.45, 0.55, 1.35, 1.55, 1.7, 0.55)):
-        materials_table.columns[index].width = Inches(width)
-    for index, label in enumerate(("编号", "风险", "资料名称", "取证用途", "索取范围", "优先级")):
-        _set_cell(materials_table.cell(0, index), label, bold=True, fill=_NAVY, white=True, center=True)
-    _repeat_header(materials_table.rows[0])
-    for row_index, item in enumerate(draft["materials"], start=1):
-        cells = materials_table.add_row().cells
-        values = (
-            item["id"], item["risk_number"], item["title"], item["purpose"],
-            item["requested_scope"], item["priority"],
-        )
-        for index, value in enumerate(values):
-            _set_cell(
-                cells[index],
-                str(value),
-                fill=_PALE_BLUE if row_index % 2 == 0 else "FFFFFF",
-                center=index in (0, 1, 5),
-            )
-    _format_table(materials_table, font_size=8.5)
+    for item in draft["materials"]:
+        heading = document.add_heading(f"{item['id']} {item['title']}", level=2)
+        heading.paragraph_format.keep_with_next = True
+        materials_table = document.add_table(rows=1, cols=2)
+        materials_table.alignment = WD_TABLE_ALIGNMENT.LEFT
+        _set_table_widths(materials_table, (1.25, 5.55))
+        _set_cell(materials_table.cell(0, 0), "字段", bold=True, fill=_NAVY, white=True, center=True)
+        _set_cell(materials_table.cell(0, 1), "内容", bold=True, fill=_NAVY, white=True, center=True)
+        _repeat_header(materials_table.rows[0])
+        for label, value in (
+            ("关联风险", item["risk_number"]),
+            ("优先级", item["priority"]),
+            ("状态", item["status"]),
+            ("责任对象", item["responsible_party"]),
+            ("取证用途", item["purpose"]),
+            ("索取范围", item["requested_scope"]),
+            ("备注", item["notes"] or "—"),
+        ):
+            cells = materials_table.add_row().cells
+            _set_cell(cells[0], label, bold=True, fill=_PALE_BLUE, center=False)
+            _set_cell(cells[1], str(value), fill="FFFFFF", center=False)
+        _format_table(materials_table, font_size=9)
 
     document.add_page_break()
-    document.add_heading(draft["interview_title"], level=1)
+    section_heading = document.add_heading(draft["interview_title"], level=1)
+    section_heading.paragraph_format.left_indent = Inches(0)
     document.add_paragraph(
         "以下问题用于访谈准备。访谈记录、补充证据和后续判断应另行留痕，不以问题表述替代审计结论。"
     )
@@ -292,6 +288,26 @@ def _format_table(table, *, font_size: float) -> None:
                 paragraph.paragraph_format.line_spacing = 1.15
                 for run in paragraph.runs:
                     run.font.size = Pt(font_size)
+
+
+def _set_table_widths(table, widths: tuple[float, ...]) -> None:
+    table.autofit = False
+    properties = table._tbl.tblPr
+    layout = properties.first_child_found_in("w:tblLayout")
+    if layout is None:
+        layout = OxmlElement("w:tblLayout")
+        properties.append(layout)
+    layout.set(qn("w:type"), "fixed")
+    preferred = properties.first_child_found_in("w:tblW")
+    if preferred is None:
+        preferred = OxmlElement("w:tblW")
+        properties.append(preferred)
+    preferred.set(qn("w:w"), str(round(sum(widths) * 1440)))
+    preferred.set(qn("w:type"), "dxa")
+    for column, width in zip(table.columns, widths, strict=True):
+        column.width = Inches(width)
+    for grid_column, width in zip(table._tbl.tblGrid.gridCol_lst, widths, strict=True):
+        grid_column.set(qn("w:w"), str(round(width * 1440)))
 
 
 def _set_cell_borders(cell) -> None:

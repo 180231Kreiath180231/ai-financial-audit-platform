@@ -162,6 +162,9 @@ const draft: OutputDraftRecord = {
     purpose: '用于复核银行存款期末余额。',
     requested_scope: '合成测试公司 · 2024—2025',
     priority: '高',
+    status: '待确认',
+    responsible_party: '待确认',
+    notes: '',
   }],
   interview_title: '访谈提纲',
   interviews: [{
@@ -214,7 +217,7 @@ const word: OutputExportRecord = {
   id: 'export-2',
   export_format: 'docx',
   artifact_kind: 'work_products',
-  template_version: 'audit-work-products-word-v2',
+  template_version: 'audit-work-products-word-v3',
   filename: '审计工作成果-20260923-v3-export2.docx',
   download_url: '/api/v1/projects/project-1/outputs/exports/export-2/file',
 }
@@ -224,7 +227,7 @@ const pdf: OutputExportRecord = {
   id: 'export-3',
   export_format: 'pdf',
   artifact_kind: 'work_products',
-  template_version: 'audit-work-products-pdf-v2',
+  template_version: 'audit-work-products-pdf-v3',
   filename: '审计工作成果归档件-20260923-v3-export3.pdf',
   download_url: '/api/v1/projects/project-1/outputs/exports/export-3/file',
 }
@@ -315,6 +318,13 @@ describe('OutputWorkspace', () => {
     expect(screen.getByRole('textbox', { name: '需管理层回复' })).toHaveValue('请确认形成原因、后续措施和预计完成时间。')
     await user.click(screen.getByRole('tab', { name: '资料清单 1' }))
     expect(screen.getByRole('textbox', { name: '资料名称' })).toHaveValue('R-0001 原始文件、审批记录及补充支持材料')
+    const status = screen.getByRole('textbox', { name: '状态' })
+    await user.clear(status)
+    await user.type(status, '已发出')
+    const owner = screen.getByRole('textbox', { name: '责任对象' })
+    await user.clear(owner)
+    await user.type(owner, '财务负责人')
+    await user.type(screen.getByRole('textbox', { name: '备注' }), '三个工作日内反馈')
     await user.click(screen.getByRole('tab', { name: '访谈提纲 2' }))
     expect(screen.getAllByRole('textbox', { name: '访谈问题' })).toHaveLength(2)
     await user.click(screen.getByRole('tab', { name: '风险清单 1' }))
@@ -326,7 +336,14 @@ describe('OutputWorkspace', () => {
     expect(api.updateOutputDraft).toHaveBeenCalledWith(
       project.id,
       draft.id,
-      expect.objectContaining({ title: '经复核的风险清单' }),
+      expect.objectContaining({
+        title: '经复核的风险清单',
+        materials: [expect.objectContaining({
+          status: '已发出',
+          responsible_party: '财务负责人',
+          notes: '三个工作日内反馈',
+        })],
+      }),
     )
     expect(await screen.findByText(/草稿已保存为 v2/)).toBeVisible()
     await user.click(screen.getByRole('button', { name: '最终固化' }))

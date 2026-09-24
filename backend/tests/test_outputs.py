@@ -141,6 +141,9 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
             "purpose": "用于复核“Synthetic evidence needs human review”的事实背景、期间归属和证据完整性。",
             "requested_scope": f"{project['entity_name']} · {project['year_start']}—{project['year_end']}",
             "priority": "待评估",
+            "status": "待确认",
+            "responsible_party": "待确认",
+            "notes": "",
         }
     ]
     assert [item["id"] for item in draft["interviews"]] == ["Q-001", "Q-002"]
@@ -190,6 +193,9 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
                 "purpose": draft["materials"][0]["purpose"],
                 "requested_scope": draft["materials"][0]["requested_scope"],
                 "priority": "高",
+                "status": "已发出",
+                "responsible_party": "财务负责人",
+                "notes": "请于三个工作日内反馈。",
             }
         ],
         interview_title="复核访谈提纲",
@@ -216,6 +222,9 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     )
     assert updated["version"] == 2
     assert updated["materials"][0]["title"] == "银行回函及期后流水"
+    assert updated["materials"][0]["status"] == "已发出"
+    assert updated["materials"][0]["responsible_party"] == "财务负责人"
+    assert updated["materials"][0]["notes"] == "请于三个工作日内反馈。"
     assert [item["id"] for item in updated["interviews"]] == ["Q-002", "Q-001"]
     assert [item["version"] for item in updated["versions"]] == [2, 1]
 
@@ -267,7 +276,7 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert first_word["id"] != second_word["id"]
     assert first_word["filename"] != second_word["filename"]
     assert first_word["export_format"] == "docx"
-    assert first_word["template_version"] == "audit-work-products-word-v2"
+    assert first_word["template_version"] == "audit-work-products-word-v3"
     assert first_word["artifact_kind"] == "work_products"
     _, first_word_path = exports.get(project["id"], first_word["id"])
     _, second_word_path = exports.get(project["id"], second_word["id"])
@@ -284,7 +293,10 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert "银行存款余额异常需补充复核" in text
     assert "R-0001-E01" in table_text
     assert "复核资料清单" in text
-    assert "银行回函及期后流水" in table_text
+    assert "银行回函及期后流水" in text
+    assert "已发出" in table_text
+    assert "财务负责人" in table_text
+    assert "请于三个工作日内反馈" in table_text
     assert "复核访谈提纲" in text
     assert updated["interviews"][0]["question"] in text
     assert "管理层审阅事项" in text
@@ -296,7 +308,7 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert first_pdf["id"] != second_pdf["id"]
     assert first_pdf["filename"] != second_pdf["filename"]
     assert first_pdf["export_format"] == "pdf"
-    assert first_pdf["template_version"] == "audit-work-products-pdf-v2"
+    assert first_pdf["template_version"] == "audit-work-products-pdf-v3"
     assert first_pdf["artifact_kind"] == "work_products"
     _, first_pdf_path = exports.get(project["id"], first_pdf["id"])
     _, second_pdf_path = exports.get(project["id"], second_pdf["id"])
@@ -322,6 +334,9 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert "R-0001-E01" in pdf_text
     assert "复核资料清单" in pdf_text
     assert "银行回函及期后流水" in pdf_text
+    assert "已发出" in pdf_text
+    assert "财务负责人" in pdf_text
+    assert "请于三个工作日内反馈" in pdf_text
     assert "复核访谈提纲" in pdf_text
     assert updated["interviews"][0]["question"] in pdf_text
     assert "管理层审阅事项" in pdf_text
@@ -403,6 +418,37 @@ def test_output_draft_rejects_risk_set_changes(tmp_path: Path) -> None:
 
     assert captured.value.code == "OUTPUT_DRAFT_RISK_SET_CHANGED"
     assert drafts.get(project["id"], draft["id"])["version"] == 1
+
+
+def test_output_draft_hydrates_legacy_material_tracking_fields(tmp_path: Path) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "project")
+    document_id = seed_evidence(database, Path(project["storage_path"]))
+    repository = RiskRepository(database)
+    risk = create_manual_risk(database, project["id"], document_id)
+    repository.transition(
+        project["id"], risk["id"], RiskTransition(status="已核实", note="确认合成风险")
+    )
+    snapshots = OutputSnapshotService(database)
+    drafts = OutputDraftService(database, snapshots)
+    draft = drafts.create(
+        project["id"], snapshots.create_risk_register(project["id"])["id"]
+    )
+    root = Path(project["storage_path"])
+    legacy = [{key: value for key, value in draft["materials"][0].items() if key not in {
+        "status", "responsible_party", "notes"
+    }}]
+    with database.connect(root / "app.db") as connection:
+        connection.execute(
+            "UPDATE output_drafts SET materials_json=? WHERE id=?",
+            (json.dumps(legacy, ensure_ascii=False), draft["id"]),
+        )
+
+    hydrated = drafts.get(project["id"], draft["id"])
+
+    assert hydrated["materials"][0]["status"] == "待确认"
+    assert hydrated["materials"][0]["responsible_party"] == "待确认"
+    assert hydrated["materials"][0]["notes"] == ""
 
 
 def test_output_draft_rejects_material_set_and_interview_risk_link_changes(
