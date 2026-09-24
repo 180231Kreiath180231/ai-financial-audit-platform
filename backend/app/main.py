@@ -86,6 +86,7 @@ from .schemas import (
     ResourceSnapshot,
     RetrievalStatus,
     RiskCreate,
+    RiskReassessment,
     RiskRecord,
     RiskTransition,
     TaskRecord,
@@ -559,6 +560,31 @@ def transition_risk(project_id: str, risk_id: str, payload: RiskTransition) -> d
     logger.info(
         "risk.status_changed",
         extra={"project_id": project_id, "risk_id": risk_id, "status": payload.status},
+    )
+    return risk
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/risks/{risk_id}/reassess",
+    response_model=RiskRecord,
+    dependencies=[Depends(require_session)],
+)
+def reassess_risk(
+    project_id: str, risk_id: str, payload: RiskReassessment
+) -> dict:
+    project_root_or_error(project_id)
+    try:
+        risk = risk_repository.reassess_with_evidence(project_id, risk_id, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="风险卡不存在") from exc
+    except RiskError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info(
+        "risk.evidence_reassessed",
+        extra={"project_id": project_id, "risk_id": risk_id, "version": risk["version"]},
     )
     return risk
 

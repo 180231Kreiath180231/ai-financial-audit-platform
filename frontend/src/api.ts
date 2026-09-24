@@ -25,6 +25,7 @@ import type {
   ResourceSnapshot,
   RetrievalStatus,
   RiskPayload,
+  RiskReassessmentPayload,
   RiskRecord,
   RiskStatus,
   SearchHit,
@@ -252,6 +253,12 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, note }),
+    }),
+  reassessRisk: (projectId: string, riskId: string, payload: RiskReassessmentPayload) =>
+    request<RiskRecord>(`/api/v1/projects/${projectId}/risks/${riskId}/reassess`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     }),
   createFakeRiskExplanation: (projectId: string, riskId: string) =>
     request<{ risk: RiskRecord; external_request: boolean }>(

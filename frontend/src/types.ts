@@ -320,6 +320,17 @@ export interface RiskPayload {
   }>
 }
 
+export interface RiskReassessmentPayload {
+  note: string
+  evidence: Array<{
+    document_id: string
+    page_number: number
+    block_number: number
+    quote: string
+    direction: EvidenceDirection
+  }>
+}
+
 export interface AuditNoteRisk {
   risk_id: string
   risk_number: string

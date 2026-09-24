@@ -1,5 +1,6 @@
 from decimal import Decimal
 from pathlib import Path
+from statistics import mean, median, pstdev
 
 from backend.app.db import Database
 from backend.app.financial_data import FinancialDataService
@@ -110,3 +111,56 @@ def test_trend_analysis_marks_small_sample_as_uncertain(tmp_path: Path) -> None:
     assert analysis["points"][-1]["z_score"] is None
     assert analysis["points"][-1]["robust_z_score"] is None
     assert analysis["denominator"] is None
+
+
+def test_ten_financial_metrics_match_an_independent_standard_library_oracle(
+    tmp_path: Path,
+) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "oracle-project")
+    root = Path(project["storage_path"])
+    raw_values = [
+        Decimal("10"),
+        Decimal("20"),
+        Decimal("30"),
+        Decimal("40"),
+        Decimal("100"),
+        Decimal("50"),
+    ]
+    service = seed_dataset(
+        database,
+        root,
+        project["id"],
+        {2020 + index: value for index, value in enumerate(raw_values)},
+        start=2020,
+        end=2025,
+    )
+
+    analysis = service.trend_analysis(
+        project["id"], "dataset-1", "1001", "A-TOTAL"
+    )
+    oracle_mean = mean(raw_values)
+    oracle_median = median(raw_values)
+    oracle_mad = median([abs(value - oracle_median) for value in raw_values])
+    oracle_stddev = pstdev(raw_values)
+    last = analysis["points"][-1]
+
+    assert analysis["mean"] == f"{oracle_mean.quantize(Decimal('0.01')):f}"
+    assert analysis["median"] == f"{oracle_median.quantize(Decimal('0.01')):f}"
+    assert analysis["mad"] == f"{oracle_mad.quantize(Decimal('0.01')):f}"
+    assert analysis["standard_deviation"] == (
+        f"{oracle_stddev.quantize(Decimal('0.01')):f}"
+    )
+    assert last["closing_net"] == "50.00"
+    assert last["yoy_change"] == "-50.00"
+    assert last["yoy_percent"] == "-50.00"
+    assert last["direction"] == "down"
+    assert last["trend_run"] == 1
+    assert last["turning_point"] is True
+    assert last["z_score"] == (
+        f"{((raw_values[-1] - oracle_mean) / oracle_stddev).quantize(Decimal('0.0001')):f}"
+    )
+    assert last["robust_z_score"] == (
+        f"{(Decimal('0.6745') * (raw_values[-1] - oracle_median) / oracle_mad).quantize(Decimal('0.0001')):f}"
+    )
+    assert last["structure_ratio"] == "5.0000"

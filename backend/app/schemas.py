@@ -276,6 +276,16 @@ class RiskTransition(BaseModel):
         return value.strip()
 
 
+class RiskReassessment(BaseModel):
+    evidence: list[RiskEvidenceCreate] = Field(min_length=1, max_length=20)
+    note: str = Field(min_length=2, max_length=500)
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def strip_reassessment_note(cls, value: str) -> str:
+        return value.strip()
+
+
 class RiskEvidenceRecord(BaseModel):
     id: str
     kind: Literal["document", "financial"] = "document"

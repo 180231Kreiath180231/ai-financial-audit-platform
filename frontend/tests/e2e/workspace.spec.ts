@@ -201,6 +201,29 @@ test('creates, reviews, and freezes a versioned risk from resolved evidence', as
   const pdfDownload = page.waitForEvent('download')
   await page.getByRole('link', { name: '下载' }).first().click()
   await expect((await pdfDownload).suggestedFilename()).toMatch(/^审计工作成果归档件-\d{8}-v2-[a-f0-9]{8}\.pdf$/)
+
+  await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '资料' }).click()
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'playwright-risk-counter-evidence.pdf',
+    mimeType: 'application/pdf',
+    buffer: syntheticTextPdf('RISK-COUNTER-EVIDENCE-NEW'),
+  })
+  await expect(documentList.getByRole('button', { name: /playwright-risk-counter-evidence\.pdf/ })).toBeVisible({ timeout: 20_000 })
+  await projectSearch.getByRole('searchbox', { name: '搜索全部本地文档' }).fill('RISK-COUNTER-EVIDENCE-NEW')
+  await projectSearch.getByRole('button', { name: '检索' }).click()
+  await projectSearch.getByRole('button', { name: '反证' }).click()
+
+  await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '风险' }).click()
+  await expect(page.getByText(/当前状态“已核实”将显式重开为“待复核”/)).toBeVisible()
+  await page.getByLabel('重新评估原因').fill('新反证可能推翻原结论，重新评估')
+  await page.getByRole('button', { name: '关联证据并重新评估' }).click()
+  await expect(page.getByRole('status')).toContainText('已关联新证据并重开为“待复核”')
+  await expect(page.getByText('v4', { exact: true }).first()).toBeVisible()
+  await expect(page.getByLabel('版本 4 差异')).toContainText('新增证据')
+  await expect(page.getByLabel('版本 4 差异')).toContainText('playwright-risk-counter-evidence.pdf')
+
+  await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '输出' }).click()
+  await expect(page.getByText('最终草稿 v2')).toBeVisible()
 })
 
 test('creates, updates, and confirms deletion of an audit note', async ({ page }) => {

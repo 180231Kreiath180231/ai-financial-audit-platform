@@ -9,7 +9,7 @@ import {
   Sparkle,
   Warning,
 } from '@phosphor-icons/react'
-import type { RiskEvidence, RiskRecord, RiskStatus } from '../types'
+import type { EvidenceSelection, RiskEvidence, RiskRecord, RiskStatus, RiskVersion } from '../types'
 
 const transitions: Record<RiskStatus, RiskStatus[]> = {
   待复核: ['已核实', '已排除', '待补证'],
@@ -35,6 +35,10 @@ interface Props {
   notice: string | null
   onSelect: (riskId: string) => void
   onTransition: (risk: RiskRecord, status: RiskStatus, note: string) => Promise<boolean>
+  candidateEvidence: EvidenceSelection[]
+  onReassess: (risk: RiskRecord, evidence: EvidenceSelection[], note: string) => Promise<boolean>
+  onClearCandidateEvidence: () => void
+  onFindEvidence: () => void
   onFakeExplanation: (risk: RiskRecord) => Promise<void>
   onOpenEvidence: (evidence: RiskEvidence) => void
   onOpenNotes: () => void
@@ -48,13 +52,21 @@ export function RiskWorkspace({
   notice,
   onSelect,
   onTransition,
+  candidateEvidence,
+  onReassess,
+  onClearCandidateEvidence,
+  onFindEvidence,
   onFakeExplanation,
   onOpenEvidence,
   onOpenNotes,
 }: Props) {
   const [note, setNote] = useState('')
+  const [reassessmentNote, setReassessmentNote] = useState('')
 
-  useEffect(() => setNote(''), [selectedRisk?.id, selectedRisk?.version])
+  useEffect(() => {
+    setNote('')
+    setReassessmentNote('')
+  }, [selectedRisk?.id, selectedRisk?.version])
 
   const support = selectedRisk?.evidence.filter((item) => item.direction === 'support') ?? []
   const counter = selectedRisk?.evidence.filter((item) => item.direction === 'counter') ?? []
@@ -63,6 +75,13 @@ export function RiskWorkspace({
   async function transition(status: RiskStatus) {
     if (!selectedRisk || note.trim().length < 2) return
     if (await onTransition(selectedRisk, status, note.trim())) setNote('')
+  }
+
+  async function reassess() {
+    if (!selectedRisk || candidateEvidence.length === 0 || reassessmentNote.trim().length < 2) return
+    if (await onReassess(selectedRisk, candidateEvidence, reassessmentNote.trim())) {
+      setReassessmentNote('')
+    }
   }
 
   return (
@@ -117,6 +136,16 @@ export function RiskWorkspace({
                   </div>
                 </section>
 
+                <section className="risk-detail-section" aria-labelledby="reassessment-heading">
+                  <div className="risk-section-title"><ClockCounterClockwise aria-hidden="true" /><div><h3 id="reassessment-heading">增量回溯</h3><p>只更新当前风险；用户明确提交后才关联新证据并重新评估。</p></div></div>
+                  {candidateEvidence.length > 0 ? <form className="risk-reassessment" onSubmit={(event) => { event.preventDefault(); void reassess() }}>
+                    <div className="reassessment-scope" role="note"><Warning aria-hidden="true" /><span><b>{candidateEvidence.length} 条待关联证据</b>{selectedRisk.status === '待复核' ? '当前风险将保持“待复核”，并生成新版本。' : `当前状态“${selectedRisk.status}”将显式重开为“待复核”。`}其他风险和历史输出不会改变。</span></div>
+                    <ul aria-label="待关联到当前风险的证据">{candidateEvidence.map((item) => <li key={`${item.document_id}-${item.page_number}-${item.block_number}`}><span>{item.direction === 'support' ? '支持证据' : '反证'} · {item.document_name} · 第 {item.page_number} 页</span><q>{item.snippet}</q></li>)}</ul>
+                    <label className="field"><span>重新评估原因</span><textarea aria-label="重新评估原因" rows={3} maxLength={500} value={reassessmentNote} onChange={(event) => setReassessmentNote(event.target.value)} placeholder="说明新证据为什么可能影响原判断" /><small>{reassessmentNote.length}/500 · 至少 2 个字符</small></label>
+                    <div className="risk-actions"><button className="button secondary" type="button" disabled={busy !== null} onClick={onClearCandidateEvidence}>清空待关联证据</button><button className="button primary" type="submit" disabled={busy !== null || reassessmentNote.trim().length < 2}>{busy === 'reassess' ? '正在关联并重开…' : '关联证据并重新评估'}</button></div>
+                  </form> : <div className="completed-note"><ListMagnifyingGlass aria-hidden="true" /><span><b>尚未选择新证据</b>前往“资料”从项目原文中标记支持证据或反证，再返回当前风险。</span><button className="button secondary" type="button" onClick={onFindEvidence}>前往资料选择证据</button></div>}
+                </section>
+
                 <section className="risk-detail-section" aria-labelledby="explanation-heading">
                   <div className="risk-section-title"><Sparkle aria-hidden="true" /><div><h3 id="explanation-heading">AI 解释</h3><p>{selectedRisk.actual_model ? `${selectedRisk.model_provider} / ${selectedRisk.actual_model}` : '尚未生成 · 仅允许 Fake Provider'}</p></div></div>
                   {selectedRisk.model_explanation ? <div className="model-draft"><p>{selectedRisk.model_explanation}</p><small>{selectedRisk.uncertainty}</small></div> : selectedRisk.status === '待复核' ? <button className="button secondary" type="button" disabled={busy !== null} onClick={() => void onFakeExplanation(selectedRisk)}><Sparkle aria-hidden="true" />生成合成解释草稿</button> : <div className="completed-note" role="status"><ShieldCheck aria-hidden="true" /><span><b>当前状态不允许生成解释</b>{selectedRisk.status === '待补证' ? '完成补证并重新进入待复核后再生成。' : '人工确认后的风险不会被新的模型内容静默改变。'}</span></div>}
@@ -131,8 +160,8 @@ export function RiskWorkspace({
                 </section>
 
                 <section className="risk-detail-section" aria-labelledby="history-heading">
-                  <div className="risk-section-title"><ClockCounterClockwise aria-hidden="true" /><div><h3 id="history-heading">版本历史</h3><p>最新版本在前；历史快照不会被状态变更覆盖。</p></div></div>
-                  <ol className="risk-history">{selectedRisk.versions.map((version) => <li key={version.version}><b>v{version.version}</b><span>{version.change_reason}</span><time dateTime={version.created_at}>{new Date(version.created_at).toLocaleString('zh-CN')}</time></li>)}</ol>
+                  <div className="risk-section-title"><ClockCounterClockwise aria-hidden="true" /><div><h3 id="history-heading">版本历史与差异</h3><p>展开版本可查看相对上一版的状态、证据和判断依据变化。</p></div></div>
+                  <ol className="risk-history">{selectedRisk.versions.map((version, index) => <VersionHistoryItem key={version.version} version={version} previous={selectedRisk.versions[index + 1]} latest={index === 0} />)}</ol>
                 </section>
               </>
             ) : <div className="risk-empty"><ListMagnifyingGlass aria-hidden="true" /><h2>选择一张风险卡</h2><p>查看证据链、合成解释、人工处置和版本历史。</p></div>}
@@ -141,6 +170,67 @@ export function RiskWorkspace({
       )}
     </section>
   )
+}
+
+function VersionHistoryItem({ version, previous, latest }: { version: RiskVersion; previous?: RiskVersion; latest: boolean }) {
+  const changes = versionChanges(version, previous)
+  return <li><details open={latest}><summary><b>v{version.version}</b><span>{version.change_reason}</span><time dateTime={version.created_at}>{new Date(version.created_at).toLocaleString('zh-CN')}</time></summary><div className="version-diff" aria-label={`版本 ${version.version} 差异`}>{changes.map((change, index) => <div key={`${change.label}-${index}`}><span>{change.label}</span>{change.before && <del>{change.before}</del>}<strong>{change.after}</strong></div>)}</div></details></li>
+}
+
+function versionChanges(version: RiskVersion, previous?: RiskVersion) {
+  const current = version.snapshot
+  if (!previous) {
+    const evidence = snapshotEvidence(current)
+    return [{ label: '初始版本', after: `${snapshotText(current, 'status', '未知状态')} · ${evidence.length} 条证据` }]
+  }
+  const before = previous.snapshot
+  const changes: Array<{ label: string; before?: string; after: string }> = []
+  for (const [key, label] of [['status', '状态'], ['risk_level', '风险等级'], ['human_opinion', '人工意见']] as const) {
+    const oldValue = snapshotText(before, key)
+    const newValue = snapshotText(current, key)
+    if (oldValue !== newValue) changes.push({ label, before: oldValue || '未填写', after: newValue || '未填写' })
+  }
+  const oldEvidence = new Map(snapshotEvidence(before).map((item) => [String(item.id), item]))
+  const newEvidence = new Map(snapshotEvidence(current).map((item) => [String(item.id), item]))
+  const added = [...newEvidence].filter(([id]) => !oldEvidence.has(id)).map(([, item]) => snapshotEvidenceLabel(item))
+  const removed = [...oldEvidence].filter(([id]) => !newEvidence.has(id)).map(([, item]) => snapshotEvidenceLabel(item))
+  if (added.length) changes.push({ label: '新增证据', after: added.join('；') })
+  if (removed.length) changes.push({ label: '移除证据', before: removed.join('；'), after: '已移除' })
+  const oldExplanation = snapshotText(before, 'model_explanation')
+  const newExplanation = snapshotText(current, 'model_explanation')
+  if (oldExplanation !== newExplanation) changes.push({ label: 'AI 解释', before: oldExplanation ? '已有解释' : '未生成', after: newExplanation ? '已更新' : '已清除，等待重新复核' })
+  for (const [key, label] of [['input_values', '规则输入'], ['baseline_values', '比较基准'], ['calculation_result', '计算结果']] as const) {
+    const oldValue = snapshotJson(before[key])
+    const newValue = snapshotJson(current[key])
+    if (oldValue !== newValue) changes.push({ label, before: oldValue, after: newValue })
+  }
+  return changes.length ? changes : [{ label: '快照', after: '内容未变化，仅新增审计版本' }]
+}
+
+function snapshotText(snapshot: Record<string, unknown>, key: string, fallback = '') {
+  const value = snapshot[key]
+  return typeof value === 'string' ? value : fallback
+}
+
+function snapshotJson(value: unknown) {
+  if (value === undefined || value === null) return '无'
+  if (typeof value === 'string') return value
+  return JSON.stringify(value)
+}
+
+function snapshotEvidence(snapshot: Record<string, unknown>): Array<Record<string, unknown>> {
+  return Array.isArray(snapshot.evidence)
+    ? snapshot.evidence.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+    : []
+}
+
+function snapshotEvidenceLabel(item: Record<string, unknown>) {
+  const direction = item.direction === 'counter' ? '反证' : '支持证据'
+  const source = typeof item.document_name === 'string' ? item.document_name : '未知来源'
+  const location = item.kind === 'financial'
+    ? `CSV 行 ${String(item.line_start ?? '—')}`
+    : `第 ${String(item.page_number ?? '—')} 页`
+  return `${direction} · ${source} · ${location}`
 }
 
 function EvidenceGroup({ title, items, onOpen }: { title: string; items: RiskEvidence[]; onOpen: (evidence: RiskEvidence) => void }) {

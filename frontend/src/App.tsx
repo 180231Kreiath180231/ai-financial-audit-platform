@@ -142,6 +142,7 @@ export function App() {
 
   useEffect(() => {
     setRiskSection('risks')
+    setSelectedEvidence([])
   }, [selectedProjectId])
 
   const refreshProjectData = useCallback(async (projectId: string) => {
@@ -382,6 +383,34 @@ export function App() {
       setRiskNotice(`合成解释已保存为 v${result.risk.version}；外部请求 ${result.external_request ? 1 : 0} 次。`)
     } catch (reason) {
       setRiskError(reason instanceof Error ? reason.message : '合成解释生成失败')
+    } finally {
+      setRiskBusy(null)
+    }
+  }
+
+  async function reassessRisk(risk: RiskRecord, evidence: EvidenceSelection[], note: string) {
+    if (!selectedProject || evidence.length === 0 || note.trim().length < 2) return false
+    setRiskBusy('reassess')
+    setRiskError(null)
+    setRiskNotice(null)
+    try {
+      const updated = await api.reassessRisk(selectedProject.id, risk.id, {
+        note: note.trim(),
+        evidence: evidence.map((item) => ({
+          document_id: item.document_id,
+          page_number: item.page_number,
+          block_number: item.block_number,
+          quote: item.snippet,
+          direction: item.direction,
+        })),
+      })
+      setRisks((current) => current.map((item) => item.id === updated.id ? updated : item))
+      setSelectedEvidence([])
+      setRiskNotice(`${risk.risk_number} 已关联新证据并重开为“待复核”，保存为 v${updated.version}。`)
+      return true
+    } catch (reason) {
+      setRiskError(reason instanceof Error ? reason.message : '风险增量回溯失败')
+      return false
     } finally {
       setRiskBusy(null)
     }
@@ -657,6 +686,10 @@ export function App() {
             notice={riskNotice}
             onSelect={(riskId) => { setSelectedRiskId(riskId); setRiskError(null); setRiskNotice(null) }}
             onTransition={transitionRisk}
+            candidateEvidence={selectedEvidence}
+            onReassess={reassessRisk}
+            onClearCandidateEvidence={() => setSelectedEvidence([])}
+            onFindEvidence={() => { setView('documents'); setMobilePane('queue') }}
             onFakeExplanation={createFakeExplanation}
             onOpenEvidence={openEvidence}
             onOpenNotes={() => setRiskSection('notes')}

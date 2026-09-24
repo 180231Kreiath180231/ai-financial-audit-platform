@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 from .db import Database, utc_now
-from .schemas import RiskCreate, RiskTransition
+from .schemas import RiskCreate, RiskReassessment, RiskTransition
 
 
 class RiskError(RuntimeError):
@@ -193,6 +193,119 @@ class RiskRepository:
                 raise
         return self.get(project_id, risk_id)
 
+    def reassess_with_evidence(
+        self, project_id: str, risk_id: str, payload: RiskReassessment
+    ) -> dict[str, Any]:
+        root = self.database.project_root(project_id)
+        now = utc_now()
+        with self.database.connect(root / "app.db") as db:
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                current = db.execute(
+                    "SELECT * FROM risk_items WHERE id=?", (risk_id,)
+                ).fetchone()
+                if current is None:
+                    raise KeyError(risk_id)
+                evidence_rows = self._resolve_evidence(db, payload)
+                existing_rows = db.execute(
+                    """SELECT document_id, page_number, block_number, direction
+                    FROM risk_evidence WHERE risk_id=?""",
+                    (risk_id,),
+                ).fetchall()
+                existing = {
+                    (row["document_id"], row["page_number"], row["block_number"]): row[
+                        "direction"
+                    ]
+                    for row in existing_rows
+                }
+                for item, _ in evidence_rows:
+                    key = (item.document_id, item.page_number, item.block_number)
+                    direction = existing.get(key)
+                    if direction == item.direction:
+                        raise RiskError(
+                            "EVIDENCE_ALREADY_LINKED",
+                            "所选证据已关联到当前风险",
+                            "移除重复项或选择新的项目内证据",
+                        )
+                    if direction is not None:
+                        raise RiskError(
+                            "EVIDENCE_DIRECTION_CONFLICT",
+                            "同一证据片段不能改变为相反方向后重复关联",
+                            "复核既有证据方向，或选择新的证据片段",
+                        )
+
+                evidence_ids: list[str] = []
+                for item, evidence in evidence_rows:
+                    evidence_id = str(uuid.uuid4())
+                    evidence_ids.append(evidence_id)
+                    db.execute(
+                        """INSERT INTO risk_evidence
+                        (id, risk_id, document_id, page_number, block_number, quote,
+                         direction, parse_method, parse_version, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            evidence_id,
+                            risk_id,
+                            item.document_id,
+                            item.page_number,
+                            item.block_number,
+                            evidence["quote"],
+                            item.direction,
+                            evidence["parse_method"],
+                            evidence["parse_version"],
+                            now,
+                        ),
+                    )
+
+                next_version = int(current["version"]) + 1
+                uncertainty = (
+                    "证据范围已变化；旧解释保留在历史版本，当前版本须重新复核。"
+                )
+                db.execute(
+                    """UPDATE risk_items SET status='待复核', human_opinion=?,
+                    model_explanation=NULL, model_provider=NULL, actual_model=NULL,
+                    model_call_id=NULL, uncertainty=?, version=?, updated_at=?
+                    WHERE id=?""",
+                    (payload.note, uncertainty, next_version, now, risk_id),
+                )
+                changed = db.execute(
+                    "SELECT * FROM risk_items WHERE id=?", (risk_id,)
+                ).fetchone()
+                hydrated = self._hydrate(db, changed, include_versions=False)
+                self._insert_version(
+                    db,
+                    risk_id=risk_id,
+                    version=next_version,
+                    snapshot=self._snapshot(hydrated),
+                    change_reason=f"增量回溯：{payload.note}",
+                    created_at=now,
+                )
+                db.execute(
+                    "INSERT INTO audit_events VALUES (?, NULL, ?, ?, ?)",
+                    (
+                        str(uuid.uuid4()),
+                        "risk.evidence_reassessed",
+                        now,
+                        json.dumps(
+                            {
+                                "risk_id": risk_id,
+                                "from_status": current["status"],
+                                "to_status": "待复核",
+                                "from_version": current["version"],
+                                "to_version": next_version,
+                                "evidence_ids": evidence_ids,
+                                "affected_risk_count": 1,
+                            },
+                            ensure_ascii=False,
+                        ),
+                    ),
+                )
+                db.execute("COMMIT")
+            except Exception:
+                db.execute("ROLLBACK")
+                raise
+        return self.get(project_id, risk_id)
+
     def apply_fake_explanation(
         self,
         project_id: str,
@@ -272,7 +385,7 @@ class RiskRepository:
 
     @staticmethod
     def _resolve_evidence(
-        db: sqlite3.Connection, payload: RiskCreate
+        db: sqlite3.Connection, payload: RiskCreate | RiskReassessment
     ) -> list[tuple[Any, dict[str, str]]]:
         seen: dict[tuple[str, int, int], str] = {}
         resolved: list[tuple[Any, dict[str, str]]] = []

@@ -9,8 +9,14 @@ from pydantic import ValidationError
 
 from backend.app.db import Database, utc_now
 from backend.app.gateway import ModelGateway
+from backend.app.outputs import OutputSnapshotService
 from backend.app.risks import RiskError, RiskRepository
-from backend.app.schemas import RiskCreate, RiskEvidenceCreate, RiskTransition
+from backend.app.schemas import (
+    RiskCreate,
+    RiskEvidenceCreate,
+    RiskReassessment,
+    RiskTransition,
+)
 from backend.tests.helpers import create_project
 
 
@@ -22,13 +28,14 @@ def seed_evidence(database: Database, root: Path) -> str:
             """INSERT INTO documents
             (id, filename, sha256, size_bytes, page_count, parse_method,
              parse_version, stored_path, created_at)
-            VALUES (?, 'synthetic-evidence.pdf', ?, 128, 2, 'native_pdf',
+            VALUES (?, 'synthetic-evidence.pdf', ?, 128, 3, 'native_pdf',
                     'pypdf-v1', ?, ?)""",
             (document_id, "a" * 64, str(root / "files" / "synthetic-evidence.pdf"), now),
         )
         for page_number, text in (
             (1, "synthetic supporting evidence text"),
             (2, "synthetic counter evidence text"),
+            (3, "synthetic newly discovered evidence text"),
         ):
             db.execute(
                 """INSERT INTO pages
@@ -180,6 +187,128 @@ def test_fake_explanation_cannot_change_human_confirmed_risk(tmp_path: Path) -> 
     assert unchanged["status"] == "已核实"
     assert unchanged["version"] == verified["version"]
     assert unchanged["model_explanation"] is None
+
+
+def test_new_evidence_reopens_only_the_selected_risk_and_preserves_history(
+    tmp_path: Path,
+) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "project")
+    root = Path(project["storage_path"])
+    document_id = seed_evidence(database, root)
+    repository = RiskRepository(database)
+    target = create_manual_risk(database, project["id"], document_id)
+    unaffected = create_manual_risk(database, project["id"], document_id)
+    explained = repository.apply_fake_explanation(
+        project["id"],
+        target["id"],
+        explanation="旧证据范围下的合成解释",
+        uncertainty="不构成审计结论",
+        provider="Fake Provider",
+        actual_model="fake-structured-v1",
+        model_call_id="call-before-reassessment",
+    )
+    verified = repository.transition(
+        project["id"],
+        target["id"],
+        RiskTransition(status="已核实", note="基于原证据完成核实"),
+    )
+    frozen = OutputSnapshotService(database).create_risk_register(project["id"])
+
+    reassessed = repository.reassess_with_evidence(
+        project["id"],
+        target["id"],
+        RiskReassessment(
+            evidence=[
+                RiskEvidenceCreate(
+                    document_id=document_id,
+                    page_number=3,
+                    block_number=1,
+                    quote="synthetic newly discovered evidence text",
+                    direction="counter",
+                )
+            ],
+            note="新反证可能推翻原结论，重新评估",
+        ),
+    )
+
+    assert explained["version"] == 2
+    assert verified["version"] == 3
+    assert reassessed["status"] == "待复核"
+    assert reassessed["version"] == 4
+    assert reassessed["human_opinion"] == "新反证可能推翻原结论，重新评估"
+    assert reassessed["model_explanation"] is None
+    assert reassessed["actual_model"] is None
+    assert "旧解释保留在历史版本" in reassessed["uncertainty"]
+    assert len(reassessed["evidence"]) == 3
+    assert reassessed["versions"][0]["change_reason"].startswith("增量回溯：")
+    assert reassessed["versions"][1]["snapshot"]["status"] == "已核实"
+    assert reassessed["versions"][2]["snapshot"]["model_explanation"] == "旧证据范围下的合成解释"
+    assert repository.get(project["id"], unaffected["id"])["version"] == 1
+    assert frozen["snapshot"]["risks"][0]["status"] == "已核实"
+    assert len(frozen["snapshot"]["risks"][0]["evidence"]) == 2
+    with database.connect(root / "app.db") as db:
+        event = db.execute(
+            "SELECT details_json FROM audit_events WHERE event_type='risk.evidence_reassessed'"
+        ).fetchone()
+    details = json.loads(event["details_json"])
+    assert details["risk_id"] == target["id"]
+    assert details["affected_risk_count"] == 1
+    assert details["from_status"] == "已核实"
+    assert details["to_status"] == "待复核"
+
+
+def test_risk_reassessment_rejects_duplicate_conflicting_and_tampered_evidence(
+    tmp_path: Path,
+) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "project")
+    document_id = seed_evidence(database, Path(project["storage_path"]))
+    repository = RiskRepository(database)
+    risk = create_manual_risk(database, project["id"], document_id)
+
+    for direction, code in (
+        ("support", "EVIDENCE_ALREADY_LINKED"),
+        ("counter", "EVIDENCE_DIRECTION_CONFLICT"),
+    ):
+        with pytest.raises(RiskError) as captured:
+            repository.reassess_with_evidence(
+                project["id"],
+                risk["id"],
+                RiskReassessment(
+                    evidence=[
+                        RiskEvidenceCreate(
+                            document_id=document_id,
+                            page_number=1,
+                            block_number=1,
+                            quote="synthetic supporting evidence text",
+                            direction=direction,
+                        )
+                    ],
+                    note="验证重复证据边界",
+                ),
+            )
+        assert captured.value.code == code
+
+    with pytest.raises(RiskError) as tampered:
+        repository.reassess_with_evidence(
+            project["id"],
+            risk["id"],
+            RiskReassessment(
+                evidence=[
+                    RiskEvidenceCreate(
+                        document_id=document_id,
+                        page_number=3,
+                        block_number=1,
+                        quote="tampered browser quote",
+                        direction="counter",
+                    )
+                ],
+                note="验证原文边界",
+            ),
+        )
+    assert tampered.value.code == "EVIDENCE_QUOTE_MISMATCH"
+    assert repository.get(project["id"], risk["id"])["version"] == 1
 
 
 def test_risk_creation_rejects_unknown_evidence_block(tmp_path: Path) -> None:

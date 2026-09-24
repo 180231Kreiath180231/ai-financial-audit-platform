@@ -138,6 +138,9 @@ PDF 归档件的直接生成、字体嵌入、导出审计和逐页渲染结果�
 确定性同比、连续趋势、拐点、MAD、辅助 Z-score 和显式分母结构占比记录在
 [ADR-0019](docs/adr/0019-deterministic-financial-trends.md)，实现范围和自动化结果记录在
 [迭代十一趋势与稳健统计验收](docs/acceptance/iteration-11-financial-trends-2026-09-23.md)。
+新证据追加、单风险显式重开、旧解释失效和相邻版本差异记录在
+[ADR-0020](docs/adr/0020-incremental-risk-reassessment.md)，F08/F10 收口结果记录在
+[迭代十二增量风险回溯验收](docs/acceptance/iteration-12-incremental-risk-reassessment-2026-09-23.md)。
 
 ## 生产工程结构
 
