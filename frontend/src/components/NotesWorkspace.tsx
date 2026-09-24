@@ -77,6 +77,7 @@ export function NotesWorkspace({ project, risks, documents, onBack, onOpenRisk, 
   const [linkDocumentId, setLinkDocumentId] = useState('')
   const [linkPage, setLinkPage] = useState(1)
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AuditNoteRecord | null>(null)
@@ -92,9 +93,11 @@ export function NotesWorkspace({ project, risks, documents, onBack, onOpenRisk, 
       setNotes([])
       setSelectedId(null)
       setDraft(emptyDraft)
+      setLoading(false)
       return
     }
     let active = true
+    setLoading(true)
     setError(null)
     void api.listNotes(project.id).then((items) => {
       if (!active) return
@@ -103,6 +106,8 @@ export function NotesWorkspace({ project, risks, documents, onBack, onOpenRisk, 
       setDraft(items[0] ? toDraft(items[0]) : emptyDraft)
     }).catch((reason: unknown) => {
       if (active) setError(reason instanceof Error ? reason.message : '审计备忘录加载失败')
+    }).finally(() => {
+      if (active) setLoading(false)
     })
     return () => { active = false }
   }, [project])
@@ -211,7 +216,7 @@ export function NotesWorkspace({ project, risks, documents, onBack, onOpenRisk, 
           <h1 id="notes-title">审计备忘录</h1>
           <p>记录复核思路并关联风险与原始页码。模型读取默认关闭，开启仅表示允许在本项目策略范围内使用。</p>
         </div>
-        <button className="button primary" type="button" onClick={newNote}><Plus aria-hidden="true" />新建备忘录</button>
+        <button className="button primary" type="button" disabled={loading} onClick={newNote}><Plus aria-hidden="true" />新建备忘录</button>
       </header>
       {error && <div className="notice error notes-notice" role="alert"><Warning aria-hidden="true" /><span>{error}</span></div>}
       {notice && <div className="notice success notes-notice" role="status"><CheckCircle aria-hidden="true" /><span>{notice}</span></div>}
@@ -227,7 +232,7 @@ export function NotesWorkspace({ project, risks, documents, onBack, onOpenRisk, 
           ))}
         </aside>
 
-        <form className="note-editor" onSubmit={(event) => { event.preventDefault(); void save() }}>
+        {loading ? <div className="notes-loading" role="status"><span className="skeleton-line wide" /><span className="skeleton-line" />正在加载审计备忘录…</div> : <form className="note-editor" onSubmit={(event) => { event.preventDefault(); void save() }}>
           <header><div><span className="section-kicker">{selected ? '编辑备忘录' : '新建备忘录'}</span><h2>{draft.title.trim() || '未命名备忘录'}</h2></div>{selected && <button className="button danger" type="button" disabled={busy} onClick={() => setDeleteTarget(selected)}><Trash aria-hidden="true" />删除</button>}</header>
           <div className="note-fields">
             <label className="field"><span>标题</span><input aria-label="备忘录标题" maxLength={120} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
@@ -248,7 +253,7 @@ export function NotesWorkspace({ project, risks, documents, onBack, onOpenRisk, 
           </section>
 
           <footer><span>{selected ? `更新于 ${new Date(selected.updated_at).toLocaleString('zh-CN')}` : '尚未保存'}</span><button className="button primary" type="submit" disabled={!canSave}><FloppyDisk aria-hidden="true" />{busy ? '保存中…' : '保存备忘录'}</button></footer>
-        </form>
+        </form>}
       </div>
 
       <dialog ref={dialogRef} className="dialog confirm-dialog" onCancel={(event) => { if (busy) event.preventDefault(); else setDeleteTarget(null) }} onClose={() => { if (!busy) setDeleteTarget(null) }}>

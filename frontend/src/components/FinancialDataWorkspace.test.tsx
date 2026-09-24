@@ -14,6 +14,8 @@ vi.mock('../api', () => ({
     financialResultRows: vi.fn(),
     archiveFinancialDataset: vi.fn(),
     reuseFinancialRuleRun: vi.fn(),
+    financialTrendAccounts: vi.fn(),
+    financialTrendAnalysis: vi.fn(),
   },
 }))
 

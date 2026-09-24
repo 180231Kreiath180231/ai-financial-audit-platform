@@ -25,6 +25,7 @@ RULE_SET_VERSION = "TB-RULESET-v1"
 RULE_VERSION = "v1"
 ACCOUNT_ROLLFORWARD_RULE_ID = "TB-ACCOUNT-ROLLFORWARD-001"
 PERIOD_CONTINUITY_RULE_ID = "TB-PERIOD-CONTINUITY-001"
+TREND_ANALYSIS_VERSION = "FIN-TREND-v1"
 REQUIRED_COLUMNS = (
     "年度",
     "期间",
@@ -451,6 +452,33 @@ def _has_period_gap(periods: list[tuple[int, str]], period_type: str) -> bool:
     values = [_period_sort_key(period) for period in periods]
     expected = 1 if period_type == "annual" else 1
     return any(current - previous != expected for previous, current in zip(values, values[1:]))
+
+
+def _decimal_text(value: Decimal | None, places: str = "0.01") -> str | None:
+    if value is None:
+        return None
+    return format(value.quantize(Decimal(places)), "f")
+
+
+def _median(values: list[Decimal]) -> Decimal:
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / Decimal(2)
+
+
+def _expected_period_keys(
+    start: tuple[int, str], end: tuple[int, str], period_type: str
+) -> list[str]:
+    if period_type == "annual":
+        return [_period_key(year, "FY") for year in range(start[0], end[0] + 1)]
+    first = start[0] * 12 + int(start[1]) - 1
+    last = end[0] * 12 + int(end[1]) - 1
+    return [
+        _period_key(value // 12, f"{value % 12 + 1:02d}")
+        for value in range(first, last + 1)
+    ]
 
 
 def iter_rows(path: Path, encoding: str, extra_columns: list[str]) -> Iterator[TrialBalanceRow]:
@@ -1397,6 +1425,208 @@ class FinancialDataService:
                 }
                 for row in rows
             ],
+        }
+
+    def list_trend_accounts(
+        self, project_id: str, dataset_id: str
+    ) -> list[dict[str, Any]]:
+        datasets = self.list_datasets(project_id)
+        if not any(item["id"] == dataset_id for item in datasets):
+            raise KeyError(dataset_id)
+        root = self.database.project_root(project_id)
+        with self.analysis(root) as analysis:
+            rows = analysis.execute(
+                """SELECT account_code, ARG_MAX(account_name, period_key) account_name,
+                COUNT(*) period_count, MIN(period_key) period_start, MAX(period_key) period_end
+                FROM trial_balance_rows WHERE dataset_id=?
+                GROUP BY account_code ORDER BY account_code""",
+                [dataset_id],
+            ).fetchall()
+        return [
+            {
+                "account_code": row[0],
+                "account_name": row[1],
+                "period_count": row[2],
+                "period_start": row[3],
+                "period_end": row[4],
+            }
+            for row in rows
+        ]
+
+    def trend_analysis(
+        self,
+        project_id: str,
+        dataset_id: str,
+        account_code: str,
+        denominator_code: str | None = None,
+    ) -> dict[str, Any]:
+        dataset = next(
+            (item for item in self.list_datasets(project_id) if item["id"] == dataset_id),
+            None,
+        )
+        if dataset is None:
+            raise KeyError(dataset_id)
+        root = self.database.project_root(project_id)
+        with self.analysis(root) as analysis:
+            rows = analysis.execute(
+                """SELECT year, period, period_key, account_code, account_name,
+                closing_debit-closing_credit closing_net
+                FROM trial_balance_rows WHERE dataset_id=? AND account_code=?
+                ORDER BY year, CASE WHEN period='FY' THEN 13 ELSE CAST(period AS INTEGER) END""",
+                [dataset_id, account_code],
+            ).fetchall()
+            if not rows:
+                raise FinancialDataError(
+                    "TREND_ACCOUNT_NOT_FOUND",
+                    "所选科目不在当前数据集中",
+                    "刷新科目列表后重新选择",
+                )
+            denominator_rows: list[tuple[Any, ...]] = []
+            if denominator_code:
+                denominator_rows = analysis.execute(
+                    """SELECT period_key, account_code, account_name,
+                    closing_debit-closing_credit closing_net
+                    FROM trial_balance_rows WHERE dataset_id=? AND account_code=?""",
+                    [dataset_id, denominator_code],
+                ).fetchall()
+                if not denominator_rows:
+                    raise FinancialDataError(
+                        "TREND_DENOMINATOR_NOT_FOUND",
+                        "所选结构占比分母不在当前数据集中",
+                        "选择有效的资产、收入或费用总计科目",
+                    )
+
+        values = [Decimal(row[5]) for row in rows]
+        sample_count = len(values)
+        mean = sum(values, Decimal(0)) / Decimal(sample_count)
+        median = _median(values)
+        deviations = [abs(value - median) for value in values]
+        mad = _median(deviations)
+        variance = sum((value - mean) ** 2 for value in values) / Decimal(sample_count)
+        standard_deviation = variance.sqrt() if variance > 0 else Decimal(0)
+        if sample_count < 3:
+            sample_quality = "insufficient"
+            uncertainty = "样本少于 3 期，仅展示原值和同比；不计算稳定的异常指标。"
+        elif sample_count <= 11:
+            sample_quality = "limited"
+            uncertainty = "样本不超过 11 期，MAD 与 Z-score 仅作辅助，不单独决定风险等级。"
+        else:
+            sample_quality = "expanded"
+            uncertainty = "统计信号仍需结合会计口径、原始证据和人工判断。"
+
+        actual_keys = {row[2] for row in rows}
+        start_year, start_period = dataset["period_start"].split("-", 1)
+        end_year, end_period = dataset["period_end"].split("-", 1)
+        expected_keys = _expected_period_keys(
+            (int(start_year), start_period),
+            (int(end_year), end_period),
+            dataset["period_type"],
+        )
+        missing_periods = [key for key in expected_keys if key not in actual_keys]
+        denominator_by_period = {
+            row[0]: Decimal(row[3]) for row in denominator_rows
+        }
+        denominator = (
+            {
+                "account_code": denominator_rows[0][1],
+                "account_name": denominator_rows[0][2],
+                "basis": "期末净额绝对值（借方-贷方）",
+            }
+            if denominator_rows
+            else None
+        )
+        by_period = {(int(row[0]), row[1]): Decimal(row[5]) for row in rows}
+        points: list[dict[str, Any]] = []
+        previous_direction: str | None = None
+        trend_run = 0
+        previous_period: tuple[int, str] | None = None
+        previous_value: Decimal | None = None
+        for row in rows:
+            year, period, period_key = int(row[0]), row[1], row[2]
+            value = Decimal(row[5])
+            prior_year_value = by_period.get((year - 1, period))
+            yoy_change = value - prior_year_value if prior_year_value is not None else None
+            yoy_percent = (
+                yoy_change / abs(prior_year_value) * Decimal(100)
+                if yoy_change is not None and prior_year_value != 0
+                else None
+            )
+            adjacent = (
+                previous_period is not None
+                and _period_sort_key((year, period)) - _period_sort_key(previous_period) == 1
+            )
+            direction: str | None = None
+            if adjacent and previous_value is not None:
+                direction = "up" if value > previous_value else "down" if value < previous_value else "flat"
+            turning_point = (
+                direction in {"up", "down"}
+                and previous_direction in {"up", "down"}
+                and direction != previous_direction
+            )
+            if direction in {"up", "down"}:
+                trend_run = trend_run + 1 if direction == previous_direction else 1
+                previous_direction = direction
+            else:
+                trend_run = 0
+                previous_direction = None
+            z_score = (
+                (value - mean) / standard_deviation
+                if sample_count >= 3 and standard_deviation > 0
+                else None
+            )
+            robust_z_score = (
+                Decimal("0.6745") * (value - median) / mad
+                if sample_count >= 3 and mad > 0
+                else None
+            )
+            structure_denominator = denominator_by_period.get(period_key)
+            structure_ratio = (
+                abs(value) / abs(structure_denominator) * Decimal(100)
+                if structure_denominator not in (None, Decimal(0))
+                else None
+            )
+            signals: list[str] = []
+            if turning_point:
+                signals.append("趋势拐点")
+            if robust_z_score is not None and abs(robust_z_score) >= Decimal("3.5"):
+                signals.append("MAD 稳健偏离")
+            if z_score is not None and abs(z_score) >= Decimal("2"):
+                signals.append("Z-score 辅助偏离，不单独定级")
+            points.append(
+                {
+                    "period_key": period_key,
+                    "closing_net": _decimal_text(value),
+                    "yoy_change": _decimal_text(yoy_change),
+                    "yoy_percent": _decimal_text(yoy_percent),
+                    "direction": direction,
+                    "trend_run": trend_run,
+                    "turning_point": turning_point,
+                    "z_score": _decimal_text(z_score, "0.0001"),
+                    "robust_z_score": _decimal_text(robust_z_score, "0.0001"),
+                    "structure_ratio": _decimal_text(structure_ratio, "0.0001"),
+                    "signals": signals,
+                }
+            )
+            previous_period = (year, period)
+            previous_value = value
+
+        return {
+            "dataset_id": dataset_id,
+            "analysis_version": TREND_ANALYSIS_VERSION,
+            "account": {"account_code": rows[-1][3], "account_name": rows[-1][4]},
+            "denominator": denominator,
+            "period_type": dataset["period_type"],
+            "currency": dataset["currency"],
+            "value_basis": "期末净额（期末借方-期末贷方），金额单位为元",
+            "sample_count": sample_count,
+            "sample_quality": sample_quality,
+            "uncertainty": uncertainty,
+            "missing_periods": missing_periods,
+            "mean": _decimal_text(mean),
+            "median": _decimal_text(median),
+            "mad": _decimal_text(mad),
+            "standard_deviation": _decimal_text(standard_deviation),
+            "points": points,
         }
 
     def archive_dataset(self, project_id: str, dataset_id: str) -> dict[str, Any]:

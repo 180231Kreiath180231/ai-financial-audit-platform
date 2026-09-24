@@ -135,6 +135,9 @@ PDF 归档件的直接生成、字体嵌入、导出审计和逐页渲染结果�
 项目级审计备忘录、风险与页码关联、模型读取许可和删除审计边界记录在
 [ADR-0018](docs/adr/0018-project-audit-notes.md)，实现范围和自动化结果记录在
 [迭代十审计备忘录验收](docs/acceptance/iteration-10-audit-notes-2026-09-23.md)。
+确定性同比、连续趋势、拐点、MAD、辅助 Z-score 和显式分母结构占比记录在
+[ADR-0019](docs/adr/0019-deterministic-financial-trends.md)，实现范围和自动化结果记录在
+[迭代十一趋势与稳健统计验收](docs/acceptance/iteration-11-financial-trends-2026-09-23.md)。
 
 ## 生产工程结构
 

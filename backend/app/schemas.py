@@ -786,6 +786,56 @@ class FinancialResultRows(BaseModel):
     rows: list[FinancialResultRow]
 
 
+class FinancialTrendAccount(BaseModel):
+    account_code: str
+    account_name: str
+    period_count: int
+    period_start: str
+    period_end: str
+
+
+class FinancialTrendAccountRef(BaseModel):
+    account_code: str
+    account_name: str
+
+
+class FinancialTrendDenominator(FinancialTrendAccountRef):
+    basis: str
+
+
+class FinancialTrendPoint(BaseModel):
+    period_key: str
+    closing_net: str
+    yoy_change: str | None = None
+    yoy_percent: str | None = None
+    direction: Literal["up", "down", "flat"] | None = None
+    trend_run: int
+    turning_point: bool
+    z_score: str | None = None
+    robust_z_score: str | None = None
+    structure_ratio: str | None = None
+    signals: list[str] = Field(default_factory=list)
+
+
+class FinancialTrendAnalysis(BaseModel):
+    dataset_id: str
+    analysis_version: str
+    account: FinancialTrendAccountRef
+    denominator: FinancialTrendDenominator | None = None
+    period_type: Literal["monthly", "annual"]
+    currency: str
+    value_basis: str
+    sample_count: int
+    sample_quality: Literal["insufficient", "limited", "expanded"]
+    uncertainty: str
+    missing_periods: list[str] = Field(default_factory=list)
+    mean: str
+    median: str
+    mad: str
+    standard_deviation: str
+    points: list[FinancialTrendPoint]
+
+
 class FinancialRuleRunReuse(BaseModel):
     reused: bool = True
     run_id: str

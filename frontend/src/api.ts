@@ -7,6 +7,8 @@ import type {
   FinancialDataset,
   FinancialPreview,
   FinancialResultRows,
+  FinancialTrendAccount,
+  FinancialTrendAnalysis,
   GatewayOverview,
   ModelProfile,
   ModelProfilePayload,
@@ -185,6 +187,22 @@ export const api = {
     request<FinancialResultRows>(
       `/api/v1/projects/${projectId}/financial-data/${datasetId}/results/${resultId}/rows?offset=${offset}&limit=${limit}`,
     ),
+  financialTrendAccounts: (projectId: string, datasetId: string) =>
+    request<FinancialTrendAccount[]>(
+      `/api/v1/projects/${projectId}/financial-data/${datasetId}/trend-accounts`,
+    ),
+  financialTrendAnalysis: (
+    projectId: string,
+    datasetId: string,
+    accountCode: string,
+    denominatorCode = '',
+  ) => {
+    const parameters = new URLSearchParams({ account_code: accountCode })
+    if (denominatorCode) parameters.set('denominator_code', denominatorCode)
+    return request<FinancialTrendAnalysis>(
+      `/api/v1/projects/${projectId}/financial-data/${datasetId}/trend-analysis?${parameters}`,
+    )
+  },
   archiveFinancialDataset: (projectId: string, datasetId: string) =>
     request<FinancialDataset>(
       `/api/v1/projects/${projectId}/financial-data/${datasetId}/archive`,

@@ -9,6 +9,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 import { api } from '../api'
+import { FinancialTrendPanel } from './FinancialTrendPanel'
 import type {
   FinancialDataset,
   FinancialEvidenceTarget,
@@ -55,6 +56,7 @@ export function FinancialDataWorkspace({ project, tasks, focusTarget, onRefreshP
   const [notice, setNotice] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [archiveConfirmId, setArchiveConfirmId] = useState<string | null>(null)
+  const [analysisMode, setAnalysisMode] = useState<'rules' | 'trends'>('rules')
   const uploadRef = useRef<HTMLInputElement>(null)
   const errorRef = useRef<HTMLDivElement>(null)
 
@@ -318,7 +320,12 @@ export function FinancialDataWorkspace({ project, tasks, focusTarget, onRefreshP
             </section>
             {detail.import_warnings.length > 0 && <div className="dataset-warning" role="note"><Warning aria-hidden="true" /><span><b>导入提示</b>{detail.import_warnings.map((item) => item.message).join('；')}</span></div>}
 
-            <div className="rule-workspace">
+            <nav className="financial-analysis-tabs" aria-label="财务分析视图">
+              <button type="button" className={analysisMode === 'rules' ? 'active' : ''} aria-pressed={analysisMode === 'rules'} onClick={() => setAnalysisMode('rules')}>确定性规则</button>
+              <button type="button" className={analysisMode === 'trends' ? 'active' : ''} aria-pressed={analysisMode === 'trends'} onClick={() => setAnalysisMode('trends')}>趋势与稳健统计</button>
+            </nav>
+
+            {analysisMode === 'rules' && <div className="rule-workspace">
               <section className="rule-list" aria-label="规则结果">
                 <div className="list-heading"><span>{detail.rule_set_version ?? '规则结果'}</span><b>{detail.rule_results.length}</b></div>
                 {detail.rule_results.map((result) => <button key={result.id} className={selectedResultId === result.id ? 'active' : ''} type="button" onClick={() => setSelectedResultId(result.id)}>
@@ -339,7 +346,8 @@ export function FinancialDataWorkspace({ project, tasks, focusTarget, onRefreshP
                   {resultRows && resultRows.rows.length > 0 ? <ResultTable rows={resultRows.rows} /> : <div className="result-empty"><CheckCircle aria-hidden="true" /><span>{selectedResult.status === 'pass' ? '规则已通过，没有异常行。' : selectedResult.status === 'unavailable' ? '缺少相邻期间，未把未知结果标记为通过。' : '没有可显示的行。'}</span></div>}
                 </> : <div className="financial-detail-empty"><Files aria-hidden="true" /><h3>选择一条规则结果</h3></div>}
               </section>
-            </div>
+            </div>}
+            {analysisMode === 'trends' && <FinancialTrendPanel projectId={project.id} datasetId={detail.id} />}
           </>}
         </div>
       </div>

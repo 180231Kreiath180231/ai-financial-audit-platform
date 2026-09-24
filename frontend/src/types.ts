@@ -582,6 +582,47 @@ export interface FinancialResultRows {
   rows: FinancialResultRow[]
 }
 
+export interface FinancialTrendAccount {
+  account_code: string
+  account_name: string
+  period_count: number
+  period_start: string
+  period_end: string
+}
+
+export interface FinancialTrendPoint {
+  period_key: string
+  closing_net: string
+  yoy_change: string | null
+  yoy_percent: string | null
+  direction: 'up' | 'down' | 'flat' | null
+  trend_run: number
+  turning_point: boolean
+  z_score: string | null
+  robust_z_score: string | null
+  structure_ratio: string | null
+  signals: string[]
+}
+
+export interface FinancialTrendAnalysis {
+  dataset_id: string
+  analysis_version: string
+  account: { account_code: string; account_name: string }
+  denominator: { account_code: string; account_name: string; basis: string } | null
+  period_type: 'monthly' | 'annual'
+  currency: string
+  value_basis: string
+  sample_count: number
+  sample_quality: 'insufficient' | 'limited' | 'expanded'
+  uncertainty: string
+  missing_periods: string[]
+  mean: string
+  median: string
+  mad: string
+  standard_deviation: string
+  points: FinancialTrendPoint[]
+}
+
 export interface FinancialEvidenceTarget {
   datasetId: string
   lineStart: number | null

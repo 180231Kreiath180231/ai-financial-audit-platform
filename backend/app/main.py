@@ -61,6 +61,8 @@ from .schemas import (
     FinancialPreviewConfirm,
     FinancialResultRows,
     FinancialRuleRunReuse,
+    FinancialTrendAccount,
+    FinancialTrendAnalysis,
     GatewayOverview,
     GatewayProbe,
     GatewayProbeResult,
@@ -1140,6 +1142,44 @@ def get_financial_dataset(project_id: str, dataset_id: str) -> dict:
         return financial_data.get_dataset(project_id, dataset_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="财务数据集不存在") from exc
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/financial-data/{dataset_id}/trend-accounts",
+    response_model=list[FinancialTrendAccount],
+    dependencies=[Depends(require_session)],
+)
+def list_financial_trend_accounts(project_id: str, dataset_id: str) -> list[dict]:
+    project_root_or_error(project_id)
+    try:
+        return financial_data.list_trend_accounts(project_id, dataset_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="财务数据集不存在") from exc
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/financial-data/{dataset_id}/trend-analysis",
+    response_model=FinancialTrendAnalysis,
+    dependencies=[Depends(require_session)],
+)
+def get_financial_trend_analysis(
+    project_id: str,
+    dataset_id: str,
+    account_code: str = Query(min_length=1, max_length=80),
+    denominator_code: str | None = Query(default=None, min_length=1, max_length=80),
+) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return financial_data.trend_analysis(
+            project_id, dataset_id, account_code, denominator_code
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="财务数据集不存在") from exc
+    except FinancialDataError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
 
 
 @app.get(

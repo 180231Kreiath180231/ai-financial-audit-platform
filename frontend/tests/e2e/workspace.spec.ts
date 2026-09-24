@@ -258,6 +258,14 @@ test('imports a trial balance and traces a deterministic risk to CSV rows', asyn
   await expect(page.getByText('difference：-100.00')).toBeVisible()
   await expect(page.getByText('汇总计算范围').first()).toBeVisible()
 
+  await page.getByRole('button', { name: '趋势与稳健统计' }).click()
+  await expect(page.getByRole('heading', { name: '趋势与稳健统计' })).toBeVisible()
+  await expect(page.getByText(/样本不足 · 2 期/)).toBeVisible()
+  await expect(page.getByRole('img', { name: /库存现金.*2 个期间/ })).toBeVisible()
+  await page.getByLabel('结构占比基准').selectOption('004001')
+  await expect(page.getByText(/结构占比分母：/).locator('..')).toContainText('004001 · 实收资本')
+  await expect(page.getByRole('cell', { name: /1,?100/ })).toBeVisible()
+
   await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '风险' }).click()
   await expect(page.getByText('2025-FY 期初借贷总额不平衡').first()).toBeVisible()
   await page.getByText('2025-FY 期初借贷总额不平衡').first().click()
