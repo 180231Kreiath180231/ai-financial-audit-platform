@@ -1,0 +1,590 @@
+{
+  "format": "hengjian-production-licenses-v1",
+  "target": "Windows x86_64 production environment",
+  "inputs": {
+    "uv.lock": "de74ccea020094724ba1a0033a3ee30cc036a257b4a159e0c98bd544e4f64833",
+    "frontend/package-lock.json": "944d600f4109be31acc4bb1ddc31a5d4b96f7b8d11381f51c127409b779ce007"
+  },
+  "python_package_count": 33,
+  "frontend_installed_package_count": 7,
+  "frontend_locked_optional_not_installed": [
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-android-arm64",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    },
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-darwin-arm64",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    },
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-darwin-x64",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    },
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-linux-arm-gnueabihf",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    },
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-linux-arm64-gnu",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    },
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-linux-arm64-musl",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    },
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-linux-riscv64-gnu",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    },
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-linux-x64-gnu",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    },
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-linux-x64-musl",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    },
+    {
+      "lock_path": "node_modules/@napi-rs/canvas-win32-arm64-msvc",
+      "version": "0.1.100",
+      "declared_license": "MIT"
+    }
+  ],
+  "packages": [
+    {
+      "ecosystem": "npm",
+      "name": "@napi-rs/canvas",
+      "version": "0.1.100",
+      "declared_license": "MIT",
+      "direct": false,
+      "lock_path": "node_modules/@napi-rs/canvas",
+      "license_source_package": "@napi-rs/canvas",
+      "archive_path": "npm/napi-rs__canvas-0.1.100.txt",
+      "archive_sha256": "12f636512d8180fc6477d57d4644e722800b5fa47dd0c04bfbcb32785fee8b69",
+      "source_files": [
+        "node_modules/@napi-rs/canvas/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@napi-rs/canvas-win32-x64-msvc",
+      "version": "0.1.100",
+      "declared_license": "MIT",
+      "direct": false,
+      "lock_path": "node_modules/@napi-rs/canvas-win32-x64-msvc",
+      "license_source_package": "@napi-rs/canvas",
+      "archive_path": "npm/napi-rs__canvas-win32-x64-msvc-0.1.100.txt",
+      "archive_sha256": "86bf1bda30ec3d285796bf91661a9fcd899d5025f42f85e8b6b8fe6438eb2b4b",
+      "source_files": [
+        "node_modules/@napi-rs/canvas/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@phosphor-icons/react",
+      "version": "2.1.10",
+      "declared_license": "MIT",
+      "direct": true,
+      "lock_path": "node_modules/@phosphor-icons/react",
+      "license_source_package": "@phosphor-icons/react",
+      "archive_path": "npm/phosphor-icons__react-2.1.10.txt",
+      "archive_sha256": "46a8799fca196f7f8795e59e82e7a6cd44ee783d41255474ebae3ec0cc09ab08",
+      "source_files": [
+        "node_modules/@phosphor-icons/react/dist/csr/Copyright.d.ts",
+        "node_modules/@phosphor-icons/react/dist/csr/Copyright.es.js",
+        "node_modules/@phosphor-icons/react/dist/defs/Copyright.d.ts",
+        "node_modules/@phosphor-icons/react/dist/defs/Copyright.es.js",
+        "node_modules/@phosphor-icons/react/dist/ssr/Copyright.d.ts",
+        "node_modules/@phosphor-icons/react/dist/ssr/Copyright.es.js",
+        "node_modules/@phosphor-icons/react/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "pdfjs-dist",
+      "version": "5.7.284",
+      "declared_license": "Apache-2.0",
+      "direct": true,
+      "lock_path": "node_modules/pdfjs-dist",
+      "license_source_package": "pdfjs-dist",
+      "archive_path": "npm/pdfjs-dist-5.7.284.txt",
+      "archive_sha256": "77f105049bfcca8f7515355b58fc4ac68e3b1417d913aea6b05019430ba3f427",
+      "source_files": [
+        "node_modules/pdfjs-dist/cmaps/LICENSE",
+        "node_modules/pdfjs-dist/iccs/LICENSE",
+        "node_modules/pdfjs-dist/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react",
+      "version": "19.3.0",
+      "declared_license": "MIT",
+      "direct": true,
+      "lock_path": "node_modules/react",
+      "license_source_package": "react",
+      "archive_path": "npm/react-19.3.0.txt",
+      "archive_sha256": "645ce216251002bb6defe5b3235da995f292e5db3925b6aa1713fa555016ebe3",
+      "source_files": [
+        "node_modules/react/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-dom",
+      "version": "19.3.0",
+      "declared_license": "MIT",
+      "direct": true,
+      "lock_path": "node_modules/react-dom",
+      "license_source_package": "react-dom",
+      "archive_path": "npm/react-dom-19.3.0.txt",
+      "archive_sha256": "4643858338c86c631a38c606e18ced441b80fcd4782d7ae6dabc2b1c7d91ce75",
+      "source_files": [
+        "node_modules/react-dom/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "scheduler",
+      "version": "0.28.0",
+      "declared_license": "MIT",
+      "direct": false,
+      "lock_path": "node_modules/scheduler",
+      "license_source_package": "scheduler",
+      "archive_path": "npm/scheduler-0.28.0.txt",
+      "archive_sha256": "432456303c827b165fec326022c431eeed6cde9a72d8b3e6513f8b1379c8446e",
+      "source_files": [
+        "node_modules/scheduler/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "annotated-doc",
+      "version": "0.0.5",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/annotated-doc-0.0.5.txt",
+      "archive_sha256": "4b8271f5d744afe8fa7ae70659a40febebb6cfc6dc2e22dc827ca1e17fff63b7",
+      "source_files": [
+        "annotated_doc-0.0.5.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/annotated-types-0.8.0.txt",
+      "archive_sha256": "3381b759c501295173789ed8048693b506e5c4c0550cdd9781d3f8e4a1833eff",
+      "source_files": [
+        "annotated_types-0.8.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "anyio",
+      "version": "4.15.1",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/anyio-4.15.1.txt",
+      "archive_sha256": "a1e3928b065df171f13181fb3e34ba5a86dfcc9cafca31a93cbcde4206705eb9",
+      "source_files": [
+        "anyio-4.15.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "certifi",
+      "version": "2026.7.22",
+      "declared_license": "MPL-2.0",
+      "direct": false,
+      "archive_path": "python/certifi-2026.7.22.txt",
+      "archive_sha256": "277962869889109e1aa58b8ed0f6c797ad5a49063122063b1bcc43eedf69036f",
+      "source_files": [
+        "certifi-2026.7.22.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "charset-normalizer",
+      "version": "3.5.1",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/charset-normalizer-3.5.1.txt",
+      "archive_sha256": "d93a6bebaf5a2519f41c590e2016f7f9d301e78fe453c7ab980a4039012188b1",
+      "source_files": [
+        "charset_normalizer-3.5.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "click",
+      "version": "8.5.0",
+      "declared_license": "BSD-3-Clause",
+      "direct": false,
+      "archive_path": "python/click-8.5.0.txt",
+      "archive_sha256": "e7778b4dfb7af5c0a27820608da1bedd4959ce11d7c1d754b249e96ec1193df9",
+      "source_files": [
+        "click-8.5.0.dist-info/licenses/LICENSE.txt"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "duckdb",
+      "version": "1.5.5",
+      "declared_license": "OSI Approved :: MIT License",
+      "direct": true,
+      "archive_path": "python/duckdb-1.5.5.txt",
+      "archive_sha256": "0ab023a9945925c287d2a98c3bc6faab0fe75afab3687caefbf008e1688eefdb",
+      "source_files": [
+        "duckdb-1.5.5.dist-info/licenses/LICENSE",
+        "duckdb/experimental/spark/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "et_xmlfile",
+      "version": "2.0.0",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/et_xmlfile-2.0.0.txt",
+      "archive_sha256": "4029e15ee82a528e5f7e3deef3b9abffdc61296d6ce856c95c4cea7bd80a2c7f",
+      "source_files": [
+        "et_xmlfile-2.0.0.dist-info/LICENCE.python",
+        "et_xmlfile-2.0.0.dist-info/LICENCE.rst"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "fastapi",
+      "version": "0.141.1",
+      "declared_license": "MIT",
+      "direct": true,
+      "archive_path": "python/fastapi-0.141.1.txt",
+      "archive_sha256": "8c4ab389278e38eb212b9903e5636656b20d54fee91c7de7fa3fa75a639bbd6f",
+      "source_files": [
+        "fastapi-0.141.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "h11",
+      "version": "0.16.0",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/h11-0.16.0.txt",
+      "archive_sha256": "ebac4eaab1305357ffe0f087755b63c5743c2abf9d948e2c711ede49f3d43c6e",
+      "source_files": [
+        "h11-0.16.0.dist-info/licenses/LICENSE.txt"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "httptools",
+      "version": "0.8.0",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/httptools-0.8.0.txt",
+      "archive_sha256": "f29472172af11384339824719108046258723becfdb44d2d08e7c07c379e9b9d",
+      "source_files": [
+        "httptools-0.8.0.dist-info/licenses/LICENSE",
+        "httptools-0.8.0.dist-info/licenses/vendor/http-parser/LICENSE-MIT",
+        "httptools-0.8.0.dist-info/licenses/vendor/llhttp/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "idna",
+      "version": "3.20",
+      "declared_license": "BSD-3-Clause",
+      "direct": false,
+      "archive_path": "python/idna-3.20.txt",
+      "archive_sha256": "e1f4dc5bd2c80d89e6d096753bfb7cd51b4f31e2fad79f89e510b52a51b62c91",
+      "source_files": [
+        "idna-3.20.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "lxml",
+      "version": "6.1.3",
+      "declared_license": "BSD-3-Clause",
+      "direct": false,
+      "archive_path": "python/lxml-6.1.3.txt",
+      "archive_sha256": "1b9f2c064363686e8f91665b3456ce1c4ee14903090cbcbf8e85fc94d4e9f622",
+      "source_files": [
+        "lxml-6.1.3.dist-info/licenses/LICENSE.txt",
+        "lxml-6.1.3.dist-info/licenses/LICENSES.txt"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "openpyxl",
+      "version": "3.1.5",
+      "declared_license": "MIT",
+      "direct": true,
+      "archive_path": "python/openpyxl-3.1.5.txt",
+      "archive_sha256": "97fff2df784db3fbe00ae24a88c54a72e8681f37cda18f0c53a826250d230095",
+      "source_files": [
+        "openpyxl-3.1.5.dist-info/LICENCE.rst"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pillow",
+      "version": "12.3.0",
+      "declared_license": "MIT-CMU",
+      "direct": true,
+      "archive_path": "python/pillow-12.3.0.txt",
+      "archive_sha256": "cc8ddd60118986ba14b986823476f12286b0142598f9c3840e6166c01c21b2f5",
+      "source_files": [
+        "pillow-12.3.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "psutil",
+      "version": "7.2.2",
+      "declared_license": "BSD-3-Clause",
+      "direct": true,
+      "archive_path": "python/psutil-7.2.2.txt",
+      "archive_sha256": "f0d17e9a52179a83adece747d6648a222d48085c23dbba68b6f2e1c625c7886c",
+      "source_files": [
+        "psutil-7.2.2.dist-info/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pydantic",
+      "version": "2.13.5",
+      "declared_license": "MIT",
+      "direct": true,
+      "archive_path": "python/pydantic-2.13.5.txt",
+      "archive_sha256": "427564b564fc9e83f9e917fffcee8d548c1afd88e1c79a027507747d4ff8f6a6",
+      "source_files": [
+        "pydantic-2.13.5.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pydantic_core",
+      "version": "2.46.5",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/pydantic_core-2.46.5.txt",
+      "archive_sha256": "fa222fb732b4e2097e0f59630f4da5ff910ec14c0e552370c2b312eb892b8ecd",
+      "source_files": [
+        "pydantic_core-2.46.5.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pypdf",
+      "version": "6.19.0",
+      "declared_license": "BSD-3-Clause",
+      "direct": true,
+      "archive_path": "python/pypdf-6.19.0.txt",
+      "archive_sha256": "6a600923a5df0bdc22299ead3ea92ef2224f0014511878b98b8ebd74faf0dc6b",
+      "source_files": [
+        "pypdf-6.19.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pypdfium2",
+      "version": "5.13.0",
+      "declared_license": "BSD-3-Clause, Apache-2.0, dependency licenses",
+      "direct": true,
+      "archive_path": "python/pypdfium2-5.13.0.txt",
+      "archive_sha256": "49808366eb23c6597d57f52e471ad8f1f858d250146ee507a286959b751a4dd4",
+      "source_files": [
+        "pypdfium2-5.13.0.dist-info/licenses/LICENSES/Apache-2.0.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/LICENSES/BSD-3-Clause.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/LICENSES/CC-BY-4.0.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/abseil.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/agg23.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/fast_float.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/freetype.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/icu.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/lcms.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libjpeg_turbo.ijg",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libjpeg_turbo.md",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libopenjpeg.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libpng.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libtiff.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/llvm-libc.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/pdfium-binaries.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/pdfium.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/simdutf.txt",
+        "pypdfium2-5.13.0.dist-info/licenses/data/windows_x64/BUILD_LICENSES/zlib.txt"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "python-docx",
+      "version": "1.2.0",
+      "declared_license": "MIT",
+      "direct": true,
+      "archive_path": "python/python-docx-1.2.0.txt",
+      "archive_sha256": "70250329da25fcf3b4844ee027b416159d11a61b66c516072c5bf1ed3f15591e",
+      "source_files": [
+        "python_docx-1.2.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "python-dotenv",
+      "version": "1.2.3",
+      "declared_license": "BSD-3-Clause",
+      "direct": false,
+      "archive_path": "python/python-dotenv-1.2.3.txt",
+      "archive_sha256": "6266ba6db4a6a97201f217d4010a4c4e7ef481bf8737f3d03ab1e11574254c0b",
+      "source_files": [
+        "python_dotenv-1.2.3.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "python-multipart",
+      "version": "0.0.32",
+      "declared_license": "Apache-2.0",
+      "direct": true,
+      "archive_path": "python/python-multipart-0.0.32.txt",
+      "archive_sha256": "eb299206308e8738b96e014e84b11f2b85e50bf8c57b019c25afbb12a6f78884",
+      "source_files": [
+        "python_multipart-0.0.32.dist-info/licenses/LICENSE.txt"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/pyyaml-6.0.3.txt",
+      "archive_sha256": "0ef2e97271ca03d172b54ec1283864c67c8566b70cfddcbc8cc146369dcefdb6",
+      "source_files": [
+        "pyyaml-6.0.3.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "reportlab",
+      "version": "4.5.1",
+      "declared_license": "BSD license (see license.txt for details), Copyright (c) 2000-2025, ReportLab Inc.",
+      "direct": true,
+      "archive_path": "python/reportlab-4.5.1.txt",
+      "archive_sha256": "27ccfa2172c3509398f2324ca9351d0b58835cfb5b101d206c8e3fab1ee5f519",
+      "source_files": [
+        "reportlab-4.5.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "requests",
+      "version": "2.34.2",
+      "declared_license": "Apache-2.0",
+      "direct": true,
+      "archive_path": "python/requests-2.34.2.txt",
+      "archive_sha256": "beeadbc36e19b6b09ba76da46aa0a3c5b94e54d4cefce2c2e577defbc3e50a67",
+      "source_files": [
+        "requests-2.34.2.dist-info/licenses/LICENSE",
+        "requests-2.34.2.dist-info/licenses/NOTICE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "starlette",
+      "version": "1.6.0",
+      "declared_license": "BSD-3-Clause",
+      "direct": false,
+      "archive_path": "python/starlette-1.6.0.txt",
+      "archive_sha256": "a66bac4ea7f80956d3d93e12790f5fef8de770e3def2dec474d1edb649c3fc6e",
+      "source_files": [
+        "starlette-1.6.0.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/typing-inspection-0.4.4.txt",
+      "archive_sha256": "7e5d6df3b790e62ae5cc0e8d5c05aa8cc4477cacdc29ebbc0eb88961446cd7e6",
+      "source_files": [
+        "typing_inspection-0.4.4.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "declared_license": "PSF-2.0",
+      "direct": false,
+      "archive_path": "python/typing_extensions-4.16.0.txt",
+      "archive_sha256": "2680c1e9eb5640090d726bf72e1b4938e571358c6e9cb4514f2143dce549cf56",
+      "source_files": [
+        "typing_extensions-4.16.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "urllib3",
+      "version": "2.8.0",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/urllib3-2.8.0.txt",
+      "archive_sha256": "0d272b38b508f075d2ec23307c387a02c2dfe0cf8d1cafcad10d9ae5b943f4ad",
+      "source_files": [
+        "urllib3-2.8.0.dist-info/licenses/LICENSE.txt"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "uvicorn",
+      "version": "0.53.0",
+      "declared_license": "BSD-3-Clause",
+      "direct": true,
+      "archive_path": "python/uvicorn-0.53.0.txt",
+      "archive_sha256": "2d3c846927ecd4962c386dcb76154bfffb7f865c89badc4f72185dec07a238e3",
+      "source_files": [
+        "uvicorn-0.53.0.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "watchfiles",
+      "version": "1.3.0",
+      "declared_license": "MIT",
+      "direct": false,
+      "archive_path": "python/watchfiles-1.3.0.txt",
+      "archive_sha256": "e6fdc1faab9316e0c2e31de588154576ae8a33357c072797b75ce70fa45147ef",
+      "source_files": [
+        "watchfiles-1.3.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "websockets",
+      "version": "17.1",
+      "declared_license": "BSD-3-Clause",
+      "direct": false,
+      "archive_path": "python/websockets-17.1.txt",
+      "archive_sha256": "7c0983904731450184203e05a90557087a32c93a8697599046123353e99756e8",
+      "source_files": [
+        "websockets-17.1.dist-info/licenses/LICENSE"
+      ]
+    }
+  ]
+}

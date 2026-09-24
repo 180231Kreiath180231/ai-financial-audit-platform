@@ -4,21 +4,23 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Push-Location (Join-Path $repoRoot 'frontend')
 try {
     npm.cmd run lint
-    if ($LASTEXITCODE -ne 0) { throw '前端 lint 失败' }
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend lint failed' }
     npm.cmd test
-    if ($LASTEXITCODE -ne 0) { throw '前端单元测试失败' }
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend unit tests failed' }
     npm.cmd run build
-    if ($LASTEXITCODE -ne 0) { throw '前端构建失败' }
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend production build failed' }
 } finally {
     Pop-Location
 }
 
 Push-Location $repoRoot
 try {
-    uv run ruff check backend scripts/measure_baseline.py scripts/measure_performance_acceptance.py
-    if ($LASTEXITCODE -ne 0) { throw '后端 lint 失败' }
+    uv run ruff check backend scripts/measure_baseline.py scripts/measure_performance_acceptance.py scripts/manage_local_backup.py scripts/measure_backup_restore_acceptance.py scripts/archive_production_licenses.py
+    if ($LASTEXITCODE -ne 0) { throw 'Backend lint failed' }
+    uv run python scripts/archive_production_licenses.py verify --archive-dir docs/licenses/production
+    if ($LASTEXITCODE -ne 0) { throw 'Production dependency license verification failed' }
     uv run pytest
-    if ($LASTEXITCODE -ne 0) { throw '后端测试失败' }
+    if ($LASTEXITCODE -ne 0) { throw 'Backend tests failed' }
 } finally {
     Pop-Location
 }

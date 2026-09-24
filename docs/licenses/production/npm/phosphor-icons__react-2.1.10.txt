@@ -1,0 +1,126 @@
+Package: @phosphor-icons/react
+Version: 2.1.10
+Declared-License: MIT
+License-Source-Package: @phosphor-icons/react
+
+===== BEGIN node_modules/@phosphor-icons/react/dist/csr/Copyright.d.ts =====
+import { Icon } from '../lib/types';
+/**
+ * @regular ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsMjRBMTA0LDEwNCwwLDEsMCwyMzIsMTI4LDEwNC4xMSwxMDQuMTEsMCwwLDAsMTI4LDI0Wm0wLDE5MmE4OCw4OCwwLDEsMSw4OC04OEE4OC4xLDg4LjEsMCwwLDEsMTI4LDIxNlpNOTYsMTI4YTMyLDMyLDAsMCwwLDU3LjYsMTkuMiw4LDgsMCwwLDEsMTIuOCw5LjYxLDQ4LDQ4LDAsMSwxLDAtNTcuNjIsOCw4LDAsMCwxLTEyLjgsOS42MUEzMiwzMiwwLDAsMCw5NiwxMjhaIi8+PC9zdmc+)
+ * @thin ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsMjhBMTAwLDEwMCwwLDEsMCwyMjgsMTI4LDEwMC4xMSwxMDAuMTEsMCwwLDAsMTI4LDI4Wm0wLDE5MmE5Miw5MiwwLDEsMSw5Mi05MkE5Mi4xLDkyLjEsMCwwLDEsMTI4LDIyMFptMzUuMi02NS41OWE0NCw0NCwwLDEsMSwwLTUyLjgyLDQsNCwwLDAsMS02LjQsNC44MSwzNiwzNiwwLDEsMCwwLDQzLjIsNCw0LDAsMCwxLDYuNCw0LjgxWiIvPjwvc3ZnPg==)
+ * @light ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsMjZBMTAyLDEwMiwwLDEsMCwyMzAsMTI4LDEwMi4xMiwxMDIuMTIsMCwwLDAsMTI4LDI2Wm0wLDE5MmE5MCw5MCwwLDEsMSw5MC05MEE5MC4xLDkwLjEsMCwwLDEsMTI4LDIxOFpNOTQsMTI4YTM0LDM0LDAsMCwwLDYxLjIsMjAuNCw2LDYsMCwwLDEsOS42LDcuMjEsNDYsNDYsMCwxLDEsMC01NS4yMiw2LDYsMCwwLDEtOS42LDcuMjFBMzQsMzQsMCwwLDAsOTQsMTI4WiIvPjwvc3ZnPg==)
+ * @bold ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsMjBBMTA4LDEwOCwwLDEsMCwyMzYsMTI4LDEwOC4xMiwxMDguMTIsMCwwLDAsMTI4LDIwWm0wLDE5MmE4NCw4NCwwLDEsMSw4NC04NEE4NC4wOSw4NC4wOSwwLDAsMSwxMjgsMjEyWm00MS41OS01Mi43OWE1Miw1MiwwLDEsMSwwLTYyLjQzLDEyLDEyLDAsMSwxLTE5LjE4LDE0LjQyLDI4LDI4LDAsMSwwLDAsMzMuNiwxMiwxMiwwLDEsMSwxOS4xOCwxNC40MVoiLz48L3N2Zz4=)
+ * @fill ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsNTZhNzIsNzIsMCwxLDAsNzIsNzJBNzIuMDgsNzIuMDgsMCwwLDAsMTI4LDU2Wm0wLDEwNGEzMS44LDMxLjgsMCwwLDAsMjUuNjEtMTIuOCw4LDgsMCwxLDEsMTIuNzksOS42MSw0OCw0OCwwLDEsMSwwLTU3LjYzLDgsOCwwLDEsMS0xMi43OSw5LjYxQTMyLDMyLDAsMSwwLDEyOCwxNjBabTAtMTM2QTEwNCwxMDQsMCwxLDAsMjMyLDEyOCwxMDQuMTEsMTA0LjExLDAsMCwwLDEyOCwyNFptMCwxOTJhODgsODgsMCwxLDEsODgtODhBODguMSw4OC4xLDAsMCwxLDEyOCwyMTZaIi8+PC9zdmc+)
+ * @duotone ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0yMjQsMTI4YTk2LDk2LDAsMSwxLTk2LTk2QTk2LDk2LDAsMCwxLDIyNCwxMjhaIiBvcGFjaXR5PSIwLjIiLz48cGF0aCBkPSJNMTI4LDI0QTEwNCwxMDQsMCwxLDAsMjMyLDEyOCwxMDQuMTEsMTA0LjExLDAsMCwwLDEyOCwyNFptMCwxOTJhODgsODgsMCwxLDEsODgtODhBODguMSw4OC4xLDAsMCwxLDEyOCwyMTZaTTk2LDEyOGEzMiwzMiwwLDAsMCw1Ny42LDE5LjIsOCw4LDAsMCwxLDEyLjgsOS42MSw0OCw0OCwwLDEsMSwwLTU3LjYyLDgsOCwwLDAsMS0xMi44LDkuNjFBMzIsMzIsMCwwLDAsOTYsMTI4WiIvPjwvc3ZnPg==)
+ */
+declare const I: Icon;
+/** @deprecated Use CopyrightIcon */
+export declare const Copyright: Icon;
+export { I as CopyrightIcon };
+===== END node_modules/@phosphor-icons/react/dist/csr/Copyright.d.ts =====
+
+===== BEGIN node_modules/@phosphor-icons/react/dist/csr/Copyright.es.js =====
+import * as o from "react";
+import a from "../lib/IconBase.es.js";
+import i from "../defs/Copyright.es.js";
+const r = o.forwardRef((t, e) => /* @__PURE__ */ o.createElement(a, { ref: e, ...t, weights: i }));
+r.displayName = "CopyrightIcon";
+const c = r;
+export {
+  c as Copyright,
+  r as CopyrightIcon
+};
+===== END node_modules/@phosphor-icons/react/dist/csr/Copyright.es.js =====
+
+===== BEGIN node_modules/@phosphor-icons/react/dist/defs/Copyright.d.ts =====
+import { IconWeight } from '../lib';
+import * as React from "react";
+declare const _default: Map<IconWeight, React.ReactElement<unknown, string | React.JSXElementConstructor<any>>>;
+export default _default;
+===== END node_modules/@phosphor-icons/react/dist/defs/Copyright.d.ts =====
+
+===== BEGIN node_modules/@phosphor-icons/react/dist/defs/Copyright.es.js =====
+import * as e from "react";
+const t = /* @__PURE__ */ new Map([
+  [
+    "bold",
+    /* @__PURE__ */ e.createElement(e.Fragment, null, /* @__PURE__ */ e.createElement("path", { d: "M128,20A108,108,0,1,0,236,128,108.12,108.12,0,0,0,128,20Zm0,192a84,84,0,1,1,84-84A84.09,84.09,0,0,1,128,212Zm41.59-52.79a52,52,0,1,1,0-62.43,12,12,0,1,1-19.18,14.42,28,28,0,1,0,0,33.6,12,12,0,1,1,19.18,14.41Z" }))
+  ],
+  [
+    "duotone",
+    /* @__PURE__ */ e.createElement(e.Fragment, null, /* @__PURE__ */ e.createElement("path", { d: "M224,128a96,96,0,1,1-96-96A96,96,0,0,1,224,128Z", opacity: "0.2" }), /* @__PURE__ */ e.createElement("path", { d: "M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM96,128a32,32,0,0,0,57.6,19.2,8,8,0,0,1,12.8,9.61,48,48,0,1,1,0-57.62,8,8,0,0,1-12.8,9.61A32,32,0,0,0,96,128Z" }))
+  ],
+  [
+    "fill",
+    /* @__PURE__ */ e.createElement(e.Fragment, null, /* @__PURE__ */ e.createElement("path", { d: "M128,56a72,72,0,1,0,72,72A72.08,72.08,0,0,0,128,56Zm0,104a31.8,31.8,0,0,0,25.61-12.8,8,8,0,1,1,12.79,9.61,48,48,0,1,1,0-57.63,8,8,0,1,1-12.79,9.61A32,32,0,1,0,128,160Zm0-136A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Z" }))
+  ],
+  [
+    "light",
+    /* @__PURE__ */ e.createElement(e.Fragment, null, /* @__PURE__ */ e.createElement("path", { d: "M128,26A102,102,0,1,0,230,128,102.12,102.12,0,0,0,128,26Zm0,192a90,90,0,1,1,90-90A90.1,90.1,0,0,1,128,218ZM94,128a34,34,0,0,0,61.2,20.4,6,6,0,0,1,9.6,7.21,46,46,0,1,1,0-55.22,6,6,0,0,1-9.6,7.21A34,34,0,0,0,94,128Z" }))
+  ],
+  [
+    "regular",
+    /* @__PURE__ */ e.createElement(e.Fragment, null, /* @__PURE__ */ e.createElement("path", { d: "M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM96,128a32,32,0,0,0,57.6,19.2,8,8,0,0,1,12.8,9.61,48,48,0,1,1,0-57.62,8,8,0,0,1-12.8,9.61A32,32,0,0,0,96,128Z" }))
+  ],
+  [
+    "thin",
+    /* @__PURE__ */ e.createElement(e.Fragment, null, /* @__PURE__ */ e.createElement("path", { d: "M128,28A100,100,0,1,0,228,128,100.11,100.11,0,0,0,128,28Zm0,192a92,92,0,1,1,92-92A92.1,92.1,0,0,1,128,220Zm35.2-65.59a44,44,0,1,1,0-52.82,4,4,0,0,1-6.4,4.81,36,36,0,1,0,0,43.2,4,4,0,0,1,6.4,4.81Z" }))
+  ]
+]);
+export {
+  t as default
+};
+===== END node_modules/@phosphor-icons/react/dist/defs/Copyright.es.js =====
+
+===== BEGIN node_modules/@phosphor-icons/react/dist/ssr/Copyright.d.ts =====
+import { Icon } from '../lib/types';
+/**
+ * @regular ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsMjRBMTA0LDEwNCwwLDEsMCwyMzIsMTI4LDEwNC4xMSwxMDQuMTEsMCwwLDAsMTI4LDI0Wm0wLDE5MmE4OCw4OCwwLDEsMSw4OC04OEE4OC4xLDg4LjEsMCwwLDEsMTI4LDIxNlpNOTYsMTI4YTMyLDMyLDAsMCwwLDU3LjYsMTkuMiw4LDgsMCwwLDEsMTIuOCw5LjYxLDQ4LDQ4LDAsMSwxLDAtNTcuNjIsOCw4LDAsMCwxLTEyLjgsOS42MUEzMiwzMiwwLDAsMCw5NiwxMjhaIi8+PC9zdmc+)
+ * @thin ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsMjhBMTAwLDEwMCwwLDEsMCwyMjgsMTI4LDEwMC4xMSwxMDAuMTEsMCwwLDAsMTI4LDI4Wm0wLDE5MmE5Miw5MiwwLDEsMSw5Mi05MkE5Mi4xLDkyLjEsMCwwLDEsMTI4LDIyMFptMzUuMi02NS41OWE0NCw0NCwwLDEsMSwwLTUyLjgyLDQsNCwwLDAsMS02LjQsNC44MSwzNiwzNiwwLDEsMCwwLDQzLjIsNCw0LDAsMCwxLDYuNCw0LjgxWiIvPjwvc3ZnPg==)
+ * @light ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsMjZBMTAyLDEwMiwwLDEsMCwyMzAsMTI4LDEwMi4xMiwxMDIuMTIsMCwwLDAsMTI4LDI2Wm0wLDE5MmE5MCw5MCwwLDEsMSw5MC05MEE5MC4xLDkwLjEsMCwwLDEsMTI4LDIxOFpNOTQsMTI4YTM0LDM0LDAsMCwwLDYxLjIsMjAuNCw2LDYsMCwwLDEsOS42LDcuMjEsNDYsNDYsMCwxLDEsMC01NS4yMiw2LDYsMCwwLDEtOS42LDcuMjFBMzQsMzQsMCwwLDAsOTQsMTI4WiIvPjwvc3ZnPg==)
+ * @bold ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsMjBBMTA4LDEwOCwwLDEsMCwyMzYsMTI4LDEwOC4xMiwxMDguMTIsMCwwLDAsMTI4LDIwWm0wLDE5MmE4NCw4NCwwLDEsMSw4NC04NEE4NC4wOSw4NC4wOSwwLDAsMSwxMjgsMjEyWm00MS41OS01Mi43OWE1Miw1MiwwLDEsMSwwLTYyLjQzLDEyLDEyLDAsMSwxLTE5LjE4LDE0LjQyLDI4LDI4LDAsMSwwLDAsMzMuNiwxMiwxMiwwLDEsMSwxOS4xOCwxNC40MVoiLz48L3N2Zz4=)
+ * @fill ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0xMjgsNTZhNzIsNzIsMCwxLDAsNzIsNzJBNzIuMDgsNzIuMDgsMCwwLDAsMTI4LDU2Wm0wLDEwNGEzMS44LDMxLjgsMCwwLDAsMjUuNjEtMTIuOCw4LDgsMCwxLDEsMTIuNzksOS42MSw0OCw0OCwwLDEsMSwwLTU3LjYzLDgsOCwwLDEsMS0xMi43OSw5LjYxQTMyLDMyLDAsMSwwLDEyOCwxNjBabTAtMTM2QTEwNCwxMDQsMCwxLDAsMjMyLDEyOCwxMDQuMTEsMTA0LjExLDAsMCwwLDEyOCwyNFptMCwxOTJhODgsODgsMCwxLDEsODgtODhBODguMSw4OC4xLDAsMCwxLDEyOCwyMTZaIi8+PC9zdmc+)
+ * @duotone ![img](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9IiMwMDAiPjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiBmaWxsPSIjRkZGIiByeD0iNDAiIHJ5PSI0MCIvPjxwYXRoIGQ9Ik0yMjQsMTI4YTk2LDk2LDAsMSwxLTk2LTk2QTk2LDk2LDAsMCwxLDIyNCwxMjhaIiBvcGFjaXR5PSIwLjIiLz48cGF0aCBkPSJNMTI4LDI0QTEwNCwxMDQsMCwxLDAsMjMyLDEyOCwxMDQuMTEsMTA0LjExLDAsMCwwLDEyOCwyNFptMCwxOTJhODgsODgsMCwxLDEsODgtODhBODguMSw4OC4xLDAsMCwxLDEyOCwyMTZaTTk2LDEyOGEzMiwzMiwwLDAsMCw1Ny42LDE5LjIsOCw4LDAsMCwxLDEyLjgsOS42MSw0OCw0OCwwLDEsMSwwLTU3LjYyLDgsOCwwLDAsMS0xMi44LDkuNjFBMzIsMzIsMCwwLDAsOTYsMTI4WiIvPjwvc3ZnPg==)
+ */
+declare const I: Icon;
+/** @deprecated Use CopyrightIcon */
+export declare const Copyright: Icon;
+export { I as CopyrightIcon };
+===== END node_modules/@phosphor-icons/react/dist/ssr/Copyright.d.ts =====
+
+===== BEGIN node_modules/@phosphor-icons/react/dist/ssr/Copyright.es.js =====
+import * as o from "react";
+import a from "../lib/SSRBase.es.js";
+import i from "../defs/Copyright.es.js";
+const r = o.forwardRef((t, e) => /* @__PURE__ */ o.createElement(a, { ref: e, ...t, weights: i }));
+r.displayName = "CopyrightIcon";
+const s = r;
+export {
+  s as Copyright,
+  r as CopyrightIcon
+};
+===== END node_modules/@phosphor-icons/react/dist/ssr/Copyright.es.js =====
+
+===== BEGIN node_modules/@phosphor-icons/react/LICENSE =====
+MIT License
+
+Copyright (c) 2020 Phosphor Icons
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+===== END node_modules/@phosphor-icons/react/LICENSE =====

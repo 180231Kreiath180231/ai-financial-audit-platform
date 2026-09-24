@@ -1,0 +1,46 @@
+{
+  "scenario": "windows-synthetic-backup-verify-restore-v1",
+  "started_at": "2026-09-24T09:34:34.615149+00:00",
+  "completed_at": "2026-09-24T09:34:34.952124+00:00",
+  "environment": {
+    "platform": "Windows-11-10.0.22631-SP0",
+    "python": "3.12.13",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "logical_cpu_count": 16,
+    "physical_memory_bytes": 33854259200
+  },
+  "source": {
+    "projects": 2,
+    "project_event_counts": {
+      "12afd7eb-ed17-4bf8-aa18-d58a9a294070": 1,
+      "2730f599-11a9-4751-bf69-0b4ff61c3644": 1
+    },
+    "synthetic_only": true
+  },
+  "backup": {
+    "files": 6,
+    "bytes": 881034,
+    "projects": 2,
+    "seconds": 0.0853
+  },
+  "verify_seconds": 0.0263,
+  "restore": {
+    "seconds": 0.0694,
+    "projects": 2
+  },
+  "external_requests": 0,
+  "checks": {
+    "manifest_format": true,
+    "hash_and_sqlite_verification": true,
+    "project_count": true,
+    "storage_paths_rewritten": true,
+    "project_storage_available": true,
+    "nested_file_preserved": true,
+    "external_file_preserved": true,
+    "audit_events_preserved": true,
+    "dpapi_secret_decrypts": true,
+    "strict_offline_preserved": true,
+    "no_external_requests": true
+  },
+  "passed": true
+}

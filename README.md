@@ -84,6 +84,7 @@ scripts/              文档生成脚本
 - 单科目余额公式与跨期衔接使用不同的稳定规则编号；修复前已保存的历史结果保持不变。
 - 输出区可从“已核实”或“已关闭”风险生成格式无关的不可变快照，再本地确定性生成管理层沟通材料、风险清单、资料清单和访谈提纲。资料清单支持人工维护状态、责任对象和备注；项目编号、风险关联及数量仍由服务端锁定。四类内容共用可编辑草稿、版本历史和最终固化门禁；当前已固化草稿可按仓库中文模板生成 Excel 风险清单、Word 工作成果包、PDF 归档件和独立证据包索引。PDF 直接读取固化草稿并嵌入 Windows 中文字体，不从 Word 反向转换；证据包保存风险与证据定位元数据但不复制原始文件。每次导出均记录成果类型、格式、模板、草稿版本、源快照和文件 SHA-256，历史文件只增不覆盖。
 - Excel 导出把人工、模型和证据文本强制保存为文本单元格，阻止公式前缀被解释为工作簿公式。
+- 提供应用停止状态下的离线完整备份、SHA-256 与 SQLite 完整性校验、隔离目录恢复；覆盖注册库、DPAPI 密文和全部注册项目，恢复不覆盖现有目录。
 
 真实审计资料的外部视觉服务、真实文本模型业务调用、统计异常分析和自动风险分级仍未启用，不代表功能已实现。PaddleOCR 当前只完成合成数据专项接入；Excel、Word 与 PDF 导出完全在本地生成，不调用外部模型。
 
@@ -135,6 +136,7 @@ PDF 归档件的直接生成、字体嵌入、导出审计和逐页渲染结果�
 规定时长的空闲采样、原生 PDF 持续负载、CPU/内存保护、批量强退恢复和前台响应实测记录在
 [迭代十四 Windows 实机性能验收](docs/acceptance/iteration-14-windows-performance-2026-09-24.md)。
 [迭代十五批量导入与资料跟踪验收](docs/acceptance/iteration-15-batch-import-material-tracking-2026-09-24.md)记录 500 文件单次上传实测、资料跟踪字段和 Word/PDF v3 逐页检查。
+[ADR-0022](docs/adr/0022-offline-backup-and-isolated-restore.md)记录离线备份格式、停止应用门禁、哈希校验、路径安全与 DPAPI 边界；[迭代十六离线备份恢复与许可证归档验收](docs/acceptance/iteration-16-backup-restore-2026-09-24.md)记录 Windows 合成实机演练和当前生产依赖许可证归档。
 项目级审计备忘录、风险与页码关联、模型读取许可和删除审计边界记录在
 [ADR-0018](docs/adr/0018-project-audit-notes.md)，实现范围和自动化结果记录在
 [迭代十审计备忘录验收](docs/acceptance/iteration-10-audit-notes-2026-09-23.md)。
@@ -172,6 +174,38 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1
 ```
 
 启动脚本会打开 `http://127.0.0.1:5173`。按 `Ctrl+C` 同时停止前端和后端。使用 `-NoOpen` 可以不自动打开浏览器。
+
+### 本地备份与隔离恢复
+
+先停止前后端，再创建目录形式的完整备份。输出目录必须尚不存在，并且不能位于应用数据或任一项目目录内：
+
+```powershell
+uv run python scripts/manage_local_backup.py backup `
+  --data-dir data/runtime `
+  --output-dir D:\HengjianBackups\backup-2026-09-24 `
+  --confirm-app-stopped
+
+uv run python scripts/manage_local_backup.py verify `
+  --backup-dir D:\HengjianBackups\backup-2026-09-24
+```
+
+恢复只允许写入两个尚不存在的隔离目录，不覆盖当前数据：
+
+```powershell
+uv run python scripts/manage_local_backup.py restore `
+  --backup-dir D:\HengjianBackups\backup-2026-09-24 `
+  --target-data-dir D:\HengjianRestore\data `
+  --target-projects-dir D:\HengjianRestore\projects `
+  --confirm-app-stopped
+```
+
+验证恢复副本时，把 `AUDIT_DATA_DIR` 指向恢复后的 `data` 目录再启动应用。备份包含完整项目数据和密钥密文，本身没有额外加密，必须保存在访问受控的位置。DPAPI 密文只在原 Windows 用户和系统上下文中可解密；跨用户或跨设备恢复后需要重新录入外部服务密钥。
+
+在独立临时目录运行可重复的 Windows 合成验收：
+
+```powershell
+uv run python scripts/measure_backup_restore_acceptance.py --output .runtime/backup-restore/result.json
+```
 
 ### 一键载入合成演示资料
 

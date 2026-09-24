@@ -1,6 +1,16 @@
 # 第三方依赖清单
 
-本清单记录第一版直接依赖。准确版本以 `uv.lock` 和 `frontend/package-lock.json` 为准；发布包还应归档各依赖的完整许可证文本和传递依赖清单。
+本清单记录第一版直接依赖。准确版本以 `uv.lock` 和 `frontend/package-lock.json` 为准。
+
+Windows x86_64 当前生产环境的传递依赖和完整许可证文本已归档到 [`licenses/production/manifest.json`](licenses/production/manifest.json)：33 个 Python 生产包、7 个当前 Windows 安装的前端生产包，共 40 个包和 40 份合并许可证文本。npm 锁文件中另有 10 个未在本机安装的其他平台 `@napi-rs/canvas` 可选二进制包，清单保留其版本和 MIT 声明；Windows x64 二进制包复用上游 `@napi-rs/canvas` 的 MIT 文本。
+
+归档由锁文件和本机安装内容确定，质量门禁会逐字节重新生成并校验：
+
+```powershell
+uv run python scripts/archive_production_licenses.py verify --archive-dir docs/licenses/production
+```
+
+该归档用于发布复核，不构成法务意见。依赖或锁文件变化后必须重新生成、审查差异并更新本清单。
 
 ## 生产依赖
 
@@ -33,4 +43,4 @@
 | pytest | 8.4.2 | 后端单元与集成测试 | MIT |
 | HTTPX | 0.28.1 | 后端 API 测试客户端 | BSD-3-Clause |
 
-第一版未引入 GPL、AGPL、Redis、Celery、独立向量数据库、对象存储或模型 SDK。
+当前 Windows 生产归档未发现 GPL 或 AGPL 声明；包含 Certifi 的 MPL-2.0、Pillow 的 MIT-CMU，以及 pypdfium2/PDFium 的组合许可证和构建依赖文本，发布前仍需按归档逐项复核通知义务。第一版未引入 Redis、Celery、独立向量数据库、对象存储或模型 SDK。
