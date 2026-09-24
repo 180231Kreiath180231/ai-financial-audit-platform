@@ -402,12 +402,65 @@ class OutputDraftUpdateItem(BaseModel):
         return value.strip()
 
 
+OutputPriority = Literal["高", "中", "低", "待评估"]
+
+
+class OutputMaterialItem(BaseModel):
+    id: str
+    risk_id: str
+    risk_number: str
+    title: str = Field(min_length=1, max_length=500)
+    purpose: str = Field(max_length=2000)
+    requested_scope: str = Field(max_length=500)
+    priority: OutputPriority
+
+
+class OutputMaterialUpdateItem(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    risk_id: str = Field(min_length=1, max_length=80)
+    title: str = Field(min_length=1, max_length=500)
+    purpose: str = Field(max_length=2000)
+    requested_scope: str = Field(max_length=500)
+    priority: OutputPriority
+
+    @field_validator("title", "purpose", "requested_scope", mode="before")
+    @classmethod
+    def normalize_material_text(cls, value: str) -> str:
+        return value.strip()
+
+
+class OutputInterviewItem(BaseModel):
+    id: str
+    risk_id: str
+    risk_number: str
+    audience: str = Field(min_length=1, max_length=200)
+    question: str = Field(min_length=1, max_length=2000)
+    objective: str = Field(max_length=1000)
+
+
+class OutputInterviewUpdateItem(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    risk_id: str = Field(min_length=1, max_length=80)
+    audience: str = Field(min_length=1, max_length=200)
+    question: str = Field(min_length=1, max_length=2000)
+    objective: str = Field(max_length=1000)
+
+    @field_validator("audience", "question", "objective", mode="before")
+    @classmethod
+    def normalize_interview_text(cls, value: str) -> str:
+        return value.strip()
+
+
 class OutputDraftUpdate(BaseModel):
     title: str = Field(min_length=2, max_length=200)
     notes: str = Field(default="", max_length=4000)
     items: list[OutputDraftUpdateItem] = Field(min_length=1, max_length=500)
+    materials_title: str = Field(min_length=2, max_length=200)
+    materials: list[OutputMaterialUpdateItem] = Field(max_length=500)
+    interview_title: str = Field(min_length=2, max_length=200)
+    interviews: list[OutputInterviewUpdateItem] = Field(max_length=1000)
 
-    @field_validator("title", "notes", mode="before")
+    @field_validator("title", "notes", "materials_title", "interview_title", mode="before")
     @classmethod
     def normalize_draft_text(cls, value: str) -> str:
         return value.strip()
@@ -428,6 +481,10 @@ class OutputDraftRecord(BaseModel):
     title: str
     notes: str
     items: list[OutputDraftItem]
+    materials_title: str
+    materials: list[OutputMaterialItem]
+    interview_title: str
+    interviews: list[OutputInterviewItem]
     created_at: datetime
     updated_at: datetime
     finalized_at: datetime | None

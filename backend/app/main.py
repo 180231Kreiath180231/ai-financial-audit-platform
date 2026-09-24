@@ -704,6 +704,10 @@ def update_output_draft(project_id: str, draft_id: str, payload: OutputDraftUpda
             title=payload.title,
             notes=payload.notes,
             items=[item.model_dump() for item in payload.items],
+            materials_title=payload.materials_title,
+            materials=[item.model_dump() for item in payload.materials],
+            interview_title=payload.interview_title,
+            interviews=[item.model_dump() for item in payload.interviews],
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="输出草稿不存在") from exc

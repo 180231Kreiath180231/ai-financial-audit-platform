@@ -129,6 +129,19 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert draft["status"] == "editing"
     assert draft["version"] == 1
     assert draft["items"][0]["risk_number"] == "R-0001"
+    assert draft["materials_title"] == "资料清单"
+    assert draft["materials"] == [
+        {
+            "id": "M-001",
+            "risk_id": risk["id"],
+            "risk_number": "R-0001",
+            "title": "R-0001 原始文件、审批记录及补充支持材料",
+            "purpose": "用于复核“Synthetic evidence needs human review”的事实背景、期间归属和证据完整性。",
+            "requested_scope": f"{project['entity_name']} · {project['year_start']}—{project['year_end']}",
+            "priority": "待评估",
+        }
+    ]
+    assert [item["id"] for item in draft["interviews"]] == ["Q-001", "Q-002"]
 
     with pytest.raises(OutputError) as pending:
         exports.create_excel(project["id"], draft["id"])
@@ -146,8 +159,32 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
                 "body": "已核对回函，并记录后续程序。",
             }
         ],
+        materials_title="复核资料清单",
+        materials=[
+            {
+                "id": draft["materials"][0]["id"],
+                "risk_id": draft["materials"][0]["risk_id"],
+                "title": "银行回函及期后流水",
+                "purpose": draft["materials"][0]["purpose"],
+                "requested_scope": draft["materials"][0]["requested_scope"],
+                "priority": "高",
+            }
+        ],
+        interview_title="复核访谈提纲",
+        interviews=[
+            {
+                "id": item["id"],
+                "risk_id": item["risk_id"],
+                "audience": item["audience"],
+                "question": item["question"],
+                "objective": item["objective"],
+            }
+            for item in reversed(draft["interviews"])
+        ],
     )
     assert updated["version"] == 2
+    assert updated["materials"][0]["title"] == "银行回函及期后流水"
+    assert [item["id"] for item in updated["interviews"]] == ["Q-002", "Q-001"]
     assert [item["version"] for item in updated["versions"]] == [2, 1]
 
     finalized = drafts.finalize(project["id"], draft["id"])
@@ -161,6 +198,10 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
             title="不应写入",
             notes="",
             items=updated["items"],
+            materials_title=updated["materials_title"],
+            materials=updated["materials"],
+            interview_title=updated["interview_title"],
+            interviews=updated["interviews"],
         )
     assert locked.value.code == "OUTPUT_DRAFT_FINALIZED"
 
@@ -224,7 +265,58 @@ def test_output_draft_rejects_risk_set_changes(tmp_path: Path) -> None:
             title=draft["title"],
             notes="",
             items=[{"risk_id": "other", "heading": "错误风险", "body": ""}],
+            materials_title=draft["materials_title"],
+            materials=draft["materials"],
+            interview_title=draft["interview_title"],
+            interviews=draft["interviews"],
         )
 
     assert captured.value.code == "OUTPUT_DRAFT_RISK_SET_CHANGED"
     assert drafts.get(project["id"], draft["id"])["version"] == 1
+
+
+def test_output_draft_rejects_material_set_and_interview_risk_link_changes(
+    tmp_path: Path,
+) -> None:
+    database = Database(tmp_path / "registry")
+    project = create_project(database, tmp_path / "project")
+    document_id = seed_evidence(database, Path(project["storage_path"]))
+    repository = RiskRepository(database)
+    risk = create_manual_risk(database, project["id"], document_id)
+    repository.transition(
+        project["id"], risk["id"], RiskTransition(status="已核实", note="确认合成风险")
+    )
+    snapshots = OutputSnapshotService(database)
+    draft = OutputDraftService(database, snapshots).create(
+        project["id"], snapshots.create_risk_register(project["id"])["id"]
+    )
+    drafts = OutputDraftService(database, snapshots)
+    common = {
+        "title": draft["title"],
+        "notes": draft["notes"],
+        "items": draft["items"],
+        "materials_title": draft["materials_title"],
+        "interview_title": draft["interview_title"],
+    }
+
+    with pytest.raises(OutputError) as removed:
+        drafts.update(
+            project["id"],
+            draft["id"],
+            **common,
+            materials=[],
+            interviews=draft["interviews"],
+        )
+    assert removed.value.code == "OUTPUT_DRAFT_ITEM_SET_CHANGED"
+
+    changed = [dict(item) for item in draft["interviews"]]
+    changed[0]["risk_id"] = "other-risk"
+    with pytest.raises(OutputError) as relinked:
+        drafts.update(
+            project["id"],
+            draft["id"],
+            **common,
+            materials=draft["materials"],
+            interviews=changed,
+        )
+    assert relinked.value.code == "OUTPUT_DRAFT_ITEM_LINK_CHANGED"

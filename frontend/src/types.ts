@@ -384,6 +384,27 @@ export interface OutputDraftItem {
   body: string
 }
 
+export type OutputPriority = '高' | '中' | '低' | '待评估'
+
+export interface OutputMaterialItem {
+  id: string
+  risk_id: string
+  risk_number: string
+  title: string
+  purpose: string
+  requested_scope: string
+  priority: OutputPriority
+}
+
+export interface OutputInterviewItem {
+  id: string
+  risk_id: string
+  risk_number: string
+  audience: string
+  question: string
+  objective: string
+}
+
 export interface OutputDraftVersion {
   version: number
   change_reason: string
@@ -399,6 +420,10 @@ export interface OutputDraftRecord {
   title: string
   notes: string
   items: OutputDraftItem[]
+  materials_title: string
+  materials: OutputMaterialItem[]
+  interview_title: string
+  interviews: OutputInterviewItem[]
   created_at: string
   updated_at: string
   finalized_at: string | null
@@ -409,6 +434,10 @@ export interface OutputDraftPayload {
   title: string
   notes: string
   items: Array<Pick<OutputDraftItem, 'risk_id' | 'heading' | 'body'>>
+  materials_title: string
+  materials: Array<Pick<OutputMaterialItem, 'id' | 'risk_id' | 'title' | 'purpose' | 'requested_scope' | 'priority'>>
+  interview_title: string
+  interviews: Array<Pick<OutputInterviewItem, 'id' | 'risk_id' | 'audience' | 'question' | 'objective'>>
 }
 
 export interface OutputExportRecord {

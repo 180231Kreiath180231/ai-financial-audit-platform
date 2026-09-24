@@ -150,6 +150,32 @@ const draft: OutputDraftRecord = {
     heading: '银行存款期末余额需要复核',
     body: '已核对原始回函。',
   }],
+  materials_title: '资料清单',
+  materials: [{
+    id: 'M-001',
+    risk_id: 'risk-1',
+    risk_number: 'R-0001',
+    title: 'R-0001 原始文件、审批记录及补充支持材料',
+    purpose: '用于复核银行存款期末余额。',
+    requested_scope: '合成测试公司 · 2024—2025',
+    priority: '高',
+  }],
+  interview_title: '访谈提纲',
+  interviews: [{
+    id: 'Q-001',
+    risk_id: 'risk-1',
+    risk_number: 'R-0001',
+    audience: '业务负责人 / 财务负责人',
+    question: '请说明余额形成原因。',
+    objective: '核实事实背景。',
+  }, {
+    id: 'Q-002',
+    risk_id: 'risk-1',
+    risk_number: 'R-0001',
+    audience: '业务负责人 / 财务负责人',
+    question: '支持材料如何形成和复核？',
+    objective: '了解证据形成过程。',
+  }],
   created_at: '2026-09-23T02:10:00Z',
   updated_at: '2026-09-23T02:10:00Z',
   finalized_at: null,
@@ -237,7 +263,14 @@ describe('OutputWorkspace', () => {
 
     await user.click(await screen.findByRole('button', { name: '创建可编辑草稿' }))
     expect(screen.getByText('R-0001-E01')).toBeVisible()
-    const title = screen.getByRole('textbox', { name: '成果标题' })
+    expect(screen.getByRole('tab', { name: '资料清单 1' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: '访谈提纲 2' })).toBeVisible()
+    await user.click(screen.getByRole('tab', { name: '资料清单 1' }))
+    expect(screen.getByRole('textbox', { name: '资料名称' })).toHaveValue('R-0001 原始文件、审批记录及补充支持材料')
+    await user.click(screen.getByRole('tab', { name: '访谈提纲 2' }))
+    expect(screen.getAllByRole('textbox', { name: '访谈问题' })).toHaveLength(2)
+    await user.click(screen.getByRole('tab', { name: '风险清单 1' }))
+    const title = screen.getByRole('textbox', { name: '成果包标题' })
     await user.clear(title)
     await user.type(title, '经复核的风险清单')
     await user.click(screen.getByRole('button', { name: '保存' }))
@@ -254,7 +287,7 @@ describe('OutputWorkspace', () => {
 
     expect(await screen.findByText('最终草稿 v3')).toBeVisible()
     expect(screen.getByText('最终固化输出草稿')).toBeVisible()
-    expect(screen.getByRole('textbox', { name: '成果标题' })).toBeDisabled()
+    expect(screen.getByRole('textbox', { name: '成果包标题' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '从快照新建草稿' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: '生成 Excel' }))
     expect(await screen.findByText(excel.filename)).toBeVisible()

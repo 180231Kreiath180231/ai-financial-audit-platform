@@ -45,6 +45,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (8, "retrieval_chunks_and_vector_versions"),
         (9, "immutable_output_snapshots"),
         (10, "output_drafts_and_exports"),
+        (11, "deterministic_materials_and_interview_drafts"),
     ]
     assert {
         "documents",
@@ -93,7 +94,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:
@@ -210,3 +211,35 @@ def test_project_v8_backfills_traceable_chunks_without_creating_vectors(tmp_path
     assert all(row["text"] == source[row["char_start"] : row["char_end"]] for row in chunks)
     assert all(row["chunk_version"] == "char-window-v1" for row in chunks)
     assert vector_count == 0
+
+
+def test_project_v11_adds_empty_sections_without_rewriting_existing_draft(tmp_path: Path) -> None:
+    path = tmp_path / "legacy-project.db"
+    connection = sqlite3.connect(path, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    try:
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS[:10])
+        connection.execute(
+            """INSERT INTO output_snapshots
+            (id, output_kind, schema_version, template_version, risk_count,
+             content_sha256, snapshot_json, created_at)
+            VALUES ('snapshot-1', 'risk_register', 'v1', 'v1', 1, ?, '{}', 'now')""",
+            ("a" * 64,),
+        )
+        connection.execute(
+            """INSERT INTO output_drafts
+            (id, snapshot_id, output_kind, status, version, title, notes, items_json,
+             created_at, updated_at, finalized_at)
+            VALUES ('draft-1', 'snapshot-1', 'risk_register', 'finalized', 2,
+                    '旧草稿', '', '[]', 'before', 'before', 'before')"""
+        )
+
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS)
+        row = connection.execute(
+            """SELECT version, title, materials_title, materials_json,
+            interview_title, interview_json FROM output_drafts WHERE id='draft-1'"""
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert tuple(row) == (2, "旧草稿", "资料清单", "[]", "访谈提纲", "[]")

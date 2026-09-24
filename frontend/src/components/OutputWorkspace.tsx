@@ -34,6 +34,10 @@ function payloadFromDraft(draft: OutputDraftRecord): OutputDraftPayload {
     title: draft.title,
     notes: draft.notes,
     items: draft.items.map(({ risk_id, heading, body }) => ({ risk_id, heading, body })),
+    materials_title: draft.materials_title,
+    materials: draft.materials.map(({ id, risk_id, title, purpose, requested_scope, priority }) => ({ id, risk_id, title, purpose, requested_scope, priority })),
+    interview_title: draft.interview_title,
+    interviews: draft.interviews.map(({ id, risk_id, audience, question, objective }) => ({ id, risk_id, audience, question, objective })),
   }
 }
 
@@ -54,6 +58,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
   const [confirmFinalize, setConfirmFinalize] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [activeSection, setActiveSection] = useState<'risks' | 'materials' | 'interviews'>('risks')
   const projectId = project?.id ?? null
   const storageAvailable = project?.storage_available !== false
   const confirmedCount = useMemo(
@@ -69,6 +74,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
   const dirty = Boolean(
     draft && editor && JSON.stringify(editor) !== JSON.stringify(payloadFromDraft(draft)),
   )
+  const hasGeneratedSections = Boolean(draft && (draft.materials.length || draft.interviews.length))
 
   useEffect(() => {
     let active = true
@@ -79,6 +85,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
     setExports([])
     setError(null)
     setNotice(null)
+    setActiveSection('risks')
     setLoading(false)
     if (!projectId || !storageAvailable) return () => { active = false }
     setLoading(true)
@@ -117,6 +124,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
       setDraft(null)
       setEditor(null)
       setExports([])
+      setActiveSection('risks')
       setNotice(`已固化 ${created.risk_count} 项风险及其证据引用；历史快照不会被覆盖。`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '风险清单快照生成失败')
@@ -131,6 +139,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
     setError(null)
     setNotice(null)
     setConfirmFinalize(false)
+    setActiveSection('risks')
     try {
       const [detail, drafts] = await Promise.all([
         api.getOutputSnapshot(project.id, item.id),
@@ -158,6 +167,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
       setDraft(created)
       setEditor(payloadFromDraft(created))
       setExports([])
+      setActiveSection('risks')
       setNotice('已从不可变快照创建可编辑草稿；证据与规则计算仍保持锁定。')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '输出草稿创建失败')
@@ -226,13 +236,31 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
     setEditor({ ...editor, items })
   }
 
+  function moveMaterial(index: number, offset: number) {
+    if (!editor || draft?.status !== 'editing') return
+    const destination = index + offset
+    if (destination < 0 || destination >= editor.materials.length) return
+    const materials = [...editor.materials]
+    ;[materials[index], materials[destination]] = [materials[destination], materials[index]]
+    setEditor({ ...editor, materials })
+  }
+
+  function moveInterview(index: number, offset: number) {
+    if (!editor || draft?.status !== 'editing') return
+    const destination = index + offset
+    if (destination < 0 || destination >= editor.interviews.length) return
+    const interviews = [...editor.interviews]
+    ;[interviews[index], interviews[destination]] = [interviews[destination], interviews[index]]
+    setEditor({ ...editor, interviews })
+  }
+
   return (
     <section className="output-page" aria-labelledby="output-page-title">
       <header className="output-page-head">
         <div>
-          <span className="section-kicker">迭代五 · 草稿与 Excel 导出</span>
+          <span className="section-kicker">迭代六 · 三类成果草稿</span>
           <h1 id="output-page-title">审计输出</h1>
-          <p>从已确认风险固化不可变快照，再编辑草稿、最终固化并生成版本化 Excel。证据、规则计算和历史文件始终保留。</p>
+          <p>从已确认风险本地生成风险清单、资料清单与访谈提纲，共用版本历史和最终固化门禁。证据、规则计算和历史文件始终保留。</p>
         </div>
         <button className="button primary" type="button" disabled={!project || !storageAvailable || confirmedCount === 0 || busy} aria-busy={busy} onClick={() => void createSnapshot()}>
           <FileText aria-hidden="true" />{busy ? '正在处理…' : '生成风险清单快照'}
@@ -243,7 +271,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
         <div><span>可固化风险</span><strong>{confirmedCount}</strong><small>已核实 / 已关闭</small></div>
         <div><span>证据引用</span><strong>{evidenceCount}</strong><small>服务端锁定来源</small></div>
         <div><span>历史快照</span><strong>{snapshots.length}</strong><small>只增不覆盖</small></div>
-        <div><span>可用格式</span><strong>Excel</strong><small>Word / PDF 后续接入</small></div>
+        <div><span>成果内容</span><strong>3 类</strong><small>风险 / 资料 / 访谈</small></div>
       </div>
 
       {error && <div className="notice error output-notice" role="alert"><Warning aria-hidden="true" /><span>{error}</span></div>}
@@ -279,14 +307,14 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
               {!draft || !editor ? (
                 <section className="output-format-guard" aria-label="输出草稿状态">
                   <FileLock aria-hidden="true" />
-                  <div><strong>快照已锁定，尚未创建草稿</strong><span>创建草稿后可以编辑标题、正文、排序和备注；证据与计算不会进入可编辑区。</span></div>
+                  <div><strong>快照已锁定，尚未创建草稿</strong><span>创建后会本地生成风险清单、资料清单与访谈提纲；可编辑文案和排序，证据与计算保持锁定。</span></div>
                   <button className="button secondary" type="button" disabled={busy} onClick={() => void createDraft()}>创建可编辑草稿</button>
                 </section>
               ) : (
                 <>
                   <section className={`output-format-guard ${draft.status === 'finalized' ? 'ready' : ''}`} aria-label="输出草稿状态">
                     {draft.status === 'finalized' ? <ShieldCheck aria-hidden="true" /> : <FileLock aria-hidden="true" />}
-                    <div><strong>{draft.status === 'finalized' ? `最终草稿 v${draft.version}` : `编辑草稿 v${draft.version}${dirty ? ' · 有未保存修改' : ''}`}</strong><span>{draft.status === 'finalized' ? '内容已锁定，可以反复生成互不覆盖的 Excel 文件。' : '先保存修改，再执行最终固化；最终固化后不可继续编辑。'}</span></div>
+                    <div><strong>{draft.status === 'finalized' ? `最终草稿 v${draft.version}` : `编辑草稿 v${draft.version}${dirty ? ' · 有未保存修改' : ''}`}</strong><span>{!hasGeneratedSections ? '此草稿创建于资料清单与访谈提纲接入前；历史内容保持不变，可从快照新建完整草稿。' : draft.status === 'finalized' ? '三类成果内容均已锁定；当前可反复生成互不覆盖的风险 Excel。' : '三类成果共用保存和固化状态；先保存修改，再执行最终固化。'}</span></div>
                     <div className="output-format-actions">
                       {draft.status === 'editing' ? <>
                         <button type="button" disabled={!dirty || busy} onClick={() => void saveDraft()}><FloppyDisk aria-hidden="true" />保存</button>
@@ -302,18 +330,24 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
 
                   {confirmFinalize && draft.status === 'editing' && (
                     <div className="output-finalize-confirm" role="alert">
-                      <div><strong>确认最终固化草稿 v{draft.version}？</strong><span>固化后不能修改；如需调整，可从原始快照新建草稿。</span></div>
+                      <div><strong>确认最终固化草稿 v{draft.version}？</strong><span>风险清单、资料清单和访谈提纲将同时锁定；如需调整，可从原始快照新建草稿。</span></div>
                       <button className="button secondary" type="button" onClick={() => setConfirmFinalize(false)}>取消</button>
                       <button className="button primary" type="button" disabled={busy} onClick={() => void finalizeDraft()}>确认最终固化</button>
                     </div>
                   )}
 
-                  <section className="output-draft-editor" aria-label="风险清单草稿编辑">
-                    <label>成果标题<input value={editor.title} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, title: event.target.value })} /></label>
+                  <section className="output-draft-editor" aria-label="成果包基本信息">
+                    <label>成果包标题<input value={editor.title} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, title: event.target.value })} /></label>
                     <label>编制备注<textarea value={editor.notes} disabled={draft.status === 'finalized'} rows={2} placeholder="可记录编制范围、复核提示或交付说明" onChange={(event) => setEditor({ ...editor, notes: event.target.value })} /></label>
                   </section>
 
-                  <div className="output-risk-list">
+                  <div className="output-section-tabs" role="tablist" aria-label="成果类型">
+                    <button id="output-tab-risks" type="button" role="tab" aria-selected={activeSection === 'risks'} aria-controls="output-panel-risks" onClick={() => setActiveSection('risks')}><span>风险清单</span><b>{editor.items.length}</b></button>
+                    <button id="output-tab-materials" type="button" role="tab" aria-selected={activeSection === 'materials'} aria-controls="output-panel-materials" onClick={() => setActiveSection('materials')}><span>资料清单</span><b>{editor.materials.length}</b></button>
+                    <button id="output-tab-interviews" type="button" role="tab" aria-selected={activeSection === 'interviews'} aria-controls="output-panel-interviews" onClick={() => setActiveSection('interviews')}><span>访谈提纲</span><b>{editor.interviews.length}</b></button>
+                  </div>
+
+                  <div id="output-panel-risks" role="tabpanel" aria-labelledby="output-tab-risks" hidden={activeSection !== 'risks'} className="output-risk-list">
                     {editor.items.map((item, index) => {
                       const risk = selected.snapshot.risks.find((candidate) => candidate.risk_id === item.risk_id)
                       if (!risk) return null
@@ -335,6 +369,49 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
                     })}
                   </div>
 
+                  <section id="output-panel-materials" role="tabpanel" aria-labelledby="output-tab-materials" hidden={activeSection !== 'materials'} className="output-section-panel">
+                    <header className="output-section-heading">
+                      <label>清单标题<input value={editor.materials_title} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials_title: event.target.value })} /></label>
+                      <p>系统按快照风险生成固定项目；可以修改用途、范围、优先级和顺序，不能新增、删除或改绑风险。</p>
+                    </header>
+                    {editor.materials.length === 0 && <p className="output-legacy-empty">这份历史草稿不含资料清单。请从同一快照新建草稿，以生成完整内容。</p>}
+                    <div className="output-generated-list">
+                      {editor.materials.map((item, index) => <article key={item.id}>
+                        <header>
+                          <code>{item.id}</code><span>{draft.materials.find((source) => source.id === item.id)?.risk_number}</span>
+                          <div className="output-order-actions" aria-label={`${item.id} 排序`}><button type="button" aria-label={`${item.id} 上移`} disabled={draft.status === 'finalized' || index === 0} onClick={() => moveMaterial(index, -1)}><ArrowUp aria-hidden="true" /></button><button type="button" aria-label={`${item.id} 下移`} disabled={draft.status === 'finalized' || index === editor.materials.length - 1} onClick={() => moveMaterial(index, 1)}><ArrowDown aria-hidden="true" /></button></div>
+                        </header>
+                        <div className="output-generated-fields">
+                          <label className="span-two">资料名称<input value={item.title} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, title: event.target.value } : current) })} /></label>
+                          <label className="span-two">取证用途<textarea rows={2} value={item.purpose} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, purpose: event.target.value } : current) })} /></label>
+                          <label>索取范围<input value={item.requested_scope} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, requested_scope: event.target.value } : current) })} /></label>
+                          <label>优先级<select aria-label={`${item.id} 优先级`} value={item.priority} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, materials: editor.materials.map((current) => current.id === item.id ? { ...current, priority: event.target.value as typeof item.priority } : current) })}><option>高</option><option>中</option><option>低</option><option>待评估</option></select></label>
+                        </div>
+                      </article>)}
+                    </div>
+                  </section>
+
+                  <section id="output-panel-interviews" role="tabpanel" aria-labelledby="output-tab-interviews" hidden={activeSection !== 'interviews'} className="output-section-panel">
+                    <header className="output-section-heading">
+                      <label>提纲标题<input value={editor.interview_title} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, interview_title: event.target.value })} /></label>
+                      <p>每项风险生成事实背景与证据控制两类问题；问题只作访谈准备，不构成审计结论。</p>
+                    </header>
+                    {editor.interviews.length === 0 && <p className="output-legacy-empty">这份历史草稿不含访谈提纲。请从同一快照新建草稿，以生成完整内容。</p>}
+                    <div className="output-generated-list">
+                      {editor.interviews.map((item, index) => <article key={item.id}>
+                        <header>
+                          <code>{item.id}</code><span>{draft.interviews.find((source) => source.id === item.id)?.risk_number}</span>
+                          <div className="output-order-actions" aria-label={`${item.id} 排序`}><button type="button" aria-label={`${item.id} 上移`} disabled={draft.status === 'finalized' || index === 0} onClick={() => moveInterview(index, -1)}><ArrowUp aria-hidden="true" /></button><button type="button" aria-label={`${item.id} 下移`} disabled={draft.status === 'finalized' || index === editor.interviews.length - 1} onClick={() => moveInterview(index, 1)}><ArrowDown aria-hidden="true" /></button></div>
+                        </header>
+                        <div className="output-generated-fields">
+                          <label>建议访谈对象<input value={item.audience} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, interviews: editor.interviews.map((current) => current.id === item.id ? { ...current, audience: event.target.value } : current) })} /></label>
+                          <label>访谈目的<input value={item.objective} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, interviews: editor.interviews.map((current) => current.id === item.id ? { ...current, objective: event.target.value } : current) })} /></label>
+                          <label className="span-two">访谈问题<textarea rows={3} value={item.question} disabled={draft.status === 'finalized'} onChange={(event) => setEditor({ ...editor, interviews: editor.interviews.map((current) => current.id === item.id ? { ...current, question: event.target.value } : current) })} /></label>
+                        </div>
+                      </article>)}
+                    </div>
+                  </section>
+
                   {draft.status === 'finalized' && (
                     <section className="output-export-history" aria-label="Excel 导出历史">
                       <div className="list-heading"><span>Excel 导出历史</span><b>{exports.length}</b></div>
@@ -354,7 +431,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
                   </section>
                 </>
               )}
-              <footer className="output-integrity"><ShieldCheck aria-hidden="true" /><span>风险快照、草稿版本与导出哈希均保存在本地审计轨迹中；生成过程不调用外部模型。</span></footer>
+              <footer className="output-integrity"><ShieldCheck aria-hidden="true" /><span>三类成果均由风险快照本地确定性生成；草稿版本与导出哈希保存在本地审计轨迹中，不调用外部模型。</span></footer>
             </> : <div className="output-empty"><Archive aria-hidden="true" /><h2>选择历史快照</h2></div>}
           </article>
         </div>

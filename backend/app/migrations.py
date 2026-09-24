@@ -640,6 +640,22 @@ def _project_v10(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v11(db: sqlite3.Connection) -> None:
+    """Add deterministic materials and interview sections to output drafts."""
+    db.execute(
+        "ALTER TABLE output_drafts ADD COLUMN materials_title TEXT NOT NULL DEFAULT '资料清单'"
+    )
+    db.execute(
+        "ALTER TABLE output_drafts ADD COLUMN materials_json TEXT NOT NULL DEFAULT '[]'"
+    )
+    db.execute(
+        "ALTER TABLE output_drafts ADD COLUMN interview_title TEXT NOT NULL DEFAULT '访谈提纲'"
+    )
+    db.execute(
+        "ALTER TABLE output_drafts ADD COLUMN interview_json TEXT NOT NULL DEFAULT '[]'"
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -657,6 +673,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (8, "retrieval_chunks_and_vector_versions", _project_v8),
     (9, "immutable_output_snapshots", _project_v9),
     (10, "output_drafts_and_exports", _project_v10),
+    (11, "deterministic_materials_and_interview_drafts", _project_v11),
 )
 
 

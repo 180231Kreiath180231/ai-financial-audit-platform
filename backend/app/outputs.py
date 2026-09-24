@@ -267,9 +267,20 @@ class OutputDraftService:
             for risk in snapshot["snapshot"]["risks"]
         ]
         title = f"{snapshot['snapshot']['project']['name']}风险清单"
+        materials = self._build_materials(snapshot["snapshot"])
+        interviews = self._build_interviews(snapshot["snapshot"])
+        materials_title = "资料清单"
+        interview_title = "访谈提纲"
         serialized_items = self._serialize(items)
         draft_state = self._version_state(
-            status="editing", title=title, notes="", items=items
+            status="editing",
+            title=title,
+            notes="",
+            items=items,
+            materials_title=materials_title,
+            materials=materials,
+            interview_title=interview_title,
+            interviews=interviews,
         )
         with self.database.connect(root / "app.db") as db:
             db.execute("BEGIN IMMEDIATE")
@@ -277,9 +288,22 @@ class OutputDraftService:
                 db.execute(
                     """INSERT INTO output_drafts
                     (id, snapshot_id, output_kind, status, version, title, notes, items_json,
-                     created_at, updated_at, finalized_at)
-                    VALUES (?, ?, 'risk_register', 'editing', 1, ?, '', ?, ?, ?, NULL)""",
-                    (draft_id, snapshot_id, title, serialized_items, now, now),
+                     created_at, updated_at, finalized_at, materials_title, materials_json,
+                     interview_title, interview_json)
+                    VALUES (?, ?, 'risk_register', 'editing', 1, ?, '', ?, ?, ?, NULL,
+                            ?, ?, ?, ?)""",
+                    (
+                        draft_id,
+                        snapshot_id,
+                        title,
+                        serialized_items,
+                        now,
+                        now,
+                        materials_title,
+                        self._serialize(materials),
+                        interview_title,
+                        self._serialize(interviews),
+                    ),
                 )
                 self._insert_version(db, draft_id, 1, "从不可变快照创建草稿", draft_state, now)
                 self._audit(
@@ -302,6 +326,10 @@ class OutputDraftService:
         title: str,
         notes: str,
         items: list[dict[str, str]],
+        materials_title: str,
+        materials: list[dict[str, str]],
+        interview_title: str,
+        interviews: list[dict[str, str]],
     ) -> dict[str, Any]:
         root = self.database.project_root(project_id)
         now = utc_now()
@@ -336,21 +364,58 @@ class OutputDraftService:
                     }
                     for item in items
                 ]
+                current_materials = json.loads(row["materials_json"])
+                normalized_materials = self._normalize_linked_items(
+                    current_materials,
+                    materials,
+                    kind="资料清单",
+                    editable_fields=("title", "purpose", "requested_scope", "priority"),
+                )
+                current_interviews = json.loads(row["interview_json"])
+                normalized_interviews = self._normalize_linked_items(
+                    current_interviews,
+                    interviews,
+                    kind="访谈提纲",
+                    editable_fields=("audience", "question", "objective"),
+                )
                 if (
                     title == row["title"]
                     and notes == row["notes"]
                     and normalized == current_items
+                    and materials_title == row["materials_title"]
+                    and normalized_materials == current_materials
+                    and interview_title == row["interview_title"]
+                    and normalized_interviews == current_interviews
                 ):
                     db.execute("ROLLBACK")
                     return self.get(project_id, draft_id)
                 version = row["version"] + 1
                 db.execute(
                     """UPDATE output_drafts SET version=?, title=?, notes=?, items_json=?,
+                    materials_title=?, materials_json=?, interview_title=?, interview_json=?,
                     updated_at=? WHERE id=?""",
-                    (version, title, notes, self._serialize(normalized), now, draft_id),
+                    (
+                        version,
+                        title,
+                        notes,
+                        self._serialize(normalized),
+                        materials_title,
+                        self._serialize(normalized_materials),
+                        interview_title,
+                        self._serialize(normalized_interviews),
+                        now,
+                        draft_id,
+                    ),
                 )
                 state = self._version_state(
-                    status="editing", title=title, notes=notes, items=normalized
+                    status="editing",
+                    title=title,
+                    notes=notes,
+                    items=normalized,
+                    materials_title=materials_title,
+                    materials=normalized_materials,
+                    interview_title=interview_title,
+                    interviews=normalized_interviews,
                 )
                 self._insert_version(db, draft_id, version, "人工编辑输出草稿", state, now)
                 self._audit(
@@ -389,6 +454,10 @@ class OutputDraftService:
                     title=row["title"],
                     notes=row["notes"],
                     items=json.loads(row["items_json"]),
+                    materials_title=row["materials_title"],
+                    materials=json.loads(row["materials_json"]),
+                    interview_title=row["interview_title"],
+                    interviews=json.loads(row["interview_json"]),
                 )
                 self._insert_version(db, draft_id, version, "最终固化输出草稿", state, now)
                 self._audit(
@@ -408,6 +477,8 @@ class OutputDraftService:
     def _hydrate(db, row) -> dict[str, Any]:
         result = dict(row)
         result["items"] = json.loads(result.pop("items_json"))
+        result["materials"] = json.loads(result.pop("materials_json"))
+        result["interviews"] = json.loads(result.pop("interview_json"))
         versions = db.execute(
             """SELECT version, change_reason, created_at FROM output_draft_versions
             WHERE draft_id=? ORDER BY version DESC""",
@@ -422,9 +493,127 @@ class OutputDraftService:
 
     @staticmethod
     def _version_state(
-        *, status: str, title: str, notes: str, items: list[dict[str, Any]]
+        *,
+        status: str,
+        title: str,
+        notes: str,
+        items: list[dict[str, Any]],
+        materials_title: str,
+        materials: list[dict[str, Any]],
+        interview_title: str,
+        interviews: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        return {"status": status, "title": title, "notes": notes, "items": items}
+        return {
+            "status": status,
+            "title": title,
+            "notes": notes,
+            "items": items,
+            "materials_title": materials_title,
+            "materials": materials,
+            "interview_title": interview_title,
+            "interviews": interviews,
+        }
+
+    @staticmethod
+    def _build_materials(snapshot: dict[str, Any]) -> list[dict[str, str]]:
+        project = snapshot["project"]
+        requested_scope = (
+            f"{project['entity_name']} · {project['year_start']}—{project['year_end']}"
+        )
+        priorities = {"高": "高", "中": "中", "低": "低"}
+        result: list[dict[str, str]] = []
+        for index, risk in enumerate(snapshot["risks"], start=1):
+            has_financial_source = any(
+                evidence["kind"] == "financial" for evidence in risk["evidence"]
+            )
+            title = (
+                f"{risk['risk_number']} 科目明细、余额形成依据及支持性资料"
+                if has_financial_source
+                else f"{risk['risk_number']} 原始文件、审批记录及补充支持材料"
+            )
+            result.append(
+                {
+                    "id": f"M-{index:03d}",
+                    "risk_id": risk["risk_id"],
+                    "risk_number": risk["risk_number"],
+                    "title": title,
+                    "purpose": (
+                        f"用于复核“{risk['summary']}”的事实背景、期间归属和证据完整性。"
+                    ),
+                    "requested_scope": requested_scope,
+                    "priority": priorities.get(risk["risk_level"], "待评估"),
+                }
+            )
+        return result
+
+    @staticmethod
+    def _build_interviews(snapshot: dict[str, Any]) -> list[dict[str, str]]:
+        result: list[dict[str, str]] = []
+        for risk in snapshot["risks"]:
+            number = risk["risk_number"]
+            summary = risk["summary"]
+            sequence = len(result) + 1
+            result.extend(
+                [
+                    {
+                        "id": f"Q-{sequence:03d}",
+                        "risk_id": risk["risk_id"],
+                        "risk_number": number,
+                        "audience": "业务负责人 / 财务负责人",
+                        "question": f"请说明“{summary}”的业务背景、发生原因和涉及期间。",
+                        "objective": f"核实 {number} 的事实背景和时间范围。",
+                    },
+                    {
+                        "id": f"Q-{sequence + 1:03d}",
+                        "risk_id": risk["risk_id"],
+                        "risk_number": number,
+                        "audience": "业务负责人 / 财务负责人",
+                        "question": (
+                            f"围绕 {number}，相关支持材料如何形成、由谁复核，"
+                            "是否存在未记录的例外或反证？"
+                        ),
+                        "objective": f"了解 {number} 的证据形成、复核责任和潜在反证。",
+                    },
+                ]
+            )
+        return result
+
+    @staticmethod
+    def _normalize_linked_items(
+        current: list[dict[str, Any]],
+        received: list[dict[str, Any]],
+        *,
+        kind: str,
+        editable_fields: tuple[str, ...],
+    ) -> list[dict[str, Any]]:
+        current_by_id = {item["id"]: item for item in current}
+        received_ids = [item["id"] for item in received]
+        if len(received_ids) != len(set(received_ids)) or set(received_ids) != set(
+            current_by_id
+        ):
+            raise OutputError(
+                "OUTPUT_DRAFT_ITEM_SET_CHANGED",
+                f"{kind}必须保留系统生成的全部项目，且每项只能出现一次",
+                "仅调整顺序或编辑文案，不要新增、删除或重复项目",
+            )
+        normalized = []
+        for item in received:
+            source = current_by_id[item["id"]]
+            if item["risk_id"] != source["risk_id"]:
+                raise OutputError(
+                    "OUTPUT_DRAFT_ITEM_LINK_CHANGED",
+                    f"{kind}项目不能改绑到其他风险",
+                    "保留项目与风险的原始关联，只编辑允许修改的内容",
+                )
+            normalized.append(
+                {
+                    "id": source["id"],
+                    "risk_id": source["risk_id"],
+                    "risk_number": source["risk_number"],
+                    **{field: item[field] for field in editable_fields},
+                }
+            )
+        return normalized
 
     def _insert_version(
         self,
