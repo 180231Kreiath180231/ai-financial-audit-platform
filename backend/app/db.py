@@ -820,10 +820,18 @@ class Database:
             root = Path(project["storage_path"])
             with self.connect(root / "app.db") as db:
                 db.execute(
-                    "UPDATE tasks SET status='queued', current_step='等待恢复', updated_at=? WHERE status='running'",
+                    """UPDATE tasks SET status='queued', current_step='等待恢复',
+                    pause_reason=NULL, updated_at=? WHERE status='running'""",
                     (utc_now(),),
                 )
                 db.execute(
-                    "UPDATE tasks SET status='paused', current_step='已在安全点暂停', updated_at=? WHERE status='pausing'",
+                    """UPDATE tasks SET status='queued', current_step='等待资源状态复核',
+                    pause_reason=NULL, updated_at=?
+                    WHERE status IN ('pausing', 'paused') AND pause_reason='resource'""",
+                    (utc_now(),),
+                )
+                db.execute(
+                    """UPDATE tasks SET status='paused', current_step='已在安全点暂停',
+                    pause_reason='user', updated_at=? WHERE status='pausing'""",
                     (utc_now(),),
                 )

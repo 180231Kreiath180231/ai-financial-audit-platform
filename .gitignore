@@ -18,6 +18,7 @@ temp/
 _tmp_*
 work/
 outputs/
+output/
 .runtime/
 .npm-cache/
 frontend/dist/

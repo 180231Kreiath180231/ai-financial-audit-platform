@@ -4,33 +4,62 @@ import asyncio
 import hashlib
 import logging
 import shutil
+import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 
+import psutil
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from .db import Database, utc_now
 from .financial_data import FinancialDataError, FinancialDataService
+from .resource_guard import ResourceGuard, ResourceTransition
 from .retrieval import replace_page_chunks
 from .vision import ScanVisionService, vision_row_values
 
 logger = logging.getLogger("hengjian.worker")
 
+CPU_WAIT_STEP = "整机 CPU 持续超过 50%，等待资源恢复"
+CPU_PAUSING_STEP = "整机 CPU 持续超过 50%，正在等待安全点暂停"
+CPU_PAUSED_STEP = "因整机 CPU 负载自动暂停，低于 30% 持续 10 秒后恢复"
+MEMORY_WAIT_STEP = "系统内存使用超过 70%，等待资源释放"
+DEFAULT_QUEUE_STEP = "等待单工作器"
+
 
 class LocalTaskWorker:
     """Single persistent worker. Every step is safe to retry."""
 
-    def __init__(self, database: Database) -> None:
+    def __init__(
+        self,
+        database: Database,
+        *,
+        resource_sampler: Callable[[], tuple[float, float]] | None = None,
+        clock: Callable[[], float] = time.monotonic,
+        resource_interval: float = 1.0,
+    ) -> None:
         self.database = database
         self.financial_data = FinancialDataService(database)
         self.scan_vision = ScanVisionService(database)
+        self.resource_guard = ResourceGuard()
+        self.resource_sampler = resource_sampler or self._sample_system_resources
+        self.clock = clock
+        self.resource_interval = resource_interval
+        self._pending_resource_transitions: dict[str, ResourceTransition] = {}
         self._stopping = False
 
     def stop(self) -> None:
         self._stopping = True
 
     async def run(self) -> None:
+        try:
+            await asyncio.to_thread(self._observe_resources)
+        except Exception:
+            logger.exception("worker.resource_initial_sample_failed")
+        await asyncio.gather(self._run_tasks(), self._monitor_resources())
+
+    async def _run_tasks(self) -> None:
         while not self._stopping:
             try:
                 claimed = await asyncio.to_thread(self._claim_next)
@@ -58,7 +87,172 @@ class LocalTaskWorker:
                 except Exception:
                     logger.exception("worker.failure_record_failed", extra={"task_id": task_id})
 
+    async def _monitor_resources(self) -> None:
+        while not self._stopping:
+            try:
+                await asyncio.to_thread(self._observe_resources)
+            except Exception:
+                logger.exception("worker.resource_monitor_failed")
+            await asyncio.sleep(self.resource_interval)
+
+    @staticmethod
+    def _sample_system_resources() -> tuple[float, float]:
+        return psutil.cpu_percent(interval=None), psutil.virtual_memory().percent
+
+    def _observe_resources(self) -> list[ResourceTransition]:
+        cpu_percent, memory_percent = self.resource_sampler()
+        transitions = self.resource_guard.observe(
+            cpu_percent, memory_percent, now=self.clock()
+        )
+        for transition in transitions:
+            opposite = {
+                "cpu_pause": "cpu_resume",
+                "cpu_resume": "cpu_pause",
+                "memory_block": "memory_resume",
+                "memory_resume": "memory_block",
+            }[transition.kind]
+            self._pending_resource_transitions.pop(opposite, None)
+            self._pending_resource_transitions[transition.kind] = transition
+        for kind, transition in list(self._pending_resource_transitions.items()):
+            if transition.kind == "cpu_pause":
+                self._request_resource_pause(transition)
+            elif transition.kind == "cpu_resume":
+                self._resume_resource_pauses(transition)
+            elif transition.kind == "memory_block":
+                self._set_memory_waiting(transition)
+            elif transition.kind == "memory_resume":
+                self._clear_memory_waiting(transition)
+            self._pending_resource_transitions.pop(kind, None)
+        if self.resource_guard.admission_blocked:
+            self._sync_queued_waiting()
+        return transitions
+
+    def _waiting_step(self) -> str:
+        if self.resource_guard.memory_blocked:
+            return MEMORY_WAIT_STEP
+        if self.resource_guard.cpu_paused:
+            return CPU_WAIT_STEP
+        return DEFAULT_QUEUE_STEP
+
+    def _project_roots(self) -> list[Path]:
+        return [
+            Path(project["storage_path"])
+            for project in self.database.list_projects()
+            if project["storage_available"]
+        ]
+
+    def _request_resource_pause(self, transition: ResourceTransition) -> None:
+        for root in self._project_roots():
+            with self.database.connect(root / "app.db") as db:
+                db.execute("BEGIN IMMEDIATE")
+                running = [
+                    row["id"]
+                    for row in db.execute(
+                        "SELECT id FROM tasks WHERE status='running'"
+                    ).fetchall()
+                ]
+                db.execute(
+                    """UPDATE tasks SET status='pausing', pause_reason='resource',
+                    current_step=?, updated_at=? WHERE status='running'""",
+                    (CPU_PAUSING_STEP, utc_now()),
+                )
+                db.execute(
+                    """UPDATE tasks SET current_step=?, updated_at=?
+                    WHERE status='queued' AND current_step<>?""",
+                    (self._waiting_step(), utc_now(), self._waiting_step()),
+                )
+                db.execute("COMMIT")
+            for task_id in running:
+                self.database.record_project_event(
+                    root,
+                    "task.resource_pause_requested",
+                    task_id=task_id,
+                    details={
+                        "cpu_percent": transition.cpu_percent,
+                        "sustain_seconds": self.resource_guard.cpu_sustain_seconds,
+                    },
+                )
+
+    def _resume_resource_pauses(self, transition: ResourceTransition) -> None:
+        queued_step = self._waiting_step()
+        for root in self._project_roots():
+            with self.database.connect(root / "app.db") as db:
+                db.execute("BEGIN IMMEDIATE")
+                rows = db.execute(
+                    """SELECT id, status FROM tasks
+                    WHERE pause_reason='resource' AND status IN ('pausing', 'paused')"""
+                ).fetchall()
+                db.execute(
+                    """UPDATE tasks SET status='running', pause_reason=NULL,
+                    current_step='资源恢复，继续处理', updated_at=?
+                    WHERE status='pausing' AND pause_reason='resource'""",
+                    (utc_now(),),
+                )
+                db.execute(
+                    """UPDATE tasks SET status='queued', pause_reason=NULL,
+                    current_step=?, updated_at=?
+                    WHERE status='paused' AND pause_reason='resource'""",
+                    (queued_step, utc_now()),
+                )
+                db.execute(
+                    """UPDATE tasks SET current_step=?, updated_at=?
+                    WHERE status='queued' AND current_step=?""",
+                    (queued_step, utc_now(), CPU_WAIT_STEP),
+                )
+                db.execute("COMMIT")
+            for row in rows:
+                self.database.record_project_event(
+                    root,
+                    "task.resource_resumed",
+                    task_id=row["id"],
+                    details={
+                        "previous_status": row["status"],
+                        "cpu_percent": transition.cpu_percent,
+                    },
+                )
+
+    def _set_memory_waiting(self, transition: ResourceTransition) -> None:
+        for root in self._project_roots():
+            with self.database.connect(root / "app.db") as db:
+                db.execute(
+                    "UPDATE tasks SET current_step=?, updated_at=? WHERE status='queued'",
+                    (MEMORY_WAIT_STEP, utc_now()),
+                )
+            self.database.record_project_event(
+                root,
+                "resource.memory_blocked",
+                details={"memory_percent": transition.memory_percent},
+            )
+
+    def _clear_memory_waiting(self, transition: ResourceTransition) -> None:
+        next_step = self._waiting_step()
+        for root in self._project_roots():
+            with self.database.connect(root / "app.db") as db:
+                db.execute(
+                    """UPDATE tasks SET current_step=?, updated_at=?
+                    WHERE status='queued' AND current_step=?""",
+                    (next_step, utc_now(), MEMORY_WAIT_STEP),
+                )
+            self.database.record_project_event(
+                root,
+                "resource.memory_recovered",
+                details={"memory_percent": transition.memory_percent},
+            )
+
+    def _sync_queued_waiting(self) -> None:
+        waiting_step = self._waiting_step()
+        for root in self._project_roots():
+            with self.database.connect(root / "app.db") as db:
+                db.execute(
+                    """UPDATE tasks SET current_step=?, updated_at=?
+                    WHERE status='queued' AND current_step<>?""",
+                    (waiting_step, utc_now(), waiting_step),
+                )
+
     def _claim_next(self) -> tuple[str, Path, str] | None:
+        if self.resource_guard.admission_blocked:
+            self._sync_queued_waiting()
+            return None
         for project in self.database.list_projects():
             if not project["storage_available"]:
                 continue
@@ -77,9 +271,11 @@ class LocalTaskWorker:
                     else "计算文件哈希"
                 )
                 changed = db.execute(
-                    """UPDATE tasks SET status='running', progress=5,
+                    """UPDATE tasks SET status='running',
+                    progress=CASE WHEN progress < 5 THEN 5 ELSE progress END,
                     current_step=?, error_code=NULL, error_message=NULL,
-                    next_action=NULL, result_kind=NULL, document_id=NULL, updated_at=?
+                    next_action=NULL, result_kind=NULL, document_id=NULL,
+                    pause_reason=NULL, updated_at=?
                     WHERE id=? AND status='queued'""",
                     (first_step, utc_now(), row["id"]),
                 ).rowcount
@@ -88,16 +284,24 @@ class LocalTaskWorker:
                     return project["id"], root, row["id"]
         return None
 
-    def _task_status(self, root: Path, task_id: str) -> str:
+    def _task_control(self, root: Path, task_id: str) -> tuple[str, str | None]:
         with self.database.connect(root / "app.db") as db:
-            row = db.execute("SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
-        return row["status"] if row else "cancelled"
+            row = db.execute(
+                "SELECT status, pause_reason FROM tasks WHERE id=?", (task_id,)
+            ).fetchone()
+        return (row["status"], row["pause_reason"]) if row else ("cancelled", None)
 
     def _safe_point(self, root: Path, task_id: str, incoming: Path) -> bool:
-        status = self._task_status(root, task_id)
+        status, pause_reason = self._task_control(root, task_id)
         if status == "pausing":
-            self._update_task(root, task_id, status="paused", current_step="已在安全点暂停")
-            self.database.record_project_event(root, "task.paused", task_id=task_id)
+            current_step = CPU_PAUSED_STEP if pause_reason == "resource" else "已在安全点暂停"
+            self._update_task(root, task_id, status="paused", current_step=current_step)
+            self.database.record_project_event(
+                root,
+                "task.paused",
+                task_id=task_id,
+                details={"pause_reason": pause_reason or "user"},
+            )
             return False
         if status == "cancelled":
             self._cleanup_cancelled(incoming, task_id)
@@ -124,7 +328,8 @@ class LocalTaskWorker:
         with self.database.connect(root / "app.db") as db:
             changed = db.execute(
                 """UPDATE tasks SET status='failed', current_step='处理失败',
-                error_code=?, error_message=?, next_action=?, updated_at=?
+                error_code=?, error_message=?, next_action=?, updated_at=?,
+                pause_reason=NULL
                 WHERE id=? AND status NOT IN ('cancelled', 'completed')""",
                 (code, message, action, utc_now(), task_id),
             ).rowcount
@@ -266,12 +471,20 @@ class LocalTaskWorker:
         with self.database.connect(root / "app.db") as db:
             db.execute("BEGIN IMMEDIATE")
             try:
-                row = db.execute("SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
+                row = db.execute(
+                    "SELECT status, pause_reason FROM tasks WHERE id=?", (task_id,)
+                ).fetchone()
                 outcome = row["status"] if row else "cancelled"
+                pause_reason = row["pause_reason"] if row else None
                 if outcome == "pausing":
+                    pause_reason = pause_reason or "user"
+                    paused_step = (
+                        CPU_PAUSED_STEP if pause_reason == "resource" else "已在安全点暂停"
+                    )
                     db.execute(
-                        "UPDATE tasks SET status='paused', current_step='已在安全点暂停', updated_at=? WHERE id=?",
-                        (utc_now(), task_id),
+                        """UPDATE tasks SET status='paused', current_step=?,
+                        pause_reason=?, updated_at=? WHERE id=?""",
+                        (paused_step, pause_reason, utc_now(), task_id),
                     )
                     outcome = "paused"
                 elif outcome == "running":
@@ -279,7 +492,7 @@ class LocalTaskWorker:
                         """UPDATE tasks SET status='completed', progress=100,
                         current_step='已复用现有解析结果', result_kind='duplicate',
                         document_id=?, error_code=NULL, error_message=NULL, next_action=NULL,
-                        updated_at=? WHERE id=? AND status='running'""",
+                        pause_reason=NULL, updated_at=? WHERE id=? AND status='running'""",
                         (document_id, utc_now(), task_id),
                     )
                     outcome = "completed"
@@ -294,7 +507,12 @@ class LocalTaskWorker:
             )
             logger.info("task.completed", extra={"task_id": task_id, "status": "completed"})
         elif outcome == "paused":
-            self.database.record_project_event(root, "task.paused", task_id=task_id)
+            self.database.record_project_event(
+                root,
+                "task.paused",
+                task_id=task_id,
+                details={"pause_reason": pause_reason},
+            )
         elif outcome == "cancelled":
             self._cleanup_cancelled(incoming, task_id)
 
@@ -316,12 +534,20 @@ class LocalTaskWorker:
         with self.database.connect(root / "app.db") as db:
             db.execute("BEGIN IMMEDIATE")
             try:
-                row = db.execute("SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
+                row = db.execute(
+                    "SELECT status, pause_reason FROM tasks WHERE id=?", (task_id,)
+                ).fetchone()
                 outcome = row["status"] if row else "cancelled"
+                pause_reason = row["pause_reason"] if row else None
                 if outcome == "pausing":
+                    pause_reason = pause_reason or "user"
+                    paused_step = (
+                        CPU_PAUSED_STEP if pause_reason == "resource" else "已在安全点暂停"
+                    )
                     db.execute(
-                        "UPDATE tasks SET status='paused', current_step='已在安全点暂停', updated_at=? WHERE id=?",
-                        (utc_now(), task_id),
+                        """UPDATE tasks SET status='paused', current_step=?,
+                        pause_reason=?, updated_at=? WHERE id=?""",
+                        (paused_step, pause_reason, utc_now(), task_id),
                     )
                     outcome = "paused"
                 elif outcome == "running":
@@ -416,7 +642,8 @@ class LocalTaskWorker:
                     db.execute(
                         """UPDATE tasks SET status='completed', progress=100,
                         current_step=?, result_kind='imported', document_id=?,
-                        error_code=NULL, error_message=NULL, next_action=NULL, updated_at=?
+                        error_code=NULL, error_message=NULL, next_action=NULL,
+                        pause_reason=NULL, updated_at=?
                         WHERE id=? AND status='running'""",
                         (completed_step, document_id, now, task_id),
                     )
@@ -448,7 +675,12 @@ class LocalTaskWorker:
             )
             logger.info("task.completed", extra={"task_id": task_id, "status": "completed"})
         elif outcome == "paused":
-            self.database.record_project_event(root, "task.paused", task_id=task_id)
+            self.database.record_project_event(
+                root,
+                "task.paused",
+                task_id=task_id,
+                details={"pause_reason": pause_reason},
+            )
         elif outcome == "cancelled":
             self._cleanup_cancelled(incoming, task_id)
 

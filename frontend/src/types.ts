@@ -195,6 +195,7 @@ export interface TaskRecord {
   task_type: string
   filename: string
   status: TaskStatus
+  pause_reason?: 'user' | 'resource' | null
   progress: number
   current_step: string
   error_code: string | null
@@ -445,7 +446,7 @@ export interface OutputExportRecord {
   draft_id: string
   draft_version: number
   snapshot_id: string
-  export_format: 'xlsx' | 'docx'
+  export_format: 'xlsx' | 'docx' | 'pdf'
   template_version: string
   filename: string
   file_sha256: string

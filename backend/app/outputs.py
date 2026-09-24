@@ -14,6 +14,12 @@ from openpyxl.styles import Alignment
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from .db import Database, utc_now
+from .pdf_output import (
+    PDF_TEMPLATE_PATH,
+    PDF_TEMPLATE_VERSION,
+    PdfRenderError,
+    render_pdf_export,
+)
 from .risks import RiskRepository
 from .word_output import (
     WORD_TEMPLATE_PATH,
@@ -698,6 +704,25 @@ class OutputExportService:
             draft=draft,
         )
 
+    def create_pdf(self, project_id: str, draft_id: str) -> dict[str, Any]:
+        draft = self.drafts.get(project_id, draft_id)
+        if not draft["materials"] or not draft["interviews"]:
+            raise OutputError(
+                "OUTPUT_DRAFT_SECTIONS_REQUIRED",
+                "当前草稿不含完整的资料清单和访谈提纲，不能生成 PDF",
+                "从原始快照新建草稿，核对三类成果后最终固化",
+            )
+        return self._create_export(
+            project_id,
+            draft_id,
+            export_format="pdf",
+            template_path=PDF_TEMPLATE_PATH,
+            template_version=PDF_TEMPLATE_VERSION,
+            filename_prefix="审计工作成果归档件",
+            renderer=render_pdf_export,
+            draft=draft,
+        )
+
     def _create_export(
         self,
         project_id: str,
@@ -740,7 +765,14 @@ class OutputExportService:
         if exports_dir not in final_path.parents:
             raise OutputError("OUTPUT_PATH_INVALID", "导出路径无效", "检查项目存储目录后重试")
         try:
-            renderer(snapshot, draft, temp_path, created_at)
+            try:
+                renderer(snapshot, draft, temp_path, created_at)
+            except PdfRenderError as exc:
+                raise OutputError(
+                    "OUTPUT_PDF_RENDER_FAILED",
+                    str(exc),
+                    "确认系统中文字体和 PDF 模板完整后重试",
+                ) from exc
             file_sha256 = self._sha256(temp_path)
             size_bytes = temp_path.stat().st_size
             os.replace(temp_path, final_path)

@@ -196,7 +196,11 @@ test('creates, reviews, and freezes a versioned risk from resolved evidence', as
   const wordDownload = page.waitForEvent('download')
   await page.getByRole('link', { name: '下载' }).first().click()
   await expect((await wordDownload).suggestedFilename()).toMatch(/^审计工作成果-\d{8}-v2-[a-f0-9]{8}\.docx$/)
-  await expect(page.getByRole('button', { name: 'PDF' })).toBeDisabled()
+  await page.getByRole('button', { name: '生成 PDF' }).click()
+  await expect(page.getByText(/^审计工作成果归档件-\d{8}-v2-[a-f0-9]{8}\.pdf$/)).toBeVisible()
+  const pdfDownload = page.waitForEvent('download')
+  await page.getByRole('link', { name: '下载' }).first().click()
+  await expect((await pdfDownload).suggestedFilename()).toMatch(/^审计工作成果归档件-\d{8}-v2-[a-f0-9]{8}\.pdf$/)
 })
 
 test('imports a trial balance and traces a deterministic risk to CSV rows', async ({ page }) => {

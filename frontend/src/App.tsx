@@ -7,8 +7,6 @@ import {
   HardDrives,
   ListMagnifyingGlass,
   Moon,
-  Pause,
-  Play,
   Plus,
   ShieldCheck,
   Sun,
@@ -25,6 +23,7 @@ import { ProjectDialog } from './components/ProjectDialog'
 import { ProjectSearch } from './components/ProjectSearch'
 import { RiskWorkspace } from './components/RiskWorkspace'
 import { StatusMark } from './components/StatusMark'
+import { TaskActions } from './components/TaskActions'
 import type {
   DocumentRecord,
   EvidenceSelection,
@@ -623,13 +622,7 @@ export function App() {
                       <button className="button primary" type="submit" disabled={riskBusy !== null || riskType.trim().length < 2 || riskSummary.trim().length < 5}>创建风险草稿</button>
                     </form>}
                     <p className="panel-intro">只显示当前任务状态允许的动作；所有操作均写入本地状态库。</p>
-                    {selectedTask && <div className="task-actions">
-                      {selectedTask.status === 'running' && <button className="button secondary" type="button" onClick={() => void changeTask(selectedTask, 'pause')}><Pause aria-hidden="true" />安全暂停</button>}
-                      {selectedTask.status === 'paused' && <button className="button primary" type="button" onClick={() => void changeTask(selectedTask, 'resume')}><Play aria-hidden="true" />继续处理</button>}
-                      {selectedTask.status === 'failed' && <button className="button primary" type="button" onClick={() => void changeTask(selectedTask, 'retry')}><Play aria-hidden="true" />重新处理</button>}
-                      {['queued', 'running', 'paused'].includes(selectedTask.status) && <button className="button danger" type="button" onClick={() => void changeTask(selectedTask, 'cancel')}><X aria-hidden="true" />取消任务</button>}
-                      {selectedTask.status === 'completed' && <div className="completed-note"><CheckCircle aria-hidden="true" /><span><b>结果已提交</b>可从左侧选择对应文档查看页码与原文。</span></div>}
-                    </div>}
+                    {selectedTask && <TaskActions task={selectedTask} onChange={(task, action) => void changeTask(task, action)} />}
                     {!selectedTask && <div className="inspector-empty"><Archive aria-hidden="true" /><h3>没有可处置任务</h3><p>导入 PDF 后可在这里暂停、继续、取消或重试。</p></div>}
                   </div>
                 )}

@@ -48,6 +48,8 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (11, "deterministic_materials_and_interview_drafts"),
         (12, "word_output_exports"),
         (13, "external_vision_page_checkpoints"),
+        (14, "pdf_output_exports"),
+        (15, "resource_pause_reasons"),
     ]
     assert {
         "documents",
@@ -97,7 +99,31 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+
+def test_project_v15_backfills_existing_pauses_as_user_owned(tmp_path: Path) -> None:
+    path = tmp_path / "legacy-pauses.db"
+    connection = sqlite3.connect(path, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    try:
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS[:14])
+        connection.execute(
+            """INSERT INTO tasks
+            (id, task_type, filename, incoming_path, status, progress, current_step,
+             created_at, updated_at)
+            VALUES ('paused-1', 'pdf_import', 'legacy.pdf', 'legacy.part', 'paused',
+                    35, '已在安全点暂停', 'before', 'before')"""
+        )
+
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS)
+        row = connection.execute(
+            "SELECT pause_reason FROM tasks WHERE id='paused-1'"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert row["pause_reason"] == "user"
 
 
 def test_registry_v1_upgrades_to_model_gateway_without_rebuild(tmp_path: Path) -> None:
@@ -248,12 +274,12 @@ def test_project_v11_adds_empty_sections_without_rewriting_existing_draft(tmp_pa
     assert tuple(row) == (2, "旧草稿", "资料清单", "[]", "访谈提纲", "[]")
 
 
-def test_project_v12_preserves_excel_exports_and_allows_word(tmp_path: Path) -> None:
+def test_project_v14_preserves_excel_and_word_exports_and_allows_pdf(tmp_path: Path) -> None:
     path = tmp_path / "legacy-project.db"
     connection = sqlite3.connect(path, isolation_level=None)
     connection.row_factory = sqlite3.Row
     try:
-        apply_migrations(connection, "project", PROJECT_MIGRATIONS[:11])
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS[:13])
         connection.execute(
             """INSERT INTO output_snapshots
             (id, output_kind, schema_version, template_version, risk_count,
@@ -283,11 +309,6 @@ def test_project_v12_preserves_excel_exports_and_allows_word(tmp_path: Path) -> 
                     '风险清单.xlsx', 'exports/excel-1.xlsx', ?, 12, 'now')""",
             ("b" * 64,),
         )
-
-        apply_migrations(connection, "project", PROJECT_MIGRATIONS)
-        preserved = connection.execute(
-            "SELECT id, export_format, filename FROM output_exports WHERE id='excel-1'"
-        ).fetchone()
         connection.execute(
             """INSERT INTO output_exports
             (id, draft_id, draft_version, snapshot_id, export_format, template_version,
@@ -296,11 +317,27 @@ def test_project_v12_preserves_excel_exports_and_allows_word(tmp_path: Path) -> 
                     '审计工作成果.docx', 'exports/word-1.docx', ?, 12, 'later')""",
             ("c" * 64,),
         )
+
+        apply_migrations(connection, "project", PROJECT_MIGRATIONS)
+        preserved = connection.execute(
+            "SELECT id, export_format, filename FROM output_exports ORDER BY id"
+        ).fetchall()
+        connection.execute(
+            """INSERT INTO output_exports
+            (id, draft_id, draft_version, snapshot_id, export_format, template_version,
+             filename, stored_path, file_sha256, size_bytes, created_at)
+            VALUES ('pdf-1', 'draft-1', 1, 'snapshot-1', 'pdf', 'pdf-v1',
+                    '审计工作成果归档件.pdf', 'exports/pdf-1.pdf', ?, 12, 'latest')""",
+            ("d" * 64,),
+        )
         formats = connection.execute(
             "SELECT export_format FROM output_exports ORDER BY id"
         ).fetchall()
     finally:
         connection.close()
 
-    assert tuple(preserved) == ("excel-1", "xlsx", "风险清单.xlsx")
-    assert [row["export_format"] for row in formats] == ["xlsx", "docx"]
+    assert [tuple(row) for row in preserved] == [
+        ("excel-1", "xlsx", "风险清单.xlsx"),
+        ("word-1", "docx", "审计工作成果.docx"),
+    ]
+    assert [row["export_format"] for row in formats] == ["xlsx", "pdf", "docx"]

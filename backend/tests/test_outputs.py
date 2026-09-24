@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from docx import Document as WordDocument
 from openpyxl import Workbook, load_workbook
+from pypdf import PdfReader
 
 from backend.app.db import Database
 from backend.app.outputs import (
@@ -150,6 +151,9 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     with pytest.raises(OutputError) as pending_word:
         exports.create_word(project["id"], draft["id"])
     assert pending_word.value.code == "OUTPUT_DRAFT_NOT_FINALIZED"
+    with pytest.raises(OutputError) as pending_pdf:
+        exports.create_pdf(project["id"], draft["id"])
+    assert pending_pdf.value.code == "OUTPUT_DRAFT_NOT_FINALIZED"
 
     updated = drafts.update(
         project["id"],
@@ -257,11 +261,48 @@ def test_output_draft_versions_finalize_and_export_without_overwrite(tmp_path: P
     assert updated["interviews"][0]["question"] in text
     assert len(exports.list(project["id"], draft["id"])) == 4
 
+    first_pdf = exports.create_pdf(project["id"], draft["id"])
+    second_pdf = exports.create_pdf(project["id"], draft["id"])
+    assert first_pdf["id"] != second_pdf["id"]
+    assert first_pdf["filename"] != second_pdf["filename"]
+    assert first_pdf["export_format"] == "pdf"
+    assert first_pdf["template_version"] == "audit-work-products-pdf-v1"
+    _, first_pdf_path = exports.get(project["id"], first_pdf["id"])
+    _, second_pdf_path = exports.get(project["id"], second_pdf["id"])
+    assert first_pdf_path != second_pdf_path
+    reader = PdfReader(first_pdf_path)
+    assert len(reader.pages) >= 4
+    assert reader.metadata.title == "合成审计风险清单（复核稿）"
+    embedded_fonts = []
+    for page in reader.pages:
+        for font_reference in page["/Resources"]["/Font"].values():
+            font = font_reference.get_object()
+            descriptor_reference = font.get("/FontDescriptor")
+            if descriptor_reference is None:
+                continue
+            descriptor = descriptor_reference.get_object()
+            embedded_fonts.append(
+                any(key in descriptor for key in ("/FontFile", "/FontFile2", "/FontFile3"))
+            )
+    assert any(embedded_fonts)
+    pdf_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    assert "合成审计风险清单（复核稿）" in pdf_text
+    assert "银行存款余额异常需补充复核" in pdf_text
+    assert "R-0001-E01" in pdf_text
+    assert "复核资料清单" in pdf_text
+    assert "银行回函及期后流水" in pdf_text
+    assert "复核访谈提纲" in pdf_text
+    assert updated["interviews"][0]["question"] in pdf_text
+    assert len(exports.list(project["id"], draft["id"])) == 6
+
     with database.connect(root / "app.db") as db:
         db.execute("UPDATE output_drafts SET materials_json='[]' WHERE id=?", (draft["id"],))
     with pytest.raises(OutputError) as legacy_word:
         exports.create_word(project["id"], draft["id"])
     assert legacy_word.value.code == "OUTPUT_DRAFT_SECTIONS_REQUIRED"
+    with pytest.raises(OutputError) as legacy_pdf:
+        exports.create_pdf(project["id"], draft["id"])
+    assert legacy_pdf.value.code == "OUTPUT_DRAFT_SECTIONS_REQUIRED"
 
     with database.connect(root / "app.db") as db:
         events = {

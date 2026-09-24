@@ -799,6 +799,25 @@ def create_word_export(project_id: str, draft_id: str) -> dict:
         ) from exc
 
 
+@app.post(
+    "/api/v1/projects/{project_id}/outputs/drafts/{draft_id}/exports/pdf",
+    response_model=OutputExportRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_pdf_export(project_id: str, draft_id: str) -> dict:
+    project_root_or_error(project_id)
+    try:
+        return output_exports.create_pdf(project_id, draft_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="输出草稿或快照不存在") from exc
+    except OutputError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+
+
 @app.get(
     "/api/v1/projects/{project_id}/outputs/exports/{export_id}/file",
     dependencies=[Depends(require_session)],
@@ -817,6 +836,7 @@ def download_output_export(project_id: str, export_id: str) -> FileResponse:
     media_types = {
         "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "pdf": "application/pdf",
     }
     return FileResponse(path, media_type=media_types[record["export_format"]], filename=record["filename"])
 
@@ -1229,6 +1249,15 @@ def change_task(project_id: str, task_id: str, action: str) -> TaskRecord:
         row = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="任务不存在")
+        if row["status"] == "paused" and action == "resume" and row["pause_reason"] == "resource":
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "RESOURCE_PAUSE_AUTO_RESUME",
+                    "message": "该任务由资源保护自动暂停",
+                    "action": "等待整机 CPU 低于 30% 持续 10 秒后自动恢复，或取消任务",
+                },
+            )
         transition = transitions.get((row["status"], action))
         if transition is None:
             raise HTTPException(
@@ -1236,9 +1265,11 @@ def change_task(project_id: str, task_id: str, action: str) -> TaskRecord:
                 detail={"code": "TASK_ACTION_INVALID", "message": f"{row['status']} 状态不允许 {action}", "action": "刷新任务状态后重试"},
             )
         new_status, step = transition
+        pause_reason = "user" if action == "pause" else None
         db.execute(
-            "UPDATE tasks SET status=?, current_step=?, updated_at=? WHERE id=?",
-            (new_status, step, utc_now(), task_id),
+            """UPDATE tasks SET status=?, current_step=?, pause_reason=?,
+            updated_at=? WHERE id=?""",
+            (new_status, step, pause_reason, utc_now(), task_id),
         )
         changed = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
     database.record_project_event(

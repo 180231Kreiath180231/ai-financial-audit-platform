@@ -55,6 +55,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
   const [exports, setExports] = useState<OutputExportRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [exportingFormat, setExportingFormat] = useState<'xlsx' | 'docx' | 'pdf' | null>(null)
   const [confirmFinalize, setConfirmFinalize] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -87,6 +88,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
     setNotice(null)
     setActiveSection('risks')
     setLoading(false)
+    setExportingFormat(null)
     if (!projectId || !storageAvailable) return () => { active = false }
     setLoading(true)
     api.listOutputSnapshots(projectId)
@@ -203,7 +205,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
       setDraft(finalized)
       setEditor(payloadFromDraft(finalized))
       setConfirmFinalize(false)
-      setNotice(`草稿已最终固化为 v${finalized.version}；现在可以生成 Excel 或 Word 文件。`)
+      setNotice(`草稿已最终固化为 v${finalized.version}；现在可以生成 Excel、Word 或 PDF 文件。`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '草稿最终固化失败')
     } finally {
@@ -214,6 +216,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
   async function createExcel() {
     if (!project || !draft || draft.status !== 'finalized') return
     setBusy(true)
+    setExportingFormat('xlsx')
     setError(null)
     setNotice(null)
     try {
@@ -223,6 +226,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Excel 生成失败')
     } finally {
+      setExportingFormat(null)
       setBusy(false)
     }
   }
@@ -230,6 +234,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
   async function createWord() {
     if (!project || !draft || draft.status !== 'finalized' || !hasGeneratedSections) return
     setBusy(true)
+    setExportingFormat('docx')
     setError(null)
     setNotice(null)
     try {
@@ -239,6 +244,25 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Word 生成失败')
     } finally {
+      setExportingFormat(null)
+      setBusy(false)
+    }
+  }
+
+  async function createPdf() {
+    if (!project || !draft || draft.status !== 'finalized' || !hasGeneratedSections) return
+    setBusy(true)
+    setExportingFormat('pdf')
+    setError(null)
+    setNotice(null)
+    try {
+      const created = await api.createPdfExport(project.id, draft.id)
+      setExports((current) => [created, ...current])
+      setNotice(`PDF 已生成：${created.filename}。历史导出未被覆盖。`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'PDF 生成失败')
+    } finally {
+      setExportingFormat(null)
       setBusy(false)
     }
   }
@@ -274,7 +298,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
     <section className="output-page" aria-labelledby="output-page-title">
       <header className="output-page-head">
         <div>
-          <span className="section-kicker">迭代七 · Word 工作成果</span>
+          <span className="section-kicker">迭代八 · PDF 归档成果</span>
           <h1 id="output-page-title">审计输出</h1>
           <p>从已确认风险本地生成风险清单、资料清单与访谈提纲，共用版本历史和最终固化门禁。证据、规则计算和历史文件始终保留。</p>
         </div>
@@ -330,16 +354,16 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
                 <>
                   <section className={`output-format-guard ${draft.status === 'finalized' ? 'ready' : ''}`} aria-label="输出草稿状态">
                     {draft.status === 'finalized' ? <ShieldCheck aria-hidden="true" /> : <FileLock aria-hidden="true" />}
-                    <div><strong>{draft.status === 'finalized' ? `最终草稿 v${draft.version}` : `编辑草稿 v${draft.version}${dirty ? ' · 有未保存修改' : ''}`}</strong><span>{!hasGeneratedSections ? '此草稿创建于资料清单与访谈提纲接入前；历史内容保持不变，可从快照新建完整草稿。' : draft.status === 'finalized' ? '三类成果内容均已锁定；当前可反复生成互不覆盖的 Excel 与 Word 文件。' : '三类成果共用保存和固化状态；先保存修改，再执行最终固化。'}</span></div>
+                    <div><strong>{draft.status === 'finalized' ? `最终草稿 v${draft.version}` : `编辑草稿 v${draft.version}${dirty ? ' · 有未保存修改' : ''}`}</strong><span>{!hasGeneratedSections ? '此草稿创建于资料清单与访谈提纲接入前；历史内容保持不变，可从快照新建完整草稿。' : draft.status === 'finalized' ? '三类成果内容均已锁定；当前可反复生成互不覆盖的 Excel、Word 与 PDF 文件。' : '三类成果共用保存和固化状态；先保存修改，再执行最终固化。'}</span></div>
                     <div className="output-format-actions">
                       {draft.status === 'editing' ? <>
                         <button type="button" disabled={!dirty || busy} onClick={() => void saveDraft()}><FloppyDisk aria-hidden="true" />保存</button>
                         <button type="button" disabled={dirty || busy} onClick={() => setConfirmFinalize(true)}>最终固化</button>
                       </> : <>
-                        <button type="button" disabled={busy} onClick={() => void createExcel()}>生成 Excel</button>
-                        <button type="button" disabled={busy || !hasGeneratedSections} title={!hasGeneratedSections ? '请从快照新建包含三类成果的草稿' : undefined} onClick={() => void createWord()}>生成 Word</button>
+                        <button type="button" aria-busy={exportingFormat === 'xlsx'} disabled={busy} onClick={() => void createExcel()}>{exportingFormat === 'xlsx' ? '正在生成 Excel…' : '生成 Excel'}</button>
+                        <button type="button" aria-busy={exportingFormat === 'docx'} disabled={busy || !hasGeneratedSections} title={!hasGeneratedSections ? '请从快照新建包含三类成果的草稿' : undefined} onClick={() => void createWord()}>{exportingFormat === 'docx' ? '正在生成 Word…' : '生成 Word'}</button>
+                        <button type="button" aria-busy={exportingFormat === 'pdf'} disabled={busy || !hasGeneratedSections} title={!hasGeneratedSections ? '请从快照新建包含三类成果的草稿' : undefined} onClick={() => void createPdf()}>{exportingFormat === 'pdf' ? '正在生成 PDF…' : '生成 PDF'}</button>
                         <button type="button" disabled={busy} onClick={() => void createDraft()}>从快照新建草稿</button>
-                        <button type="button" disabled title="将在后续迭代接入">PDF</button>
                       </>}
                     </div>
                   </section>
@@ -432,7 +456,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
                     <section className="output-export-history" aria-label="文件导出历史">
                       <div className="list-heading"><span>文件导出历史</span><b>{exports.length}</b></div>
                       {exports.length === 0 ? <p>尚未生成文件。生成后会记录模板版本、文件哈希与草稿版本。</p> : exports.map((item) => <div key={item.id}>
-                        <span><strong>{item.filename}</strong><small>{item.export_format === 'docx' ? 'WORD' : 'EXCEL'} · 草稿 v{item.draft_version} · {formatBytes(item.size_bytes)} · SHA-256 {item.file_sha256.slice(0, 12)}</small></span>
+                        <span><strong>{item.filename}</strong><small>{item.export_format === 'docx' ? 'WORD' : item.export_format === 'pdf' ? 'PDF' : 'EXCEL'} · 草稿 v{item.draft_version} · {formatBytes(item.size_bytes)} · SHA-256 {item.file_sha256.slice(0, 12)}</small></span>
                         <a className="button secondary" href={item.download_url} download={item.filename}><DownloadSimple aria-hidden="true" />下载</a>
                       </div>)}
                     </section>

@@ -341,6 +341,9 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .completed-note { display: flex; gap: 9px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); background: var(--accent-soft); color: var(--muted); font-size: 11px; line-height: 1.5; }
 .completed-note svg { width: 21px; height: 21px; flex: 0 0 auto; color: var(--accent); }
 .completed-note b { display: block; color: var(--text); }
+.resource-pause-note { display: flex; gap: 9px; padding: 12px; border: 1px solid color-mix(in srgb, var(--warning) 42%, var(--line)); background: var(--warning-soft); color: var(--muted); font-size: 11px; line-height: 1.5; }
+.resource-pause-note svg { width: 21px; height: 21px; flex: 0 0 auto; color: var(--warning); }
+.resource-pause-note b { display: block; color: var(--text); }
 
 .settings-page { height: 100%; overflow: auto; padding: 28px clamp(18px, 3vw, 44px) calc(var(--footer-h) + 34px); }
 .settings-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
@@ -599,7 +602,7 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .output-format-guard > div:nth-child(2) { display: grid; gap: 4px; }
 .output-format-guard strong { font-size: 11px; }
 .output-format-guard span { color: var(--muted); font-size: 10px; line-height: 1.5; }
-.output-format-actions { display: flex; gap: 5px; }
+.output-format-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
 .output-format-actions button { min-height: 30px; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 9px; }
 .output-format-actions button:disabled { color: var(--quiet); }
 .output-format-actions svg { width: 13px; height: 13px; }

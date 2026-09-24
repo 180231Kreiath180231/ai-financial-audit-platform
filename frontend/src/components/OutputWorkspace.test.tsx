@@ -23,6 +23,7 @@ vi.mock('../api', () => ({
     listOutputExports: vi.fn(),
     createExcelExport: vi.fn(),
     createWordExport: vi.fn(),
+    createPdfExport: vi.fn(),
   },
 }))
 
@@ -206,6 +207,15 @@ const word: OutputExportRecord = {
   download_url: '/api/v1/projects/project-1/outputs/exports/export-2/file',
 }
 
+const pdf: OutputExportRecord = {
+  ...excel,
+  id: 'export-3',
+  export_format: 'pdf',
+  template_version: 'audit-work-products-pdf-v1',
+  filename: '审计工作成果归档件-20260923-v3-export3.pdf',
+  download_url: '/api/v1/projects/project-1/outputs/exports/export-3/file',
+}
+
 describe('OutputWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -269,6 +279,7 @@ describe('OutputWorkspace', () => {
     vi.mocked(api.finalizeOutputDraft).mockResolvedValue(finalized)
     vi.mocked(api.createExcelExport).mockResolvedValue(excel)
     vi.mocked(api.createWordExport).mockResolvedValue(word)
+    vi.mocked(api.createPdfExport).mockResolvedValue(pdf)
     const user = userEvent.setup()
     render(<OutputWorkspace project={project} risks={[risk('已核实')]} onOpenRisks={vi.fn()} />)
 
@@ -308,5 +319,36 @@ describe('OutputWorkspace', () => {
     expect(await screen.findByText(word.filename)).toBeVisible()
     expect(screen.getAllByRole('link', { name: '下载' })).toHaveLength(2)
     expect(api.createWordExport).toHaveBeenCalledWith(project.id, draft.id)
+    await user.click(screen.getByRole('button', { name: '生成 PDF' }))
+    expect(await screen.findByText(pdf.filename)).toBeVisible()
+    expect(screen.getAllByRole('link', { name: '下载' })).toHaveLength(3)
+    expect(api.createPdfExport).toHaveBeenCalledWith(project.id, draft.id)
+  })
+
+  it('announces a PDF export in progress and prevents duplicate submission', async () => {
+    const finalized: OutputDraftRecord = {
+      ...draft,
+      status: 'finalized',
+      version: 2,
+      finalized_at: '2026-09-23T02:25:00Z',
+    }
+    vi.mocked(api.listOutputSnapshots).mockResolvedValue([snapshot])
+    vi.mocked(api.getOutputSnapshot).mockResolvedValue(snapshot)
+    vi.mocked(api.listOutputDrafts).mockResolvedValue([finalized])
+    let finishExport: ((value: OutputExportRecord) => void) | undefined
+    vi.mocked(api.createPdfExport).mockReturnValue(
+      new Promise((resolve) => { finishExport = resolve }),
+    )
+    const user = userEvent.setup()
+    render(<OutputWorkspace project={project} risks={[risk('已核实')]} onOpenRisks={vi.fn()} />)
+
+    const button = await screen.findByRole('button', { name: '生成 PDF' })
+    await user.click(button)
+
+    const pending = screen.getByRole('button', { name: '正在生成 PDF…' })
+    expect(pending).toBeDisabled()
+    expect(pending).toHaveAttribute('aria-busy', 'true')
+    finishExport?.(pdf)
+    expect(await screen.findByText(pdf.filename)).toBeVisible()
   })
 })

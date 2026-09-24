@@ -286,4 +286,9 @@ export const api = {
       `/api/v1/projects/${projectId}/outputs/drafts/${draftId}/exports/docx`,
       { method: 'POST' },
     ),
+  createPdfExport: (projectId: string, draftId: string) =>
+    request<OutputExportRecord>(
+      `/api/v1/projects/${projectId}/outputs/drafts/${draftId}/exports/pdf`,
+      { method: 'POST' },
+    ),
 }

@@ -348,6 +348,7 @@ class TaskRecord(BaseModel):
     task_type: str
     filename: str
     status: TaskStatus
+    pause_reason: Literal["user", "resource"] | None = None
     progress: int
     current_step: str
     error_code: str | None = None
@@ -496,7 +497,7 @@ class OutputExportRecord(BaseModel):
     draft_id: str
     draft_version: int
     snapshot_id: str
-    export_format: Literal["xlsx", "docx"]
+    export_format: Literal["xlsx", "docx", "pdf"]
     template_version: str
     filename: str
     file_sha256: str
