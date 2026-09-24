@@ -4,6 +4,7 @@ import {
   ClockCounterClockwise,
   FileText,
   ListMagnifyingGlass,
+  Notebook,
   ShieldCheck,
   Sparkle,
   Warning,
@@ -36,6 +37,7 @@ interface Props {
   onTransition: (risk: RiskRecord, status: RiskStatus, note: string) => Promise<boolean>
   onFakeExplanation: (risk: RiskRecord) => Promise<void>
   onOpenEvidence: (evidence: RiskEvidence) => void
+  onOpenNotes: () => void
 }
 
 export function RiskWorkspace({
@@ -48,6 +50,7 @@ export function RiskWorkspace({
   onTransition,
   onFakeExplanation,
   onOpenEvidence,
+  onOpenNotes,
 }: Props) {
   const [note, setNote] = useState('')
 
@@ -66,10 +69,13 @@ export function RiskWorkspace({
     <section className="risk-page" aria-labelledby="risk-page-title">
       <header className="risk-page-head">
         <div><span className="section-kicker">迭代四 · 人工最终决策</span><h1 id="risk-page-title">风险台账</h1><p>人工证据与确定性财务规则都只生成“待评估”草稿；最终风险判断和状态变更由复核人员完成。</p></div>
-        <div className="risk-metrics" aria-label="风险状态统计">
-          <span><b>{risks.length}</b>全部</span>
-          <span><b>{risks.filter((risk) => risk.status === '待复核').length}</b>待复核</span>
-          <span><b>{risks.filter((risk) => risk.status === '已核实').length}</b>已核实</span>
+        <div className="risk-head-actions">
+          <button className="button secondary" type="button" onClick={onOpenNotes}><Notebook aria-hidden="true" />审计备忘录</button>
+          <div className="risk-metrics" aria-label="风险状态统计">
+            <span><b>{risks.length}</b>全部</span>
+            <span><b>{risks.filter((risk) => risk.status === '待复核').length}</b>待复核</span>
+            <span><b>{risks.filter((risk) => risk.status === '已核实').length}</b>已核实</span>
+          </div>
         </div>
       </header>
       {error && <div className="notice error risk-notice" role="alert"><Warning aria-hidden="true" /><span>{error}</span></div>}

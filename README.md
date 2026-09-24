@@ -132,6 +132,9 @@ PDF 归档件的直接生成、字体嵌入、导出审计和逐页渲染结果�
 整机 CPU 安全暂停、自动恢复、内存准入门禁和暂停归属策略记录在
 [ADR-0017](docs/adr/0017-resource-aware-task-governance.md)，实现范围和自动化结果记录在
 [迭代九资源治理验收](docs/acceptance/iteration-9-resource-governance-2026-09-23.md)。
+项目级审计备忘录、风险与页码关联、模型读取许可和删除审计边界记录在
+[ADR-0018](docs/adr/0018-project-audit-notes.md)，实现范围和自动化结果记录在
+[迭代十审计备忘录验收](docs/acceptance/iteration-10-audit-notes-2026-09-23.md)。
 
 ## 生产工程结构
 

@@ -1,4 +1,6 @@
 import type {
+  AuditNotePayload,
+  AuditNoteRecord,
   DocumentRecord,
   DemoLoadResult,
   DocumentMetadataPayload,
@@ -238,6 +240,22 @@ export const api = {
       `/api/v1/projects/${projectId}/risks/${riskId}/fake-explanation`,
       { method: 'POST' },
     ),
+  listNotes: (projectId: string) =>
+    request<AuditNoteRecord[]>(`/api/v1/projects/${projectId}/notes`),
+  createNote: (projectId: string, payload: AuditNotePayload) =>
+    request<AuditNoteRecord>(`/api/v1/projects/${projectId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  updateNote: (projectId: string, noteId: string, payload: AuditNotePayload) =>
+    request<AuditNoteRecord>(`/api/v1/projects/${projectId}/notes/${noteId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  deleteNote: (projectId: string, noteId: string) =>
+    request<void>(`/api/v1/projects/${projectId}/notes/${noteId}`, { method: 'DELETE' }),
   listOutputSnapshots: (projectId: string) =>
     request<OutputSnapshotSummary[]>(`/api/v1/projects/${projectId}/outputs/snapshots`),
   getOutputSnapshot: (projectId: string, snapshotId: string) =>

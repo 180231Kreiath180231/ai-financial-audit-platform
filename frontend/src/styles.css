@@ -404,6 +404,7 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .risk-page-head { display: flex; align-items: end; justify-content: space-between; gap: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 .risk-page-head h1 { margin: 5px 0 6px; font-size: 27px; letter-spacing: -0.035em; }
 .risk-page-head p { max-width: 72ch; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
+.risk-head-actions { display: grid; justify-items: end; gap: 9px; }
 .risk-metrics { display: flex; border: 1px solid var(--line); background: var(--panel); }
 .risk-metrics span { min-width: 78px; display: grid; gap: 3px; padding: 9px 12px; border-right: 1px solid var(--line); color: var(--quiet); font-size: 9px; text-align: center; }
 .risk-metrics span:last-child { border-right: 0; }
@@ -454,6 +455,62 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .risk-history b { color: var(--accent); font: 10px ui-monospace, Consolas, monospace; }
 .risk-history span { color: var(--muted); font-size: 10px; }
 .risk-history time { color: var(--quiet); font-size: 9px; }
+
+.notes-page { height: 100%; overflow: auto; padding: 24px 28px 42px; }
+.notes-head { display: flex; align-items: end; justify-content: space-between; gap: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.notes-head h1 { margin: 5px 0 6px; font-size: 27px; letter-spacing: -0.035em; }
+.notes-head p { max-width: 76ch; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
+.text-action { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 11px; }
+.text-action svg { width: 15px; height: 15px; }
+.notes-notice { margin-top: 12px; }
+.notes-layout { min-height: 560px; display: grid; grid-template-columns: minmax(250px, 28%) minmax(0, 1fr); margin-top: 18px; border: 1px solid var(--line); background: var(--panel); }
+.notes-list { min-width: 0; border-right: 1px solid var(--line); }
+.notes-empty { min-height: 220px; display: grid; align-content: center; justify-items: center; gap: 6px; padding: 24px; color: var(--quiet); text-align: center; }
+.notes-empty svg { width: 28px; height: 28px; color: var(--accent); }
+.notes-empty p { margin: 5px 0 0; color: var(--text); font-size: 12px; }
+.notes-empty small { font-size: 10px; }
+.note-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 13px 14px; border: 0; border-top: 1px solid var(--line); background: transparent; text-align: left; }
+.note-row:hover { background: var(--panel-raised); }
+.note-row.active { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
+.note-row > span { min-width: 0; display: grid; gap: 5px; }
+.note-row strong, .note-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-row strong { font-size: 12px; }
+.note-row small { color: var(--quiet); font-size: 9px; }
+.note-row em { padding: 3px 6px; border: 1px solid var(--line); color: var(--muted); font-size: 9px; font-style: normal; white-space: nowrap; }
+.note-editor { min-width: 0; }
+.note-editor > header { display: flex; align-items: start; justify-content: space-between; gap: 18px; padding: 18px 20px; border-bottom: 1px solid var(--line); background: var(--panel-raised); }
+.note-editor > header h2 { margin: 5px 0 0; font-size: 18px; }
+.note-fields { display: grid; gap: 14px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.note-model-toggle { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 9px; align-items: start; padding: 12px; border: 1px solid var(--line); background: var(--panel-raised); }
+.note-model-toggle input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--accent); }
+.note-model-toggle > svg { width: 18px; height: 18px; color: var(--accent); }
+.note-model-toggle span { display: grid; gap: 4px; }
+.note-model-toggle b { font-size: 11px; }
+.note-model-toggle small { color: var(--quiet); font-size: 10px; line-height: 1.5; }
+.note-links { padding: 17px 20px; border-bottom: 1px solid var(--line); }
+.note-links > header { display: flex; align-items: start; gap: 9px; margin-bottom: 12px; }
+.note-links > header svg { width: 18px; height: 18px; color: var(--accent); }
+.note-links h3 { margin: 0; font-size: 12px; }
+.note-links header p, .note-link-empty { margin: 4px 0 0; color: var(--quiet); font-size: 10px; }
+.note-risk-options { max-height: 210px; overflow: auto; border: 1px solid var(--line); }
+.note-risk-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px 11px; border-top: 1px solid var(--line); }
+.note-risk-option:first-child { border-top: 0; }
+.note-risk-option label { min-width: 0; display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 10px; }
+.note-risk-option input { width: 16px; height: 16px; flex: 0 0 auto; accent-color: var(--accent); }
+.note-risk-option label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-risk-option label b { margin-right: 7px; color: var(--accent); font-family: ui-monospace, Consolas, monospace; }
+.note-risk-option > button { min-height: 28px; border: 0; background: transparent; color: var(--accent); font-size: 10px; }
+.note-page-adder { display: grid; grid-template-columns: minmax(180px, 1fr) 100px auto; gap: 9px; align-items: end; }
+.note-page-adder label { min-width: 0; display: grid; gap: 6px; color: var(--muted); font-size: 10px; }
+.note-page-adder select, .note-page-adder input { min-width: 0; width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); color: var(--text); font-size: 11px; }
+.note-page-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.note-page-chips > span { display: inline-flex; min-height: 30px; border: 1px solid var(--line); background: var(--panel-raised); }
+.note-page-chips button { border: 0; background: transparent; color: var(--muted); font-size: 10px; }
+.note-page-chips button:first-child { padding: 0 9px; color: var(--accent); }
+.note-page-chips button:last-child { width: 30px; border-left: 1px solid var(--line); }
+.note-page-chips svg { width: 12px; height: 12px; }
+.note-editor > footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 20px; }
+.note-editor > footer span { color: var(--quiet); font-size: 9px; }
 
 .financial-page { height: 100%; overflow: auto; padding: 22px 26px 42px; }
 .financial-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
@@ -759,6 +816,10 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
   .risk-metrics { align-self: flex-start; }
   .risk-layout { grid-template-columns: 240px minmax(0, 1fr); }
   .evidence-columns { grid-template-columns: 1fr; }
+  .notes-page { padding: 18px 16px 30px; }
+  .notes-head { align-items: stretch; flex-direction: column; gap: 14px; }
+  .notes-head > .button { align-self: flex-start; }
+  .notes-layout { grid-template-columns: 220px minmax(0, 1fr); }
   .financial-page { padding: 18px 16px 30px; }
   .financial-head { align-items: stretch; flex-direction: column; gap: 14px; }
   .financial-head-actions { justify-content: flex-start; }
@@ -816,6 +877,8 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
   .search-hit-actions button { min-height: 44px; }
   .risk-page { padding: 14px 12px 28px; }
   .risk-page-head h1 { font-size: 24px; }
+  .risk-head-actions { justify-items: stretch; }
+  .risk-head-actions .button { width: 100%; }
   .risk-metrics { width: 100%; }
   .risk-metrics span { min-width: 0; flex: 1; }
   .risk-layout { display: block; border: 0; background: transparent; }
@@ -827,6 +890,21 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
   .risk-actions .button { min-height: 44px; flex: 1; }
   .risk-history li { grid-template-columns: 38px minmax(0, 1fr); }
   .risk-history time { grid-column: 2; }
+  .notes-page { padding: 14px 12px 28px; }
+  .notes-head h1 { font-size: 24px; }
+  .notes-head > .button { width: 100%; }
+  .notes-layout { display: block; border: 0; background: transparent; }
+  .notes-list { margin-bottom: 12px; border: 1px solid var(--line); }
+  .note-editor { border: 1px solid var(--line); background: var(--panel); }
+  .note-editor > header { flex-direction: column; }
+  .note-fields, .note-links { padding-right: 14px; padding-left: 14px; }
+  .note-page-adder { grid-template-columns: 1fr 92px; }
+  .note-page-adder .button { grid-column: 1 / -1; }
+  .note-page-adder select, .note-page-adder input { min-height: 44px; font-size: 16px; }
+  .note-risk-option { min-height: 52px; }
+  .note-risk-option > button { min-width: 44px; min-height: 44px; }
+  .note-page-chips button { min-height: 44px; }
+  .note-editor > footer { align-items: stretch; flex-direction: column; }
   .field textarea { font-size: 16px; }
   .financial-page { padding: 14px 12px 28px; }
   .financial-head h1 { font-size: 24px; }

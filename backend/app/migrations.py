@@ -755,6 +755,42 @@ def _project_v15(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v16(db: sqlite3.Connection) -> None:
+    """Add project notes with resolved risk and document-page links."""
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS notes (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            model_readable INTEGER NOT NULL DEFAULT 0 CHECK(model_readable IN (0, 1)),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS note_risks (
+            note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+            risk_id TEXT NOT NULL REFERENCES risk_items(id) ON DELETE CASCADE,
+            PRIMARY KEY(note_id, risk_id)
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS note_pages (
+            note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+            document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+            page_number INTEGER NOT NULL CHECK(page_number > 0),
+            PRIMARY KEY(note_id, document_id, page_number)
+        )"""
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(updated_at DESC)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_note_risks_risk ON note_risks(risk_id)")
+    db.execute(
+        """CREATE INDEX IF NOT EXISTS idx_note_pages_document
+        ON note_pages(document_id, page_number)"""
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -777,6 +813,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (13, "external_vision_page_checkpoints", _project_v13),
     (14, "pdf_output_exports", _project_v14),
     (15, "resource_pause_reasons", _project_v15),
+    (16, "audit_notes", _project_v16),
 )
 
 

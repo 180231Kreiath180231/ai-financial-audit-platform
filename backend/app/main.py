@@ -41,11 +41,14 @@ from .financial_data import (
 )
 from .gateway import GatewayError, ModelGateway
 from .logging_config import configure_logging
+from .notes import AuditNoteRepository, NoteError
 from .outputs import OutputDraftService, OutputError, OutputExportService, OutputSnapshotService
 from .retrieval import retrieval_status
 from .risks import RiskError, RiskRepository
 from .schemas import (
     ApiError,
+    AuditNotePayload,
+    AuditNoteRecord,
     DemoLoadResult,
     DocumentMetadataUpdate,
     DocumentRecord,
@@ -104,6 +107,7 @@ session_guard = LocalSessionGuard()
 worker = LocalTaskWorker(database)
 model_gateway = ModelGateway(database)
 risk_repository = RiskRepository(database)
+note_repository = AuditNoteRepository(database)
 financial_data = FinancialDataService(database)
 demo_data = DemoDataService(database, financial_data, settings.demo_data_dir)
 output_snapshots = OutputSnapshotService(database)
@@ -622,6 +626,72 @@ def create_fake_risk_explanation(project_id: str, risk_id: str) -> dict:
         extra={"project_id": project_id, "risk_id": risk_id},
     )
     return {"risk": updated, "external_request": False}
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/notes",
+    response_model=list[AuditNoteRecord],
+    dependencies=[Depends(require_session)],
+)
+def list_audit_notes(project_id: str) -> list[dict]:
+    project_root_or_error(project_id)
+    return note_repository.list(project_id)
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/notes",
+    response_model=AuditNoteRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_audit_note(project_id: str, payload: AuditNotePayload) -> dict:
+    project_root_or_error(project_id)
+    try:
+        note = note_repository.create(project_id, payload)
+    except NoteError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info("note.created", extra={"project_id": project_id, "note_id": note["id"]})
+    return note
+
+
+@app.put(
+    "/api/v1/projects/{project_id}/notes/{note_id}",
+    response_model=AuditNoteRecord,
+    dependencies=[Depends(require_session)],
+)
+def update_audit_note(
+    project_id: str, note_id: str, payload: AuditNotePayload
+) -> dict:
+    project_root_or_error(project_id)
+    try:
+        note = note_repository.update(project_id, note_id, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="备忘录不存在") from exc
+    except NoteError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info("note.updated", extra={"project_id": project_id, "note_id": note_id})
+    return note
+
+
+@app.delete(
+    "/api/v1/projects/{project_id}/notes/{note_id}",
+    status_code=204,
+    dependencies=[Depends(require_session)],
+)
+def delete_audit_note(project_id: str, note_id: str) -> Response:
+    project_root_or_error(project_id)
+    try:
+        note_repository.delete(project_id, note_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="备忘录不存在") from exc
+    logger.info("note.deleted", extra={"project_id": project_id, "note_id": note_id})
+    return Response(status_code=204)
 
 
 @app.get(

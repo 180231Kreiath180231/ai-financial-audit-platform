@@ -61,6 +61,7 @@ function renderWorkspace(overrides: Partial<Parameters<typeof RiskWorkspace>[0]>
     onTransition: vi.fn().mockResolvedValue(true),
     onFakeExplanation: vi.fn().mockResolvedValue(undefined),
     onOpenEvidence: vi.fn(),
+    onOpenNotes: vi.fn(),
     ...overrides,
   }
   render(<RiskWorkspace {...props} />)

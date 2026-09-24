@@ -331,6 +331,66 @@ class FakeRiskDraftResult(BaseModel):
     external_request: bool = False
 
 
+class AuditNotePageLink(BaseModel):
+    document_id: str = Field(min_length=1, max_length=80)
+    page_number: int = Field(ge=1)
+
+
+class AuditNotePayload(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(min_length=1, max_length=10000)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    model_readable: bool = False
+    risk_ids: list[str] = Field(default_factory=list, max_length=50)
+    pages: list[AuditNotePageLink] = Field(default_factory=list, max_length=50)
+
+    @field_validator("title", "body", mode="before")
+    @classmethod
+    def strip_note_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_note_tags(cls, values: list[str]) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            tag = value.strip()
+            if not tag:
+                continue
+            if len(tag) > 30:
+                raise ValueError("每个标签不能超过 30 个字符")
+            key = tag.casefold()
+            if key not in seen:
+                seen.add(key)
+                normalized.append(tag)
+        return normalized
+
+
+class AuditNoteRiskRecord(BaseModel):
+    risk_id: str
+    risk_number: str
+    summary: str
+
+
+class AuditNotePageRecord(BaseModel):
+    document_id: str
+    document_name: str
+    page_number: int
+
+
+class AuditNoteRecord(BaseModel):
+    id: str
+    title: str
+    body: str
+    tags: list[str] = Field(default_factory=list)
+    model_readable: bool
+    risks: list[AuditNoteRiskRecord] = Field(default_factory=list)
+    pages: list[AuditNotePageRecord] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
 TaskStatus = Literal[
     "queued",
     "running",

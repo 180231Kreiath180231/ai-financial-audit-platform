@@ -320,6 +320,39 @@ export interface RiskPayload {
   }>
 }
 
+export interface AuditNoteRisk {
+  risk_id: string
+  risk_number: string
+  summary: string
+}
+
+export interface AuditNotePage {
+  document_id: string
+  document_name: string
+  page_number: number
+}
+
+export interface AuditNoteRecord {
+  id: string
+  title: string
+  body: string
+  tags: string[]
+  model_readable: boolean
+  risks: AuditNoteRisk[]
+  pages: AuditNotePage[]
+  created_at: string
+  updated_at: string
+}
+
+export interface AuditNotePayload {
+  title: string
+  body: string
+  tags: string[]
+  model_readable: boolean
+  risk_ids: string[]
+  pages: Array<{ document_id: string; page_number: number }>
+}
+
 export interface OutputSnapshotSummary {
   id: string
   output_kind: 'risk_register'

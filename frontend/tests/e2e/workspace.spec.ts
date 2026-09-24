@@ -203,6 +203,33 @@ test('creates, reviews, and freezes a versioned risk from resolved evidence', as
   await expect((await pdfDownload).suggestedFilename()).toMatch(/^审计工作成果归档件-\d{8}-v2-[a-f0-9]{8}\.pdf$/)
 })
 
+test('creates, updates, and confirms deletion of an audit note', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop', 'desktop audit-note acceptance path')
+  await page.goto('/')
+
+  await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '风险' }).click()
+  await page.getByRole('button', { name: '审计备忘录' }).click()
+  await expect(page.getByRole('heading', { name: '审计备忘录' })).toBeVisible()
+  await page.getByRole('button', { name: '新建备忘录' }).click()
+  await page.getByLabel('备忘录标题').fill('Playwright 审计备忘录')
+  await page.getByLabel('备忘录正文').fill('仅用于验证本地备忘录的创建、更新和确认删除闭环。')
+  await page.getByLabel('备忘录标签').fill('端到端, 本地')
+  await page.getByRole('checkbox', { name: /允许模型读取这条备忘录/ }).check()
+  await page.getByRole('button', { name: '保存备忘录' }).click()
+  await expect(page.getByRole('status')).toContainText('备忘录已创建')
+  await expect(page.getByText('模型可读', { exact: true })).toBeVisible()
+
+  await page.getByLabel('备忘录正文').fill('已更新：模型读取仍受严格离线和项目授权约束。')
+  await page.getByRole('button', { name: '保存备忘录' }).click()
+  await expect(page.getByRole('status')).toContainText('备忘录已更新')
+
+  await page.getByRole('button', { name: '删除' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toContainText('风险和原始文档不会被删除')
+  await dialog.getByRole('button', { name: '确认删除' }).click()
+  await expect(page.getByRole('status')).toContainText('备忘录已删除')
+})
+
 test('imports a trial balance and traces a deterministic risk to CSV rows', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop financial-data acceptance path')
   await page.goto('/')

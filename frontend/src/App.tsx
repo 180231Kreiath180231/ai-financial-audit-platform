@@ -18,6 +18,7 @@ import { api } from './api'
 import { FinancialDataWorkspace } from './components/FinancialDataWorkspace'
 import { DemoDataLoader } from './components/DemoDataLoader'
 import { GatewaySettings } from './components/GatewaySettings'
+import { NotesWorkspace } from './components/NotesWorkspace'
 import { OutputWorkspace } from './components/OutputWorkspace'
 import { ProjectDialog } from './components/ProjectDialog'
 import { ProjectSearch } from './components/ProjectSearch'
@@ -103,6 +104,7 @@ export function App() {
   const [evidenceTarget, setEvidenceTarget] = useState<{ documentId: string; page: number; query: string; token: number } | null>(null)
   const [financialEvidenceTarget, setFinancialEvidenceTarget] = useState<FinancialEvidenceTarget | null>(null)
   const [view, setView] = useState<View>('project')
+  const [riskSection, setRiskSection] = useState<'risks' | 'notes'>('risks')
   const [mobilePane, setMobilePane] = useState<MobilePane>('canvas')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('basis')
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
@@ -137,6 +139,10 @@ export function App() {
   useEffect(() => {
     void bootstrap()
   }, [bootstrap])
+
+  useEffect(() => {
+    setRiskSection('risks')
+  }, [selectedProjectId])
 
   const refreshProjectData = useCallback(async (projectId: string) => {
     try {
@@ -182,6 +188,7 @@ export function App() {
       setTasks([])
       setRisks([])
       setSelectedEvidence([])
+      setRiskSection('risks')
       return
     }
     if (selectedProject?.storage_available === false) {
@@ -192,6 +199,7 @@ export function App() {
       setSelectedDocumentId('')
       setSelectedTaskId('')
       setSelectedRiskId('')
+      setRiskSection('risks')
       setOperationError('项目目录不可用或项目数据库已移动；请恢复原项目目录后重试。')
       return
     }
@@ -446,7 +454,7 @@ export function App() {
 
       <nav className="top-nav" aria-label="主功能">
         {navItems.map((item) => (
-          <button key={item.id} className={view === item.id ? 'active' : ''} type="button" onClick={() => setView(item.id)}>
+          <button key={item.id} className={view === item.id ? 'active' : ''} type="button" onClick={() => { if (item.id === 'risks') setRiskSection('risks'); setView(item.id) }}>
             {item.label}
             {item.id === 'documents' && documents.length > 0 && <span>{documents.length}</span>}
             {item.id === 'risks' && risks.length > 0 && <span>{risks.length}</span>}
@@ -640,7 +648,7 @@ export function App() {
           />
         )}
 
-        {view === 'risks' && (
+        {view === 'risks' && riskSection === 'risks' && (
           <RiskWorkspace
             risks={risks}
             selectedRisk={selectedRisk}
@@ -651,6 +659,23 @@ export function App() {
             onTransition={transitionRisk}
             onFakeExplanation={createFakeExplanation}
             onOpenEvidence={openEvidence}
+            onOpenNotes={() => setRiskSection('notes')}
+          />
+        )}
+
+        {view === 'risks' && riskSection === 'notes' && (
+          <NotesWorkspace
+            project={selectedProject}
+            risks={risks}
+            documents={documents}
+            onBack={() => setRiskSection('risks')}
+            onOpenRisk={(riskId) => { setSelectedRiskId(riskId); setRiskSection('risks') }}
+            onOpenPage={(documentId, page) => {
+              setSelectedDocumentId(documentId)
+              setEvidenceTarget({ documentId, page, query: '', token: Date.now() })
+              setMobilePane('canvas')
+              setView('documents')
+            }}
           />
         )}
 
@@ -667,19 +692,19 @@ export function App() {
           <OutputWorkspace
             project={selectedProject}
             risks={risks}
-            onOpenRisks={() => setView('risks')}
+            onOpenRisks={() => { setRiskSection('risks'); setView('risks') }}
           />
         )}
       </main>
 
       <footer className="status-bar">
-        <div><span>当前上下文</span><b>{view === 'risks' && selectedRisk ? `${selectedRisk.risk_number} · ${selectedRisk.summary}` : selectedDocument?.filename ?? selectedProject?.name ?? '未选择项目'}</b></div>
+        <div><span>当前上下文</span><b>{view === 'risks' && riskSection === 'notes' ? `审计备忘录 · ${selectedProject?.name ?? '未选择项目'}` : view === 'risks' && selectedRisk ? `${selectedRisk.risk_number} · ${selectedRisk.summary}` : selectedDocument?.filename ?? selectedProject?.name ?? '未选择项目'}</b></div>
         <div className="status-center"><ShieldCheck aria-hidden="true" /><span>{gatewayOverview?.strict_offline === false ? '外发总开关已开启 · 当前真实连接仍禁用' : '仅使用本地资料 · 外部 API 已阻断'}</span></div>
         <div className="resource-brief"><span>CPU <b>{resources.cpu_percent}%</b></span><span>内存 <b>{resources.memory_percent}%</b></span><small>本地工作线程 {resources.worker_limit}</small></div>
       </footer>
 
       <nav className="mobile-nav" aria-label="移动端主功能">
-        {navItems.slice(0, 4).map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} type="button" onClick={() => setView(item.id)}>{item.label}</button>)}
+        {navItems.slice(0, 4).map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} type="button" onClick={() => { if (item.id === 'risks') setRiskSection('risks'); setView(item.id) }}>{item.label}</button>)}
         <button type="button" className={view === 'outputs' || view === 'settings' ? 'active' : ''} onClick={() => setView(view === 'outputs' ? 'settings' : 'outputs')}>更多</button>
       </nav>
 
