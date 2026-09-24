@@ -1,0 +1,137 @@
+{
+  "measured_at": "2026-09-24T08:11:16.478245+00:00",
+  "host": {
+    "captured_at": "2026-09-24T08:11:16.485243+00:00",
+    "platform": "Windows-11-10.0.22631-SP0",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "physical_cpu_count": 12,
+    "logical_cpu_count": 16,
+    "memory_total_gb": 31.53,
+    "memory_available_gb": 9.82,
+    "disk_free_gb": 65.35,
+    "python": "3.12.13"
+  },
+  "fixture": {
+    "synthetic": true,
+    "external_requests": 0,
+    "pages": 1000,
+    "target_memory_percent": 72.0,
+    "allocation_cap_gb": 4.0,
+    "minimum_free_memory_reserve_gb": 6
+  },
+  "p04": {
+    "passed": true,
+    "queued_at_seconds": 4.0,
+    "blocked_seen_at_seconds": 5.0,
+    "recovered_seen_at_seconds": 6.0,
+    "memory_block_event_count": 1,
+    "memory_resume_event_count": 1,
+    "final_task_status": "completed"
+  },
+  "samples": [
+    {
+      "elapsed_seconds": 0.0,
+      "system_memory_percent": 69.2,
+      "task_status": null,
+      "current_step": null,
+      "memory_block_event_count": 0,
+      "memory_resume_event_count": 0
+    },
+    {
+      "elapsed_seconds": 1.0,
+      "system_memory_percent": 69.3,
+      "task_status": null,
+      "current_step": null,
+      "memory_block_event_count": 0,
+      "memory_resume_event_count": 0
+    },
+    {
+      "elapsed_seconds": 2.0,
+      "system_memory_percent": 69.3,
+      "task_status": null,
+      "current_step": null,
+      "memory_block_event_count": 0,
+      "memory_resume_event_count": 0
+    },
+    {
+      "elapsed_seconds": 3.0,
+      "system_memory_percent": 70.5,
+      "task_status": null,
+      "current_step": null,
+      "memory_block_event_count": 0,
+      "memory_resume_event_count": 0
+    },
+    {
+      "elapsed_seconds": 4.0,
+      "system_memory_percent": 72.0,
+      "task_status": "queued",
+      "current_step": "等待单工作器",
+      "memory_block_event_count": 1,
+      "memory_resume_event_count": 0
+    },
+    {
+      "elapsed_seconds": 5.0,
+      "system_memory_percent": 72.0,
+      "task_status": "queued",
+      "current_step": "系统内存使用超过 70%，等待资源释放",
+      "memory_block_event_count": 1,
+      "memory_resume_event_count": 0
+    },
+    {
+      "elapsed_seconds": 6.0,
+      "system_memory_percent": 69.3,
+      "task_status": "queued",
+      "current_step": "等待单工作器",
+      "memory_block_event_count": 1,
+      "memory_resume_event_count": 1
+    },
+    {
+      "elapsed_seconds": 7.0,
+      "system_memory_percent": 69.5,
+      "task_status": "running",
+      "current_step": "提取原生文本",
+      "memory_block_event_count": 1,
+      "memory_resume_event_count": 1
+    },
+    {
+      "elapsed_seconds": 8.0,
+      "system_memory_percent": 69.5,
+      "task_status": "running",
+      "current_step": "提取原生文本",
+      "memory_block_event_count": 1,
+      "memory_resume_event_count": 1
+    },
+    {
+      "elapsed_seconds": 9.0,
+      "system_memory_percent": 69.2,
+      "task_status": "running",
+      "current_step": "提取原生文本",
+      "memory_block_event_count": 1,
+      "memory_resume_event_count": 1
+    },
+    {
+      "elapsed_seconds": 10.0,
+      "system_memory_percent": 69.2,
+      "task_status": "running",
+      "current_step": "提取原生文本",
+      "memory_block_event_count": 1,
+      "memory_resume_event_count": 1
+    },
+    {
+      "elapsed_seconds": 11.0,
+      "system_memory_percent": 69.2,
+      "task_status": "running",
+      "current_step": "提取原生文本",
+      "memory_block_event_count": 1,
+      "memory_resume_event_count": 1
+    },
+    {
+      "elapsed_seconds": 12.0,
+      "system_memory_percent": 69.1,
+      "task_status": "completed",
+      "current_step": "本地解析完成",
+      "memory_block_event_count": 1,
+      "memory_resume_event_count": 1
+    }
+  ]
+}

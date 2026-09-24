@@ -132,6 +132,8 @@ PDF 归档件的直接生成、字体嵌入、导出审计和逐页渲染结果�
 整机 CPU 安全暂停、自动恢复、内存准入门禁和暂停归属策略记录在
 [ADR-0017](docs/adr/0017-resource-aware-task-governance.md)，实现范围和自动化结果记录在
 [迭代九资源治理验收](docs/acceptance/iteration-9-resource-governance-2026-09-23.md)。
+规定时长的空闲采样、原生 PDF 持续负载、CPU/内存保护、批量强退恢复和前台响应实测记录在
+[迭代十四 Windows 实机性能验收](docs/acceptance/iteration-14-windows-performance-2026-09-24.md)。
 项目级审计备忘录、风险与页码关联、模型读取许可和删除审计边界记录在
 [ADR-0018](docs/adr/0018-project-audit-notes.md)，实现范围和自动化结果记录在
 [迭代十审计备忘录验收](docs/acceptance/iteration-10-audit-notes-2026-09-23.md)。
@@ -207,5 +209,17 @@ E2E 使用独立的 `127.0.0.1:5174` 前端、`127.0.0.1:8100` 后端和
 ```powershell
 uv run python scripts/measure_baseline.py --duration 10
 ```
+
+在隔离临时目录中使用合成原生 PDF 执行 P02 至 P06 Windows 实机验收：
+
+```powershell
+uv run python scripts/measure_performance_acceptance.py native-load --output .runtime/performance/native-load.json
+uv run python scripts/measure_performance_acceptance.py cpu-guard --output .runtime/performance/cpu-guard.json
+uv run python scripts/measure_performance_acceptance.py memory-guard --output .runtime/performance/memory-guard.json
+uv run python scripts/measure_performance_acceptance.py restart-recovery --output .runtime/performance/restart-recovery.json
+```
+
+`cpu-guard` 会短时制造整机 CPU 压力；`memory-guard` 会在至少保留 6GB 可用内存的前提下，
+短时把整机内存推至约 72%。两项均在子进程退出时释放压力，只能在可控的 Windows 验收设备执行。
 
 锁文件 `uv.lock` 和 `frontend/package-lock.json` 是依赖版本的唯一可信来源。

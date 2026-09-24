@@ -1,0 +1,9 @@
+{
+  "measured_at": "2026-09-24T08:03:25.999105+00:00",
+  "duration_seconds": 600,
+  "logical_cpu_count": 16,
+  "application_cpu_average_percent": 0.06,
+  "application_cpu_peak_percent": 0.96,
+  "application_memory_peak_mb": 500.2,
+  "system_memory_peak_percent": 69.0
+}
