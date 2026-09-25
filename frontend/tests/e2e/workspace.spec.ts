@@ -358,7 +358,7 @@ test('project assistant supports an explicit general-knowledge conversation', as
 
   await expect(assistant.getByText('通用知识', { exact: true }).last()).toBeVisible()
   await expect(assistant.getByText('本地模拟', { exact: true }).last()).toBeVisible()
-  await expect(assistant.getByText(/当前使用本地模拟服务/)).toBeVisible()
+  await expect(assistant.getByText(/当前使用本地模拟服务/).last()).toBeVisible()
   await expect(assistant.getByLabel('本次包含最近对话')).not.toBeChecked()
 
   await assistant.getByRole('button', { name: '关闭 AI 助手' }).click()
