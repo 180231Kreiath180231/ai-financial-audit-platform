@@ -428,6 +428,15 @@ class AssistantThreadCreate(BaseModel):
         return value.strip()
 
 
+class AssistantThreadUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=80)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def strip_assistant_thread_update_title(cls, value: str) -> str:
+        return value.strip()
+
+
 class AssistantEvidenceRef(BaseModel):
     document_id: str = Field(min_length=1, max_length=80)
     page_number: int = Field(ge=1)

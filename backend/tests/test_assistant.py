@@ -13,6 +13,7 @@ from backend.app.gateway import ModelGateway
 from backend.app.schemas import (
     AssistantMessageCreate,
     AssistantThreadCreate,
+    AssistantThreadUpdate,
 )
 from backend.tests.helpers import create_project
 
@@ -169,6 +170,31 @@ def test_history_is_only_added_when_the_user_opts_in(
 
     assert "HISTORY-FIRST" not in prompts[0]
     assert "HISTORY-FIRST" in prompts[1]
+
+
+def test_thread_rename_updates_title_and_is_audited(tmp_path: Path) -> None:
+    database, project, service = service_fixture(tmp_path)
+    root = Path(project["storage_path"])
+    thread = service.create_thread(project["id"], AssistantThreadCreate())
+
+    renamed = service.rename_thread(
+        project["id"],
+        thread["id"],
+        AssistantThreadUpdate(title="  收入截止讨论  "),
+    )
+
+    assert renamed["title"] == "收入截止讨论"
+    with database.connect(root / "app.db") as db:
+        event = db.execute(
+            """SELECT details_json FROM audit_events
+            WHERE event_type='assistant.thread_renamed' ORDER BY rowid DESC LIMIT 1"""
+        ).fetchone()
+    details = json.loads(event["details_json"])
+    assert details == {
+        "thread_id": thread["id"],
+        "previous_title": "新对话",
+        "title": "收入截止讨论",
+    }
 
 
 def test_selected_scope_rejects_missing_or_tampered_evidence(tmp_path: Path) -> None:

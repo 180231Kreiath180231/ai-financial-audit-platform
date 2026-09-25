@@ -5,13 +5,14 @@ import {
   FileText,
   NotePencil,
   PaperPlaneRight,
-  Plus,
+  SidebarSimple,
   ShieldCheck,
   Sparkle,
   Trash,
   X,
 } from '@phosphor-icons/react'
 import { api } from '../api'
+import { AssistantHistory } from './AssistantHistory'
 import type {
   AssistantCitation,
   AssistantMessage,
@@ -78,6 +79,13 @@ export function AssistantPanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [historyCollapsed, setHistoryCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 1180px)').matches) return true
+    const saved = window.localStorage.getItem('assistant-history-collapsed')
+    if (saved !== null) return saved === 'true'
+    return false
+  })
   const launcherRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
@@ -117,6 +125,10 @@ export function AssistantPanel({
     window.addEventListener('keydown', shortcut)
     return () => window.removeEventListener('keydown', shortcut)
   }, [open])
+
+  useEffect(() => {
+    window.localStorage.setItem('assistant-history-collapsed', String(historyCollapsed))
+  }, [historyCollapsed])
 
   useEffect(() => {
     if (open) {
@@ -191,16 +203,32 @@ export function AssistantPanel({
     }
   }
 
-  async function deleteThread() {
-    if (!project || !selectedThread) return
-    if (!window.confirm(`删除对话“${selectedThread.title}”及其全部本地消息？此操作不可撤销。`)) return
+  async function renameThread(thread: AssistantThread, title: string) {
+    if (!project) return
     setBusy(true)
     setError(null)
     try {
-      await api.deleteAssistantThread(project.id, selectedThread.id)
-      const remaining = threads.filter((item) => item.id !== selectedThread.id)
+      const updated = await api.renameAssistantThread(project.id, thread.id, title)
+      setThreads((current) => [updated, ...current.filter((item) => item.id !== updated.id)])
+      setNotice('对话名称已更新')
+    } catch (caught) {
+      setError((caught as Error).message)
+      throw caught
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function deleteThread(thread: AssistantThread | null = selectedThread) {
+    if (!project || !thread) return
+    if (!window.confirm(`删除对话“${thread.title}”及其全部本地消息？此操作不可撤销。`)) return
+    setBusy(true)
+    setError(null)
+    try {
+      await api.deleteAssistantThread(project.id, thread.id)
+      const remaining = threads.filter((item) => item.id !== thread.id)
       setThreads(remaining)
-      setSelectedThreadId(remaining[0]?.id ?? '')
+      if (selectedThreadId === thread.id) setSelectedThreadId(remaining[0]?.id ?? '')
       setNotice('对话历史已从当前项目删除')
     } catch (caught) {
       setError((caught as Error).message)
@@ -315,62 +343,86 @@ export function AssistantPanel({
       )}
 
       {open && (
-        <aside id="assistant-panel" className="assistant-panel" aria-label="AI 审计助手">
+        <section id="assistant-panel" className="assistant-panel" role="dialog" aria-modal="false" aria-labelledby="assistant-title">
           <header className="assistant-head">
-            <div><span className="section-kicker">项目级本地对话</span><h2><ChatCircleDots aria-hidden="true" />AI 审计助手</h2></div>
-            <div>
-              <button className="icon-button" type="button" aria-label="新建 AI 对话" disabled={!project || busy} onClick={() => void createThread()}><Plus aria-hidden="true" /></button>
-              <button className="icon-button" type="button" aria-label="关闭 AI 助手" onClick={() => { setOpen(false); launcherRef.current?.focus() }}><X aria-hidden="true" /></button>
+            <button
+              className="icon-button"
+              type="button"
+              aria-label={historyCollapsed ? '展开对话历史' : '收起对话历史'}
+              aria-expanded={!historyCollapsed}
+              aria-controls="assistant-history"
+              onClick={() => setHistoryCollapsed((current) => !current)}
+            ><SidebarSimple aria-hidden="true" /></button>
+            <div className="assistant-title-group">
+              <span className="section-kicker">项目级本地对话</span>
+              <h2 id="assistant-title"><ChatCircleDots aria-hidden="true" />AI 审计助手</h2>
+              <small>{selectedThread?.title ?? '尚无对话'}</small>
             </div>
+            <button className="icon-button" type="button" aria-label="关闭 AI 助手" onClick={() => setOpen(false)}><X aria-hidden="true" /></button>
           </header>
 
-          <div className="assistant-boundary">
-            <ShieldCheck aria-hidden="true" />
-            <span><b>{strictOffline ? '严格离线 · 本地模拟服务' : '项目外发开关可能已开启'}</b><small>通用知识可询问；联网检索未启用，不会自动修改风险或备忘录。</small></span>
-          </div>
+          <div className="assistant-shell">
+            {!historyCollapsed && <button className="assistant-history-scrim" type="button" aria-label="关闭对话历史" onClick={() => setHistoryCollapsed(true)} />}
+            <AssistantHistory
+              threads={threads}
+              selectedThreadId={selectedThread?.id ?? ''}
+              collapsed={historyCollapsed}
+              busy={busy}
+              onCreate={() => void createThread()}
+              onSelect={(threadId) => {
+                setSelectedThreadId(threadId)
+                const thread = threads.find((item) => item.id === threadId)
+                if (thread) setScope(thread.default_scope)
+              }}
+              onRename={renameThread}
+              onDelete={(thread) => void deleteThread(thread)}
+            />
 
-          <div className="assistant-controls">
-            <label><span>对话</span><select value={selectedThread?.id ?? ''} disabled={loading || threads.length === 0} onChange={(event) => {
-              setSelectedThreadId(event.target.value)
-              const thread = threads.find((item) => item.id === event.target.value)
-              if (thread) setScope(thread.default_scope)
-            }}><option value="">{loading ? '正在读取…' : '尚无对话'}</option>{threads.map((thread) => <option key={thread.id} value={thread.id}>{thread.title}</option>)}</select></label>
-            <button className="icon-button danger-quiet" type="button" aria-label="删除当前 AI 对话" disabled={!selectedThread || busy} onClick={() => void deleteThread()}><Trash aria-hidden="true" /></button>
-            <label><span>回答范围</span><select value={scope} onChange={(event) => setScope(event.target.value as AssistantScope)}>{scopes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-          </div>
-          <p className="assistant-scope-help">{currentScope.help}。{scope === 'selected' ? `当前已选 ${selectedEvidence.length} 条证据。` : scope === 'document' ? currentDocument ? `当前文档：${currentDocument.filename}` : '尚未打开文档。' : ''}</p>
-
-          <div className="assistant-presets" aria-label="提问预设">
-            {presets.map((item) => <button key={item.value} type="button" aria-pressed={preset === item.value} className={preset === item.value ? 'active' : ''} onClick={() => choosePreset(item)}>{item.label}</button>)}
-          </div>
-
-          <div ref={messagesRef} className="assistant-messages" role="log" aria-live="polite" aria-label="AI 对话消息">
-            {!selectedThread || selectedThread.messages.length === 0 ? (
-              <div className="assistant-empty">
-                <ChatCircleDots aria-hidden="true" />
-                <h3>从项目证据或通用问题开始</h3>
-                <p>智能组合会优先使用当前项目证据，也允许明确标记的通用知识。历史消息默认不会自动带入下一次请求。</p>
+            <div className="assistant-main">
+              <div className="assistant-boundary">
+                <ShieldCheck aria-hidden="true" />
+                <span><b>{strictOffline ? '严格离线 · 本地模拟服务' : '项目外发开关可能已开启'}</b><small>通用知识可询问；联网检索未启用，不会自动修改风险或备忘录。</small></span>
               </div>
-            ) : selectedThread.messages.map((message) => (
-              <article key={message.id} className={`assistant-message ${message.role}`}>
-                <header><b>{message.role === 'user' ? '你' : 'AI 助手'}</b><button type="button" aria-label={`删除${message.role === 'user' ? '提问' : '回答'}`} disabled={busy} onClick={() => void deleteMessage(message)}><Trash aria-hidden="true" /></button></header>
-                {message.role === 'assistant' && <div className="assistant-source-kinds">{message.source_kinds.map((kind) => <span key={kind}>{sourceLabels[kind]}</span>)}</div>}
-                <p>{message.content}</p>
-                {message.citations.length > 0 && <div className="assistant-citations" aria-label="回答引用">{message.citations.map((citation, index) => <button key={`${citation.label}-${index}`} type="button" onClick={() => onOpenCitation(citation)}><FileText aria-hidden="true" /><span><b>{citation.label}</b><small>{citation.quote}</small></span><ArrowSquareOut aria-hidden="true" /></button>)}</div>}
-                {message.role === 'assistant' && <footer><button type="button" disabled={busy} onClick={() => void addToNote(message)}><NotePencil aria-hidden="true" />添加到备忘录</button><button type="button" disabled={busy || !message.citations.some((citation) => citation.document_id && citation.page_number && citation.block_number)} onClick={() => void createRiskDraft(message)}><ShieldCheck aria-hidden="true" />创建风险草稿</button></footer>}
-              </article>
-            ))}
+
+              <div className="assistant-controls">
+                <label><span>回答范围</span><select value={scope} onChange={(event) => setScope(event.target.value as AssistantScope)}>{scopes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                <span className="assistant-thread-count">{loading ? '正在读取对话…' : `${threads.length} 个本地对话`}</span>
+              </div>
+              <p className="assistant-scope-help">{currentScope.help}。{scope === 'selected' ? `当前已选 ${selectedEvidence.length} 条证据。` : scope === 'document' ? currentDocument ? `当前文档：${currentDocument.filename}` : '尚未打开文档。' : ''}</p>
+
+              <div className="assistant-presets" aria-label="提问预设">
+                {presets.map((item) => <button key={item.value} type="button" aria-pressed={preset === item.value} className={preset === item.value ? 'active' : ''} onClick={() => choosePreset(item)}>{item.label}</button>)}
+              </div>
+
+              <div ref={messagesRef} className="assistant-messages" role="log" aria-live="polite" aria-label="AI 对话消息">
+                {!selectedThread || selectedThread.messages.length === 0 ? (
+                  <div className="assistant-empty">
+                    <ChatCircleDots aria-hidden="true" />
+                    <h3>从项目证据或通用问题开始</h3>
+                    <p>智能组合会优先使用当前项目证据，也允许明确标记的通用知识。历史消息默认不会自动带入下一次请求。</p>
+                  </div>
+                ) : selectedThread.messages.map((message) => (
+                  <article key={message.id} className={`assistant-message ${message.role}`}>
+                    <header><b>{message.role === 'user' ? '你' : 'AI 助手'}</b><button type="button" aria-label={`删除${message.role === 'user' ? '提问' : '回答'}`} disabled={busy} onClick={() => void deleteMessage(message)}><Trash aria-hidden="true" /></button></header>
+                    {message.role === 'assistant' && <div className="assistant-source-kinds">{message.source_kinds.map((kind) => <span key={kind}>{sourceLabels[kind]}</span>)}</div>}
+                    <p>{message.content}</p>
+                    {message.citations.length > 0 && <div className="assistant-citations" aria-label="回答引用">{message.citations.map((citation, index) => <button key={`${citation.label}-${index}`} type="button" onClick={() => onOpenCitation(citation)}><FileText aria-hidden="true" /><span><b>{citation.label}</b><small>{citation.quote}</small></span><ArrowSquareOut aria-hidden="true" /></button>)}</div>}
+                    {message.role === 'assistant' && <footer><button type="button" disabled={busy} onClick={() => void addToNote(message)}><NotePencil aria-hidden="true" />添加到备忘录</button><button type="button" disabled={busy || !message.citations.some((citation) => citation.document_id && citation.page_number && citation.block_number)} onClick={() => void createRiskDraft(message)}><ShieldCheck aria-hidden="true" />创建风险草稿</button></footer>}
+                  </article>
+                ))}
+              </div>
+
+              {error && <div className="assistant-error" role="alert">{error}</div>}
+              {notice && <div className="assistant-notice" role="status">{notice}</div>}
+
+              <form className="assistant-composer" onSubmit={submit}>
+                <label htmlFor="assistant-question">向 AI 审计助手提问</label>
+                <textarea ref={inputRef} id="assistant-question" rows={3} maxLength={4000} value={content} onChange={(event) => setContent(event.target.value)} placeholder="询问项目资料，也可以提出范围外的会计、审计或一般问题" />
+                <div><label className="assistant-history-toggle"><input type="checkbox" checked={includeHistory} onChange={(event) => setIncludeHistory(event.target.checked)} />本次包含最近对话</label><span>{content.length}/4000</span><button className="button primary" type="submit" disabled={!project || !content.trim() || busy}>{busy ? '处理中…' : '发送'}<PaperPlaneRight aria-hidden="true" /></button></div>
+              </form>
+            </div>
           </div>
-
-          {error && <div className="assistant-error" role="alert">{error}</div>}
-          {notice && <div className="assistant-notice" role="status">{notice}</div>}
-
-          <form className="assistant-composer" onSubmit={submit}>
-            <label htmlFor="assistant-question">向 AI 审计助手提问</label>
-            <textarea ref={inputRef} id="assistant-question" rows={3} maxLength={4000} value={content} onChange={(event) => setContent(event.target.value)} placeholder="询问项目资料，也可以提出范围外的会计、审计或一般问题" />
-            <div><label className="assistant-history-toggle"><input type="checkbox" checked={includeHistory} onChange={(event) => setIncludeHistory(event.target.checked)} />本次包含最近对话</label><span>{content.length}/4000</span><button className="button primary" type="submit" disabled={!project || !content.trim() || busy}>{busy ? '处理中…' : '发送'}<PaperPlaneRight aria-hidden="true" /></button></div>
-          </form>
-        </aside>
+        </section>
       )}
     </>
   )

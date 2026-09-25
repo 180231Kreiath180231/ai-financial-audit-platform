@@ -307,6 +307,12 @@ export const api = {
       body: JSON.stringify(payload),
     },
   ),
+  renameAssistantThread: (projectId: string, threadId: string, title: string) =>
+    request<AssistantThread>(`/api/v1/projects/${projectId}/assistant/threads/${threadId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    }),
   deleteAssistantMessage: (projectId: string, threadId: string, messageId: string) =>
     request<void>(
       `/api/v1/projects/${projectId}/assistant/threads/${threadId}/messages/${messageId}`,

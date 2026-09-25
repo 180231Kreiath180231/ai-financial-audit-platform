@@ -51,6 +51,7 @@ from .schemas import (
     AssistantMessageCreate,
     AssistantThreadCreate,
     AssistantThreadRecord,
+    AssistantThreadUpdate,
     AuditNotePayload,
     AuditNoteRecord,
     DemoLoadResult,
@@ -786,6 +787,26 @@ def create_assistant_message(
             "scope": payload.scope,
             "preset": payload.preset,
         },
+    )
+    return thread
+
+
+@app.patch(
+    "/api/v1/projects/{project_id}/assistant/threads/{thread_id}",
+    response_model=AssistantThreadRecord,
+    dependencies=[Depends(require_session)],
+)
+def rename_assistant_thread(
+    project_id: str, thread_id: str, payload: AssistantThreadUpdate
+) -> dict:
+    project_root_or_error(project_id)
+    try:
+        thread = assistant_service.rename_thread(project_id, thread_id, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="AI 对话不存在") from exc
+    logger.info(
+        "assistant.thread_renamed",
+        extra={"project_id": project_id, "thread_id": thread_id},
     )
     return thread
 

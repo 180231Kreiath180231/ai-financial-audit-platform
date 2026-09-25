@@ -7,7 +7,7 @@ from typing import Any
 
 from .db import Database, utc_now
 from .gateway import ModelGateway
-from .schemas import AssistantMessageCreate, AssistantThreadCreate
+from .schemas import AssistantMessageCreate, AssistantThreadCreate, AssistantThreadUpdate
 from .search import search_project_pages
 
 ASSISTANT_PROMPT_VERSION = "assistant-system.v1"
@@ -204,6 +204,36 @@ class AssistantService:
             except Exception:
                 db.execute("ROLLBACK")
                 raise
+        return self.get_thread(project_id, thread_id)
+
+    def rename_thread(
+        self,
+        project_id: str,
+        thread_id: str,
+        payload: AssistantThreadUpdate,
+    ) -> dict[str, Any]:
+        root = self.database.project_root(project_id)
+        now = utc_now()
+        with self.database.connect(root / "app.db") as db:
+            row = db.execute(
+                "SELECT title FROM assistant_threads WHERE id=?", (thread_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(thread_id)
+            db.execute(
+                "UPDATE assistant_threads SET title=?, updated_at=? WHERE id=?",
+                (payload.title, now, thread_id),
+            )
+            self._event(
+                db,
+                "assistant.thread_renamed",
+                {
+                    "thread_id": thread_id,
+                    "previous_title": row["title"],
+                    "title": payload.title,
+                },
+                now,
+            )
         return self.get_thread(project_id, thread_id)
 
     def delete_message(self, project_id: str, thread_id: str, message_id: str) -> None:

@@ -346,7 +346,7 @@ test('project assistant supports an explicit general-knowledge conversation', as
   await page.goto('/')
 
   await page.getByRole('button', { name: /AI 审计助手/ }).click()
-  const assistant = page.getByRole('complementary', { name: 'AI 审计助手' })
+  const assistant = page.getByRole('dialog', { name: 'AI 审计助手' })
   await expect(assistant).toBeVisible()
   await expect(assistant).toContainText('联网检索未启用')
 
@@ -360,6 +360,14 @@ test('project assistant supports an explicit general-knowledge conversation', as
   await expect(assistant.getByText('本地模拟', { exact: true }).last()).toBeVisible()
   await expect(assistant.getByText(/当前使用本地模拟服务/).last()).toBeVisible()
   await expect(assistant.getByLabel('本次包含最近对话')).not.toBeChecked()
+
+  if (test.info().project.name === 'desktop') {
+    await assistant.getByRole('button', { name: /重命名对话 什么是审计抽样/ }).first().click()
+    const title = assistant.getByRole('textbox', { name: '对话名称' })
+    await title.fill('审计抽样讨论')
+    await title.press('Enter')
+    await expect(assistant.getByRole('button', { name: '重命名对话 审计抽样讨论' })).toBeVisible()
+  }
 
   await assistant.getByRole('button', { name: '关闭 AI 助手' }).click()
   await expect(page.getByRole('button', { name: /AI 审计助手/ })).toBeVisible()

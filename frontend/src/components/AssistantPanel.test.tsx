@@ -9,6 +9,7 @@ vi.mock('../api', () => ({
   api: {
     listAssistantThreads: vi.fn(),
     createAssistantThread: vi.fn(),
+    renameAssistantThread: vi.fn(),
     sendAssistantMessage: vi.fn(),
     deleteAssistantMessage: vi.fn(),
     deleteAssistantThread: vi.fn(),
@@ -49,8 +50,13 @@ const emptyThread: AssistantThread = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  window.localStorage.clear()
   vi.mocked(api.listAssistantThreads).mockResolvedValue([])
   vi.mocked(api.createAssistantThread).mockResolvedValue(emptyThread)
+  vi.mocked(api.renameAssistantThread).mockImplementation(async (_projectId, _threadId, title) => ({
+    ...emptyThread,
+    title,
+  }))
   vi.mocked(api.sendAssistantMessage).mockResolvedValue({
     ...emptyThread,
     title: '什么是审计抽样？',
@@ -104,7 +110,7 @@ test('opens from the bottom and supports project-external general questions', as
   expect(launcher).toHaveTextContent('智能组合 · 联网关闭')
   await user.click(launcher)
 
-  expect(screen.getByRole('complementary', { name: 'AI 审计助手' })).toBeVisible()
+  expect(screen.getByRole('dialog', { name: 'AI 审计助手' })).toBeVisible()
   expect(screen.getByText(/通用知识可询问；联网检索未启用/)).toBeVisible()
 
   await user.selectOptions(screen.getByLabelText('回答范围'), 'general')
@@ -132,6 +138,41 @@ test('opens from the bottom and supports project-external general questions', as
   expect(screen.getByRole('button', { name: /AI 审计助手/ })).toHaveFocus()
   await user.keyboard('{Control>}/{/Control}')
   expect(screen.getByLabelText('向 AI 审计助手提问')).toHaveFocus()
+})
+
+test('shows a collapsible history sidebar and renames a conversation inline', async () => {
+  const user = userEvent.setup()
+  vi.mocked(api.listAssistantThreads).mockResolvedValue([emptyThread])
+
+  render(
+    <AssistantPanel
+      project={project}
+      currentDocument={null}
+      selectedEvidence={[]}
+      strictOffline
+      onOpenCitation={vi.fn()}
+      onRiskCreated={vi.fn()}
+    />,
+  )
+  await user.click(screen.getByRole('button', { name: /AI 审计助手/ }))
+  const history = screen.getByRole('navigation', { name: 'AI 对话历史' })
+  await screen.findByRole('button', { name: '重命名对话 新对话' })
+
+  await user.click(screen.getByRole('button', { name: '重命名对话 新对话' }))
+  const title = screen.getByLabelText('对话名称')
+  await user.clear(title)
+  await user.type(title, '收入截止讨论{Enter}')
+
+  await waitFor(() => expect(api.renameAssistantThread).toHaveBeenCalledWith(
+    'project-1',
+    'thread-1',
+    '收入截止讨论',
+  ))
+  expect(await screen.findByRole('button', { name: '重命名对话 收入截止讨论' })).toBeVisible()
+
+  await user.click(screen.getByRole('button', { name: '收起对话历史' }))
+  expect(history).toHaveClass('collapsed')
+  expect(screen.getByRole('button', { name: '展开对话历史' })).toHaveAttribute('aria-expanded', 'false')
 })
 
 test('requires explicit confirmation before creating a note or risk draft', async () => {
