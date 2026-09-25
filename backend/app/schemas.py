@@ -401,6 +401,99 @@ class AuditNoteRecord(BaseModel):
     updated_at: datetime
 
 
+AssistantScope = Literal["smart", "selected", "document", "project", "general"]
+AssistantPreset = Literal[
+    "free",
+    "explain",
+    "evidence",
+    "gap",
+    "procedure",
+    "interview",
+    "knowledge",
+    "compare",
+    "polish",
+]
+AssistantSourceKind = Literal[
+    "project_evidence", "general_knowledge", "local_simulation"
+]
+
+
+class AssistantThreadCreate(BaseModel):
+    title: str = Field(default="新对话", min_length=1, max_length=80)
+    default_scope: AssistantScope = "smart"
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def strip_assistant_thread_title(cls, value: str) -> str:
+        return value.strip()
+
+
+class AssistantEvidenceRef(BaseModel):
+    document_id: str = Field(min_length=1, max_length=80)
+    page_number: int = Field(ge=1)
+    block_number: int = Field(ge=1)
+    quote: str = Field(min_length=1, max_length=320)
+
+    @field_validator("quote", mode="before")
+    @classmethod
+    def strip_assistant_quote(cls, value: str) -> str:
+        return value.strip()
+
+
+class AssistantMessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
+    scope: AssistantScope = "smart"
+    preset: AssistantPreset = "free"
+    include_history: bool = False
+    current_document_id: str | None = Field(default=None, max_length=80)
+    current_page: int | None = Field(default=None, ge=1)
+    selected_evidence: list[AssistantEvidenceRef] = Field(
+        default_factory=list, max_length=20
+    )
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def strip_assistant_content(cls, value: str) -> str:
+        return value.strip()
+
+
+class AssistantCitationRecord(BaseModel):
+    source_kind: Literal["document", "note"]
+    label: str
+    document_id: str | None = None
+    document_name: str | None = None
+    page_number: int | None = None
+    block_number: int | None = None
+    note_id: str | None = None
+    quote: str
+    parse_method: str | None = None
+    parse_version: str | None = None
+
+
+class AssistantMessageRecord(BaseModel):
+    id: str
+    role: Literal["user", "assistant"]
+    content: str
+    scope: AssistantScope
+    preset: AssistantPreset
+    source_kinds: list[AssistantSourceKind] = Field(default_factory=list)
+    citations: list[AssistantCitationRecord] = Field(default_factory=list)
+    prompt_version: str | None = None
+    model_provider: str | None = None
+    actual_model: str | None = None
+    model_call_id: str | None = None
+    created_at: datetime
+
+
+class AssistantThreadRecord(BaseModel):
+    id: str
+    title: str
+    default_scope: AssistantScope
+    messages: list[AssistantMessageRecord] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
 TaskStatus = Literal[
     "queued",
     "running",

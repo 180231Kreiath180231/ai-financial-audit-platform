@@ -1,4 +1,7 @@
 import type {
+  AssistantMessagePayload,
+  AssistantScope,
+  AssistantThread,
   AuditNotePayload,
   AuditNoteRecord,
   DocumentRecord,
@@ -281,6 +284,38 @@ export const api = {
     }),
   deleteNote: (projectId: string, noteId: string) =>
     request<void>(`/api/v1/projects/${projectId}/notes/${noteId}`, { method: 'DELETE' }),
+  listAssistantThreads: (projectId: string) =>
+    request<AssistantThread[]>(`/api/v1/projects/${projectId}/assistant/threads`),
+  createAssistantThread: (
+    projectId: string,
+    title = '新对话',
+    defaultScope: AssistantScope = 'smart',
+  ) => request<AssistantThread>(`/api/v1/projects/${projectId}/assistant/threads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, default_scope: defaultScope }),
+  }),
+  sendAssistantMessage: (
+    projectId: string,
+    threadId: string,
+    payload: AssistantMessagePayload,
+  ) => request<AssistantThread>(
+    `/api/v1/projects/${projectId}/assistant/threads/${threadId}/messages`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  ),
+  deleteAssistantMessage: (projectId: string, threadId: string, messageId: string) =>
+    request<void>(
+      `/api/v1/projects/${projectId}/assistant/threads/${threadId}/messages/${messageId}`,
+      { method: 'DELETE' },
+    ),
+  deleteAssistantThread: (projectId: string, threadId: string) =>
+    request<void>(`/api/v1/projects/${projectId}/assistant/threads/${threadId}`, {
+      method: 'DELETE',
+    }),
   listOutputSnapshots: (projectId: string) =>
     request<OutputSnapshotSummary[]>(`/api/v1/projects/${projectId}/outputs/snapshots`),
   getOutputSnapshot: (projectId: string, snapshotId: string) =>

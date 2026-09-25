@@ -364,6 +364,70 @@ export interface AuditNotePayload {
   pages: Array<{ document_id: string; page_number: number }>
 }
 
+export type AssistantScope = 'smart' | 'selected' | 'document' | 'project' | 'general'
+export type AssistantPreset =
+  | 'free'
+  | 'explain'
+  | 'evidence'
+  | 'gap'
+  | 'procedure'
+  | 'interview'
+  | 'knowledge'
+  | 'compare'
+  | 'polish'
+
+export interface AssistantCitation {
+  source_kind: 'document' | 'note'
+  label: string
+  document_id: string | null
+  document_name: string | null
+  page_number: number | null
+  block_number: number | null
+  note_id: string | null
+  quote: string
+  parse_method: string | null
+  parse_version: string | null
+}
+
+export interface AssistantMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  scope: AssistantScope
+  preset: AssistantPreset
+  source_kinds: Array<'project_evidence' | 'general_knowledge' | 'local_simulation'>
+  citations: AssistantCitation[]
+  prompt_version: string | null
+  model_provider: string | null
+  actual_model: string | null
+  model_call_id: string | null
+  created_at: string
+}
+
+export interface AssistantThread {
+  id: string
+  title: string
+  default_scope: AssistantScope
+  messages: AssistantMessage[]
+  created_at: string
+  updated_at: string
+}
+
+export interface AssistantMessagePayload {
+  content: string
+  scope: AssistantScope
+  preset: AssistantPreset
+  include_history: boolean
+  current_document_id: string | null
+  current_page: number | null
+  selected_evidence: Array<{
+    document_id: string
+    page_number: number
+    block_number: number
+    quote: string
+  }>
+}
+
 export interface OutputSnapshotSummary {
   id: string
   output_kind: 'risk_register'

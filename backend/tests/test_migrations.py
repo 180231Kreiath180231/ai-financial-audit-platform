@@ -52,6 +52,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (15, "resource_pause_reasons"),
         (16, "audit_notes"),
         (17, "deterministic_management_materials"),
+        (18, "project_assistant_conversations"),
     ]
     assert {
         "documents",
@@ -78,6 +79,8 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         "notes",
         "note_risks",
         "note_pages",
+        "assistant_threads",
+        "assistant_messages",
         "audit_events",
         "schema_migrations",
     } <= tables
@@ -104,7 +107,26 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         versions = db.execute(
             "SELECT version FROM schema_migrations WHERE scope='project'"
         ).fetchall()
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    assert [row["version"] for row in versions] == [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+    ]
 
 
 def test_project_v15_backfills_existing_pauses_as_user_owned(tmp_path: Path) -> None:

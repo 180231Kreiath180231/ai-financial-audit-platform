@@ -28,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import Response as FastAPIResponse
 
+from .assistant import AssistantError, AssistantService
 from .config import load_settings
 from .db import Database, ProjectStorageUnavailable, utc_now
 from .demo_data import DemoDataError, DemoDataService
@@ -47,6 +48,9 @@ from .retrieval import retrieval_status
 from .risks import RiskError, RiskRepository
 from .schemas import (
     ApiError,
+    AssistantMessageCreate,
+    AssistantThreadCreate,
+    AssistantThreadRecord,
     AuditNotePayload,
     AuditNoteRecord,
     DemoLoadResult,
@@ -109,6 +113,7 @@ database = Database(settings.data_dir)
 session_guard = LocalSessionGuard()
 worker = LocalTaskWorker(database)
 model_gateway = ModelGateway(database)
+assistant_service = AssistantService(database, model_gateway)
 risk_repository = RiskRepository(database)
 note_repository = AuditNoteRepository(database)
 financial_data = FinancialDataService(database)
@@ -161,7 +166,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_origin],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
 )
 
@@ -719,6 +724,103 @@ def delete_audit_note(project_id: str, note_id: str) -> Response:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="备忘录不存在") from exc
     logger.info("note.deleted", extra={"project_id": project_id, "note_id": note_id})
+    return Response(status_code=204)
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/assistant/threads",
+    response_model=list[AssistantThreadRecord],
+    dependencies=[Depends(require_session)],
+)
+def list_assistant_threads(project_id: str) -> list[dict]:
+    project_root_or_error(project_id)
+    return assistant_service.list_threads(project_id)
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/assistant/threads",
+    response_model=AssistantThreadRecord,
+    status_code=201,
+    dependencies=[Depends(require_session)],
+)
+def create_assistant_thread(
+    project_id: str, payload: AssistantThreadCreate
+) -> dict:
+    project_root_or_error(project_id)
+    thread = assistant_service.create_thread(project_id, payload)
+    logger.info(
+        "assistant.thread_created",
+        extra={"project_id": project_id, "thread_id": thread["id"]},
+    )
+    return thread
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/assistant/threads/{thread_id}/messages",
+    response_model=AssistantThreadRecord,
+    dependencies=[Depends(require_session)],
+)
+def create_assistant_message(
+    project_id: str, thread_id: str, payload: AssistantMessageCreate
+) -> dict:
+    project_root_or_error(project_id)
+    try:
+        thread = assistant_service.send_message(project_id, thread_id, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="AI 对话不存在") from exc
+    except AssistantError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    except GatewayError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info(
+        "assistant.message_created",
+        extra={
+            "project_id": project_id,
+            "thread_id": thread_id,
+            "scope": payload.scope,
+            "preset": payload.preset,
+        },
+    )
+    return thread
+
+
+@app.delete(
+    "/api/v1/projects/{project_id}/assistant/threads/{thread_id}/messages/{message_id}",
+    status_code=204,
+    dependencies=[Depends(require_session)],
+)
+def delete_assistant_message(
+    project_id: str, thread_id: str, message_id: str
+) -> Response:
+    project_root_or_error(project_id)
+    try:
+        assistant_service.delete_message(project_id, thread_id, message_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="AI 对话消息不存在") from exc
+    return Response(status_code=204)
+
+
+@app.delete(
+    "/api/v1/projects/{project_id}/assistant/threads/{thread_id}",
+    status_code=204,
+    dependencies=[Depends(require_session)],
+)
+def delete_assistant_thread(project_id: str, thread_id: str) -> Response:
+    project_root_or_error(project_id)
+    try:
+        assistant_service.delete_thread(project_id, thread_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="AI 对话不存在") from exc
+    logger.info(
+        "assistant.thread_deleted",
+        extra={"project_id": project_id, "thread_id": thread_id},
+    )
     return Response(status_code=204)
 
 

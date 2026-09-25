@@ -16,6 +16,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 import { api } from './api'
+import { AssistantPanel } from './components/AssistantPanel'
 import { FinancialDataWorkspace } from './components/FinancialDataWorkspace'
 import { DemoDataLoader } from './components/DemoDataLoader'
 import { GatewaySettings } from './components/GatewaySettings'
@@ -801,6 +802,29 @@ export function App() {
           </div>
         </>
       )}
+
+      <AssistantPanel
+        project={selectedProject}
+        currentDocument={selectedDocument}
+        selectedEvidence={selectedEvidence}
+        strictOffline={gatewayOverview?.strict_offline !== false}
+        onOpenCitation={(citation) => {
+          if (!citation.document_id || !citation.page_number) return
+          setSelectedDocumentId(citation.document_id)
+          setEvidenceTarget({
+            documentId: citation.document_id,
+            page: citation.page_number,
+            query: citation.quote,
+            token: Date.now(),
+          })
+          setMobilePane('canvas')
+          setView('documents')
+        }}
+        onRiskCreated={(risk) => {
+          setRisks((current) => [risk, ...current.filter((item) => item.id !== risk.id)])
+          setSelectedRiskId(risk.id)
+        }}
+      />
 
       <ProjectDialog open={projectDialogOpen} busy={projectBusy} error={projectError} onClose={() => { setProjectDialogOpen(false); setProjectError(null) }} onSubmit={createProject} />
     </div>

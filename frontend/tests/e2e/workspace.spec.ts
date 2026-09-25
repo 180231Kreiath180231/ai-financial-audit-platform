@@ -342,6 +342,29 @@ test('mobile workspace exposes all three panes', async ({ page }) => {
   await expect(page.getByRole('heading', { name: '模型与外发设置' })).toBeVisible()
 })
 
+test('project assistant supports an explicit general-knowledge conversation', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: /AI 审计助手/ }).click()
+  const assistant = page.getByRole('complementary', { name: 'AI 审计助手' })
+  await expect(assistant).toBeVisible()
+  await expect(assistant).toContainText('联网检索未启用')
+
+  await assistant.getByLabel('回答范围').selectOption('general')
+  await assistant.getByRole('button', { name: '专业问答' }).click()
+  const question = assistant.getByLabel('向 AI 审计助手提问')
+  await question.fill('什么是审计抽样？')
+  await assistant.getByRole('button', { name: /发送/ }).click()
+
+  await expect(assistant.getByText('通用知识', { exact: true }).last()).toBeVisible()
+  await expect(assistant.getByText('本地模拟', { exact: true }).last()).toBeVisible()
+  await expect(assistant.getByText(/当前使用本地模拟服务/)).toBeVisible()
+  await expect(assistant.getByLabel('本次包含最近对话')).not.toBeChecked()
+
+  await assistant.getByRole('button', { name: '关闭 AI 助手' }).click()
+  await expect(page.getByRole('button', { name: /AI 审计助手/ })).toBeVisible()
+})
+
 test('settings exposes audited local model routing without external requests', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop settings acceptance path')
   await page.goto('/')

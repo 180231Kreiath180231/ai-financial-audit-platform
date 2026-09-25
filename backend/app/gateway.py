@@ -202,6 +202,61 @@ class ModelGateway:
             )
             raise
 
+    def answer_fake_assistant(
+        self,
+        project_id: str,
+        *,
+        prompt: str,
+        evidence_refs: list[str],
+        data_scope: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Audit an assistant turn without enabling a real external connector."""
+        call_id = str(uuid.uuid4())
+        started_at = utc_now()
+        started = time.perf_counter()
+        summary = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        try:
+            route = self.route(project_id, "text", allow_fake=True)
+            if route.provider_kind != "fake":
+                raise GatewayError(
+                    "FAKE_PROVIDER_REQUIRED",
+                    "当前助手验证阶段只能使用本地模拟服务",
+                    "保留并启用本地模拟服务，真实文本 API 按批准顺序最后接入",
+                )
+            self._record_call(
+                call_id=call_id,
+                project_id=project_id,
+                capability="text",
+                request_summary=summary,
+                route=route,
+                started_at=started_at,
+                started=started,
+                status="completed",
+                evidence_refs=evidence_refs,
+                data_scope=data_scope,
+            )
+            return {
+                "call_id": call_id,
+                "provider": route.provider_name,
+                "actual_model": route.model_name,
+                "external_request": False,
+            }
+        except GatewayError as exc:
+            self._record_call(
+                call_id=call_id,
+                project_id=project_id,
+                capability="text",
+                request_summary=summary,
+                route=None,
+                started_at=started_at,
+                started=started,
+                status="blocked",
+                error_code=exc.code,
+                evidence_refs=evidence_refs,
+                data_scope=data_scope,
+            )
+            raise
+
     def draft_fake_risk_explanation(
         self,
         project_id: str,

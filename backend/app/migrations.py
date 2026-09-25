@@ -802,6 +802,46 @@ def _project_v17(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v18(db: sqlite3.Connection) -> None:
+    """Add project-scoped assistant threads and locally retained messages."""
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS assistant_threads (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            default_scope TEXT NOT NULL DEFAULT 'smart'
+                CHECK(default_scope IN ('smart', 'selected', 'document', 'project', 'general')),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"""
+    )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS assistant_messages (
+            id TEXT PRIMARY KEY,
+            thread_id TEXT NOT NULL REFERENCES assistant_threads(id) ON DELETE CASCADE,
+            role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+            content TEXT NOT NULL,
+            scope TEXT NOT NULL
+                CHECK(scope IN ('smart', 'selected', 'document', 'project', 'general')),
+            preset TEXT NOT NULL,
+            source_kinds_json TEXT NOT NULL DEFAULT '[]',
+            citations_json TEXT NOT NULL DEFAULT '[]',
+            prompt_version TEXT,
+            model_provider TEXT,
+            actual_model TEXT,
+            model_call_id TEXT,
+            created_at TEXT NOT NULL
+        )"""
+    )
+    db.execute(
+        """CREATE INDEX IF NOT EXISTS idx_assistant_threads_updated
+        ON assistant_threads(updated_at DESC)"""
+    )
+    db.execute(
+        """CREATE INDEX IF NOT EXISTS idx_assistant_messages_thread
+        ON assistant_messages(thread_id, created_at, id)"""
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -826,6 +866,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (15, "resource_pause_reasons", _project_v15),
     (16, "audit_notes", _project_v16),
     (17, "deterministic_management_materials", _project_v17),
+    (18, "project_assistant_conversations", _project_v18),
 )
 
 
