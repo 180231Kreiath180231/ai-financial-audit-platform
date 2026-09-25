@@ -1,0 +1,48 @@
+{
+    "scenario":  "windows-pktmon-strict-offline-v1",
+    "attempted_at":  "2026-09-25T01:10:36.2589872Z",
+    "status":  "blocked",
+    "reason":  "administrator_required_for_pktmon_driver",
+    "environment":  {
+                        "os_caption":  "Microsoft Windows 11 企业版",
+                        "os_version":  "10.0.22631",
+                        "os_build":  "22631",
+                        "architecture":  "64 位",
+                        "administrator":  false,
+                        "pktmon_path":  "C:\\Windows\\system32\\PktMon.exe",
+                        "pktmon_driver_status":  "Stopped"
+                    },
+    "application_layer":  {
+                              "scenario":  "strict-offline-external-text-negative-control-v1",
+                              "started_at":  "2026-09-25T01:10:35.843618+00:00",
+                              "completed_at":  "2026-09-25T01:10:36.134959+00:00",
+                              "target_base_url":  "https://192.0.2.1:9/v1",
+                              "network_canary_armed":  true,
+                              "attempts":  10,
+                              "blocked_attempts":  10,
+                              "error_codes":  [
+                                                  "OFFLINE_MODE_BLOCKED",
+                                                  "OFFLINE_MODE_BLOCKED",
+                                                  "OFFLINE_MODE_BLOCKED",
+                                                  "OFFLINE_MODE_BLOCKED",
+                                                  "OFFLINE_MODE_BLOCKED",
+                                                  "OFFLINE_MODE_BLOCKED",
+                                                  "OFFLINE_MODE_BLOCKED",
+                                                  "OFFLINE_MODE_BLOCKED",
+                                                  "OFFLINE_MODE_BLOCKED",
+                                                  "OFFLINE_MODE_BLOCKED"
+                                              ],
+                              "model_call_rows":  10,
+                              "all_calls_blocked_before_route_selection":  true,
+                              "prompt_plaintext_absent":  true,
+                              "credential_plaintext_absent":  true,
+                              "strict_offline":  true,
+                              "passed":  true
+                          },
+    "packet_capture":  {
+                           "status":  "not_executed",
+                           "positive_control_packets":  null,
+                           "strict_offline_packets":  null
+                       },
+    "passed":  false
+}

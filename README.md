@@ -137,6 +137,7 @@ PDF 归档件的直接生成、字体嵌入、导出审计和逐页渲染结果�
 [迭代十四 Windows 实机性能验收](docs/acceptance/iteration-14-windows-performance-2026-09-24.md)。
 [迭代十五批量导入与资料跟踪验收](docs/acceptance/iteration-15-batch-import-material-tracking-2026-09-24.md)记录 500 文件单次上传实测、资料跟踪字段和 Word/PDF v3 逐页检查。
 [ADR-0022](docs/adr/0022-offline-backup-and-isolated-restore.md)记录离线备份格式、停止应用门禁、哈希校验、路径安全与 DPAPI 边界；[迭代十六离线备份恢复与许可证归档验收](docs/acceptance/iteration-16-backup-restore-2026-09-24.md)记录 Windows 合成实机演练和当前生产依赖许可证归档。
+[迭代十七严格离线网络验收](docs/acceptance/iteration-17-strict-offline-network-2026-09-24.md)记录统一网关负向验证、PktMon 抓包方法和当前非管理员环境受阻结论。
 项目级审计备忘录、风险与页码关联、模型读取许可和删除审计边界记录在
 [ADR-0018](docs/adr/0018-project-audit-notes.md)，实现范围和自动化结果记录在
 [迭代十审计备忘录验收](docs/acceptance/iteration-10-audit-notes-2026-09-23.md)。
@@ -238,6 +239,18 @@ npm.cmd --prefix frontend run e2e
 
 E2E 使用独立的 `127.0.0.1:5174` 前端、`127.0.0.1:8100` 后端和
 `.runtime/e2e-data` 合成数据目录，不复用日常开发项目。
+
+在受控 Windows 设备的管理员 PowerShell 中执行严格离线网络抓包验收：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/measure_offline_network_acceptance.ps1 `
+  -Output .runtime/offline-network/result.json `
+  -ConfirmNoExistingPktmonSession `
+  -ConfirmNoExistingPktmonFilters
+```
+
+脚本会清除 PktMon 的全部过滤器。只有确认设备当前没有其他 PktMon 会话和过滤器时才可传入两个确认开关。
+它先用 TEST-NET 保留地址生成一个出站 TCP SYN 正向对照，再对已配置合成密钥的严格离线模型调用抓包；只有正向对照捕获到数据包、离线调用捕获 0 个目标数据包且应用层全部阻断时才通过。非管理员运行只生成应用层结果，并以“环境受阻”退出。
 
 测量空闲前后端进程的 CPU 与内存基线：
 

@@ -15,7 +15,7 @@ try {
 
 Push-Location $repoRoot
 try {
-    uv run ruff check backend scripts/measure_baseline.py scripts/measure_performance_acceptance.py scripts/manage_local_backup.py scripts/measure_backup_restore_acceptance.py scripts/archive_production_licenses.py
+    uv run ruff check backend scripts/measure_baseline.py scripts/measure_performance_acceptance.py scripts/manage_local_backup.py scripts/measure_backup_restore_acceptance.py scripts/archive_production_licenses.py scripts/measure_strict_offline_gateway.py
     if ($LASTEXITCODE -ne 0) { throw 'Backend lint failed' }
     uv run python scripts/archive_production_licenses.py verify --archive-dir docs/licenses/production
     if ($LASTEXITCODE -ne 0) { throw 'Production dependency license verification failed' }
