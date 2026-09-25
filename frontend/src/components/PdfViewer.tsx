@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, MagnifyingGlass, Minus, Plus } from '@phosphor-i
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { api } from '../api'
+import { PageCorrectionPanel } from './PageCorrectionPanel'
 import type {
   DocumentRecord,
   EvidenceDirection,
@@ -19,6 +20,7 @@ interface Props {
   initialPage?: number
   initialQuery?: string
   onSelectEvidence?: (evidence: EvidenceSelection) => void
+  onTextCorrected?: () => void
 }
 
 export function PdfViewer({
@@ -27,6 +29,7 @@ export function PdfViewer({
   initialPage = 1,
   initialQuery = '',
   onSelectEvidence,
+  onTextCorrected,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const renderToken = useRef(0)
@@ -180,6 +183,7 @@ export function PdfViewer({
           ))}
         </div>
       )}
+      <PageCorrectionPanel projectId={projectId} documentId={document.id} pageNumber={page} onCorrected={onTextCorrected} />
       <div className="canvas-stage">
         {loading && <div className="viewer-state"><span className="skeleton-line wide" /><span className="skeleton-line" />正在加载 PDF…</div>}
         {error && <div className="viewer-state error" role="alert">{error}</div>}

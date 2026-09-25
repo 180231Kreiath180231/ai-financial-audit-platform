@@ -39,7 +39,9 @@ def add_document(
         )
         for page_number, text in enumerate(pages, start=1):
             db.execute(
-                "INSERT INTO pages VALUES (?, ?, ?, 1, ?, ?, 'test-v1')",
+                """INSERT INTO pages
+                (id, document_id, page_number, block_number, original_text, parse_method, parse_version)
+                VALUES (?, ?, ?, 1, ?, ?, 'test-v1')""",
                 (str(uuid.uuid4()), document_id, page_number, text, page_parse_method),
             )
 

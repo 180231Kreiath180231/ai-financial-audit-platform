@@ -23,6 +23,8 @@ import type {
   OutputSnapshotDetail,
   OutputSnapshotSummary,
   PageVisionRecord,
+  PageContentRecord,
+  PageTextCorrection,
   Project,
   ProjectPayload,
   ResourceSnapshot,
@@ -147,6 +149,23 @@ export const api = {
     request<PageVisionRecord[]>(
       `/api/v1/projects/${projectId}/documents/${documentId}/page-analyses`,
     ),
+  getPageContent: (projectId: string, documentId: string, pageNumber: number) =>
+    request<PageContentRecord>(
+      `/api/v1/projects/${projectId}/documents/${documentId}/pages/${pageNumber}/content`,
+    ),
+  correctPageText: (
+    projectId: string,
+    documentId: string,
+    pageNumber: number,
+    payload: { block_number: number; corrected_text: string; change_reason: string },
+  ) => request<PageTextCorrection>(
+    `/api/v1/projects/${projectId}/documents/${documentId}/pages/${pageNumber}/corrections`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  ),
   listTasks: (projectId: string) => request<TaskRecord[]>(`/api/v1/projects/${projectId}/tasks`),
   loadDemoData: (projectId: string) =>
     request<DemoLoadResult>(`/api/v1/projects/${projectId}/demo-data/load`, {

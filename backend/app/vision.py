@@ -11,10 +11,11 @@ import pypdfium2 as pdfium
 
 from .db import Database, utc_now
 from .gateway import GatewayError, ModelGateway
+from .pdf_layout import extract_pdf_layout
 
 SCAN_TEXT_MIN_CHARACTERS = 12
 VISION_SCHEMA_VERSION = "vision-page.v1"
-NATIVE_PARSE_VERSION = "pypdf-v2"
+NATIVE_PARSE_VERSION = "pypdfium2-layout-v1"
 FAKE_VISION_PARSE_VERSION = "fake-vision-v1"
 SCAN_DETECT_PARSE_VERSION = "scan-detect-v1"
 PADDLEOCR_PARSE_VERSION = "paddleocr-aistudio-v1"
@@ -67,11 +68,13 @@ class ScanVisionService:
             except GatewayError as exc:
                 if exc.code != "MODEL_ROUTE_UNAVAILABLE":
                     raise
+        page_layouts = extract_pdf_layout(source)
         analyses: list[dict[str, Any]] = []
         for index, text in enumerate(page_text):
             page_number = index + 1
+            layout = page_layouts[index]
             if not is_scanned_page(text):
-                analyses.append(self._native_result(page_number, text))
+                analyses.append(self._native_result(page_number, text, layout))
                 continue
             if not safe_point(root, task_id, source):
                 return None
@@ -91,7 +94,7 @@ class ScanVisionService:
                     return None
                 continue
             if not synthetic:
-                analyses.append(self._pending_result(page_number))
+                analyses.append(self._with_page_layout(self._pending_result(page_number), layout))
                 continue
             result = (
                 self._paddleocr_result(
@@ -115,6 +118,7 @@ class ScanVisionService:
             )
             if result is None:
                 return None
+            result = self._with_page_layout(result, layout)
             if result["status"] == "completed" and result["external_request"]:
                 self._save_external_checkpoint(root, task_id, result)
             analyses.append(result)
@@ -174,7 +178,9 @@ class ScanVisionService:
         )
 
     @staticmethod
-    def _native_result(page_number: int, text: str) -> dict[str, Any]:
+    def _native_result(
+        page_number: int, text: str, layout: dict[str, Any]
+    ) -> dict[str, Any]:
         return {
             "id": str(uuid.uuid4()),
             "page_number": page_number,
@@ -196,6 +202,33 @@ class ScanVisionService:
             "error_message": None,
             "parse_method": "native_pdf",
             "parse_version": NATIVE_PARSE_VERSION,
+            "page_width": layout["page_width"],
+            "page_height": layout["page_height"],
+            "blocks": layout["blocks"] or [
+                {
+                    "text": text,
+                    "bbox": {},
+                    "block_kind": "text",
+                    "table_candidate": {},
+                }
+            ],
+        }
+
+    @staticmethod
+    def _with_page_layout(
+        analysis: dict[str, Any], layout: dict[str, Any]
+    ) -> dict[str, Any]:
+        return analysis | {
+            "page_width": layout["page_width"],
+            "page_height": layout["page_height"],
+            "blocks": [
+                {
+                    "text": analysis["recognized_text"],
+                    "bbox": {},
+                    "block_kind": "text",
+                    "table_candidate": {},
+                }
+            ],
         }
 
     @staticmethod

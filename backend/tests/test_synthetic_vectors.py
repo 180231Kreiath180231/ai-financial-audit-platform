@@ -33,7 +33,9 @@ def project_db() -> sqlite3.Connection:
             (document_id, filename, document_id.encode().hex().ljust(64, "0")[:64], filename),
         )
         db.execute(
-            "INSERT INTO pages VALUES (?, ?, 1, 1, ?, 'native_pdf', 'v1')",
+            """INSERT INTO pages
+            (id, document_id, page_number, block_number, original_text, parse_method, parse_version)
+            VALUES (?, ?, 1, 1, ?, 'native_pdf', 'v1')""",
             (page_id, document_id, text),
         )
         replace_page_chunks(

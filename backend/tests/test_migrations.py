@@ -53,6 +53,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         (16, "audit_notes"),
         (17, "deterministic_management_materials"),
         (18, "project_assistant_conversations"),
+        (19, "page_layout_and_human_corrections"),
     ]
     assert {
         "documents",
@@ -81,6 +82,7 @@ def test_registry_and_project_migrations_are_versioned_and_idempotent(tmp_path: 
         "note_pages",
         "assistant_threads",
         "assistant_messages",
+        "page_text_corrections",
         "audit_events",
         "schema_migrations",
     } <= tables
@@ -126,6 +128,7 @@ def test_v1_migration_adopts_legacy_schema_without_losing_projects(tmp_path: Pat
         16,
         17,
         18,
+        19,
     ]
 
 

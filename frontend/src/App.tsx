@@ -118,6 +118,7 @@ export function App() {
   const [uploadNotice, setUploadNotice] = useState<string | null>(null)
   const [operationError, setOperationError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [retrievalRevision, setRetrievalRevision] = useState(0)
   const uploadRef = useRef<HTMLInputElement>(null)
   const mobileMoreFirstRef = useRef<HTMLButtonElement>(null)
 
@@ -599,6 +600,7 @@ export function App() {
                     onOpen={openSearchHit}
                     onSelectEvidence={addEvidence}
                     onDocumentUpdated={(updated) => setDocuments((current) => current.map((document) => document.id === updated.id ? updated : document))}
+                    refreshToken={retrievalRevision}
                   />
                 )}
                 <div className="queue-summary" aria-label="任务统计">
@@ -645,6 +647,7 @@ export function App() {
                       initialPage={evidenceTarget?.documentId === selectedDocument.id ? evidenceTarget.page : 1}
                       initialQuery={evidenceTarget?.documentId === selectedDocument.id ? evidenceTarget.query : ''}
                       onSelectEvidence={addEvidence}
+                      onTextCorrected={() => setRetrievalRevision((value) => value + 1)}
                     />
                   </Suspense>
                 ) : (

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import shutil
 import time
@@ -592,7 +593,7 @@ class LocalTaskWorker:
                     db.execute(
                         """INSERT INTO documents
                         (id, filename, sha256, size_bytes, page_count, parse_method, parse_version, stored_path, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, 'document-pipeline-v3', ?, ?)""",
+                        VALUES (?, ?, ?, ?, ?, ?, 'document-pipeline-v4', ?, ?)""",
                         (
                             document_id,
                             filename,
@@ -605,30 +606,45 @@ class LocalTaskWorker:
                         ),
                     )
                     for analysis in page_analyses:
-                        page_id = str(uuid.uuid4())
-                        db.execute(
-                            """INSERT INTO pages
-                            (id, document_id, page_number, block_number, original_text, parse_method, parse_version)
-                            VALUES (?, ?, ?, 1, ?, ?, ?)""",
-                            (
-                                page_id,
-                                document_id,
-                                analysis["page_number"],
-                                analysis["recognized_text"],
-                                analysis["parse_method"],
-                                analysis["parse_version"],
-                            ),
-                        )
-                        replace_page_chunks(
-                            db,
-                            page_id=page_id,
-                            document_id=document_id,
-                            page_number=analysis["page_number"],
-                            block_number=1,
-                            original_text=analysis["recognized_text"],
-                            parse_method=analysis["parse_method"],
-                            parse_version=analysis["parse_version"],
-                        )
+                        for block_number, block in enumerate(analysis["blocks"], start=1):
+                            page_id = str(uuid.uuid4())
+                            block_text = block["text"]
+                            db.execute(
+                                """INSERT INTO pages
+                                (id, document_id, page_number, block_number, original_text,
+                                 parse_method, parse_version, source_text, bbox_json,
+                                 page_width, page_height, block_kind, table_candidate_json)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (
+                                    page_id,
+                                    document_id,
+                                    analysis["page_number"],
+                                    block_number,
+                                    block_text,
+                                    analysis["parse_method"],
+                                    analysis["parse_version"],
+                                    block_text,
+                                    json.dumps(block["bbox"], ensure_ascii=False, sort_keys=True),
+                                    analysis["page_width"],
+                                    analysis["page_height"],
+                                    block["block_kind"],
+                                    json.dumps(
+                                        block["table_candidate"],
+                                        ensure_ascii=False,
+                                        sort_keys=True,
+                                    ),
+                                ),
+                            )
+                            replace_page_chunks(
+                                db,
+                                page_id=page_id,
+                                document_id=document_id,
+                                page_number=analysis["page_number"],
+                                block_number=block_number,
+                                original_text=block_text,
+                                parse_method=analysis["parse_method"],
+                                parse_version=analysis["parse_version"],
+                            )
                         db.execute(
                             """INSERT INTO page_vision_results
                             (id, document_id, page_number, status, provider_id,

@@ -73,6 +73,7 @@ scripts/              文档生成脚本
 - 为既有与新导入页面生成带字符偏移、原文哈希和解析版本的本地检索分块；向量索引契约记录模型、维度、分块版本和失效状态，界面明确显示语义检索仍待配置且未发送数据。
 - 合成项目可显式构建 64 维特征哈希测试索引，以内存余弦召回和 RRF 验证混合检索、结构化过滤与页级证据闭环；真实项目继续被硬阻断，测试索引不代表真实 Embedding 质量。
 - PDF 导入会识别无足够原生文本的扫描页；合成项目逐页本地渲染并用 Fake Vision 生成明确标注的固定 JSON，真实项目保持“等待视觉策略”且不会上传页面。
+- 新导入的原生 PDF 会本地保存页面尺寸、文本块和归一化区域坐标，并只把明确版面线索标记为“未确认表格候选”。阅读器支持按文本块人工校正 OCR/解析文本，来源文本与全部版本保持不可变；保存后立即同步本地全文索引和检索分块，并把既有语义索引标记为待重建。旧数据或扫描页没有可靠坐标时仍只承诺准确页码。
 - 可配置 PaddleOCR AI Studio 专用服务商与 `PaddleOCR-VL-1.6` 模型档案；只有关闭严格离线、项目显式授权且项目标记为 synthetic 时，才会逐页上传临时 PNG 并轮询异步 Job。整份 PDF、文件名和返回图片均不外发或下载。
 - 已完成的外部 OCR 页会在整份文档提交前写入任务级检查点；应用恢复后复用同一页结果，避免重复提交远端任务。
 - PaddleOCR Access Token 通过 Windows DPAPI 加密，SQLite 仅保存引用；调用审计记录页码、图像摘要、Job ID 和远端清理状态。由于服务商示例未提供删除接口，真实审计资料继续被硬阻断。
@@ -112,6 +113,9 @@ PaddleOCR AI Studio 的合成数据专用接入、安全门禁和远端生命周
 合成向量、内存混合检索和 sqlite-vec Windows 探测记录在
 [ADR-0010](docs/adr/0010-synthetic-hybrid-retrieval.md) 与
 [合成混合检索验收](docs/acceptance/iteration-3-synthetic-hybrid-retrieval-2026-09-22.md)。
+原生 PDF 版面坐标、未确认表格候选和追加式人工文本校正记录在
+[ADR-0024](docs/adr/0024-native-pdf-layout-and-human-text-corrections.md)，实现范围和验证结果记录在
+[迭代二十 PDF 版面与人工文本校正验收](docs/acceptance/iteration-20-page-layout-human-corrections-2026-09-25.md)。
 科目余额表数据契约、首批规则和风险边界记录在
 [ADR-0004](docs/adr/0004-trial-balance-csv-deterministic-rules.md)，实现范围和验证结果记录在
 [迭代四财务数据与确定性规则验收](docs/acceptance/iteration-4-financial-data-2026-09-22.md)。

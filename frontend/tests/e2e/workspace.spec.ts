@@ -150,6 +150,44 @@ test('detects a scanned page and completes the local Fake Vision trace', async (
   await expect(viewer.getByLabel('页码')).toHaveValue('1')
 })
 
+test('preserves native PDF layout and indexes a versioned human correction', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop', 'desktop correction acceptance path')
+  await page.goto('/')
+  await openDocuments(page)
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'playwright-correction.pdf',
+    mimeType: 'application/pdf',
+    buffer: syntheticTextPdf('CORRECTION-SOURCE-100'),
+  })
+  const documentList = page.getByLabel('已导入文档')
+  const documentRow = documentList.getByRole('button', { name: /playwright-correction\.pdf/ })
+  await expect(documentRow).toBeVisible({ timeout: 20_000 })
+  const projectSearch = page.getByRole('region', { name: '项目全文检索' })
+  await projectSearch.getByRole('button', { name: '构建合成索引' }).click()
+  await expect(projectSearch.getByText('语义检索 · 合成就绪')).toBeVisible()
+  await documentRow.click()
+
+  const viewer = page.getByRole('region', { name: /playwright-correction\.pdf 阅读器/ })
+  await viewer.getByRole('button', { name: /版面与人工校正/ }).click()
+  await expect(viewer.getByLabel('页面版面摘要')).toContainText('1 个文本块')
+  await expect(viewer.getByText('已保存区域坐标')).toBeVisible()
+  const currentText = viewer.getByRole('textbox', { name: '当前有效文本' })
+  await expect(currentText).toHaveValue('CORRECTION-SOURCE-100')
+  await currentText.fill('CORRECTION-EFFECTIVE-1000')
+  await viewer.getByRole('button', { name: '保存人工校正' }).click()
+
+  await expect(viewer.getByRole('status')).toContainText('版本 2')
+  await expect(viewer.getByText('不可变来源文本')).toBeVisible()
+  await expect(viewer.getByText('CORRECTION-SOURCE-100')).toBeVisible()
+
+  await expect(projectSearch.getByText('语义检索 · 待重建')).toBeVisible()
+  await projectSearch.getByRole('searchbox', { name: '搜索全部本地文档' }).fill('CORRECTION-EFFECTIVE-1000')
+  await projectSearch.getByRole('button', { name: '检索', exact: true }).click()
+  await expect(projectSearch.getByText(/1 条命中 .*本地全文检索 · 未调用外部服务/)).toBeVisible()
+  await expect(projectSearch.getByText('CORRECTION-EFFECTIVE-1000')).toBeVisible()
+})
+
 test('creates, reviews, and freezes a versioned risk from resolved evidence', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop risk acceptance path')
   await page.goto('/')

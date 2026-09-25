@@ -156,7 +156,7 @@ def test_synthetic_scanned_page_uses_fake_vision_and_cleans_temp(tmp_path: Path)
         ).fetchone()
 
     assert document["parse_method"] == "fake_vision"
-    assert document["parse_version"] == "document-pipeline-v3"
+    assert document["parse_version"] == "document-pipeline-v4"
     assert page["parse_method"] == "fake_vision"
     assert "合成扫描页 1" in page["original_text"]
     assert vision["status"] == "completed"
@@ -308,7 +308,7 @@ def test_synthetic_scanned_page_can_use_audited_paddleocr_adapter(tmp_path: Path
         vision = db.execute("SELECT * FROM page_vision_results").fetchone()
         task = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
     assert document["parse_method"] == "paddleocr_vision"
-    assert document["parse_version"] == "document-pipeline-v3"
+    assert document["parse_version"] == "document-pipeline-v4"
     assert page["original_text"] == "PADDLE-OCR-SYNTHETIC"
     assert page["parse_method"] == "paddleocr_vision"
     assert vision["external_request"] == 1

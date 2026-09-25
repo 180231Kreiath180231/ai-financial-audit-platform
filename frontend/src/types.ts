@@ -190,6 +190,44 @@ export interface PageVisionRecord {
   parse_version: string
 }
 
+export interface PageTextCorrection {
+  id: string
+  document_id: string
+  page_number: number
+  block_number: number
+  version: number
+  before_text: string
+  after_text: string
+  change_reason: string
+  source: 'human'
+  created_at: string
+}
+
+export interface PageContentBlock {
+  block_number: number
+  source_text: string
+  current_text: string
+  parse_method: string
+  parse_version: string
+  bbox: Record<string, unknown>
+  page_width: number | null
+  page_height: number | null
+  block_kind: 'text' | 'table_candidate'
+  table_candidate: Record<string, unknown>
+  text_version: number
+  corrected_at: string | null
+}
+
+export interface PageContentRecord {
+  document_id: string
+  document_name: string
+  page_number: number
+  page_width: number | null
+  page_height: number | null
+  blocks: PageContentBlock[]
+  corrections: PageTextCorrection[]
+}
+
 export interface TaskRecord {
   id: string
   task_type: string

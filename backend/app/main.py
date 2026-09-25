@@ -32,7 +32,13 @@ from .assistant import AssistantError, AssistantService
 from .config import load_settings
 from .db import Database, ProjectStorageUnavailable, utc_now
 from .demo_data import DemoDataError, DemoDataService
-from .documents import decode_document_row, update_document_metadata
+from .documents import (
+    DocumentCorrectionError,
+    correct_page_text,
+    decode_document_row,
+    get_page_content,
+    update_document_metadata,
+)
 from .financial_data import (
     MAX_CSV_BYTES,
     REQUIRED_COLUMNS,
@@ -85,6 +91,9 @@ from .schemas import (
     OutputExportRecord,
     OutputSnapshotDetail,
     OutputSnapshotSummary,
+    PageContentRecord,
+    PageTextCorrectionCreate,
+    PageTextCorrectionRecord,
     PageVisionRecord,
     ProjectCreate,
     ProjectSummary,
@@ -1177,6 +1186,58 @@ def list_page_analyses(project_id: str, document_id: str) -> list[dict]:
             (document_id,),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/documents/{document_id}/pages/{page_number}/content",
+    response_model=PageContentRecord,
+    dependencies=[Depends(require_session)],
+)
+def read_page_content(project_id: str, document_id: str, page_number: int) -> dict:
+    root = project_root_or_error(project_id)
+    try:
+        with database.connect(root / "app.db") as db:
+            return get_page_content(db, document_id, page_number)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="文档不存在") from exc
+    except DocumentCorrectionError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+
+
+@app.post(
+    "/api/v1/projects/{project_id}/documents/{document_id}/pages/{page_number}/corrections",
+    response_model=PageTextCorrectionRecord,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_session)],
+)
+def create_page_text_correction(
+    project_id: str,
+    document_id: str,
+    page_number: int,
+    payload: PageTextCorrectionCreate,
+) -> dict:
+    root = project_root_or_error(project_id)
+    try:
+        with database.connect(root / "app.db") as db:
+            correction = correct_page_text(db, document_id, page_number, payload)
+    except DocumentCorrectionError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": exc.message, "action": exc.action},
+        ) from exc
+    logger.info(
+        "document.page_text_corrected",
+        extra={
+            "project_id": project_id,
+            "document_id": document_id,
+            "page_number": page_number,
+            "block_number": payload.block_number,
+        },
+    )
+    return correction
 
 
 @app.get("/api/v1/projects/{project_id}/tasks", response_model=list[TaskRecord], dependencies=[Depends(require_session)])

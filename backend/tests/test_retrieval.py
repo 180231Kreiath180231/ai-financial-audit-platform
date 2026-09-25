@@ -63,7 +63,9 @@ def test_page_chunks_are_traceable_and_mark_ready_vector_index_stale() -> None:
     source = "可复核的合成审计证据。" * 100
     try:
         db.execute(
-            "INSERT INTO pages VALUES ('page-1', 'doc-1', 1, 1, ?, 'native_pdf', 'v1')",
+            """INSERT INTO pages
+            (id, document_id, page_number, block_number, original_text, parse_method, parse_version)
+            VALUES ('page-1', 'doc-1', 1, 1, ?, 'native_pdf', 'v1')""",
             (source,),
         )
         count = replace_page_chunks(
@@ -118,7 +120,9 @@ def test_chunk_embedding_dimension_must_match_its_index_version() -> None:
     db = project_db()
     try:
         db.execute(
-            "INSERT INTO pages VALUES ('page-1', 'doc-1', 1, 1, '合成证据', 'native_pdf', 'v1')"
+            """INSERT INTO pages
+            (id, document_id, page_number, block_number, original_text, parse_method, parse_version)
+            VALUES ('page-1', 'doc-1', 1, 1, '合成证据', 'native_pdf', 'v1')"""
         )
         replace_page_chunks(
             db,

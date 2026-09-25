@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
@@ -835,6 +835,55 @@ class PageVisionRecord(BaseModel):
     error_message: str | None = None
     parse_method: str
     parse_version: str
+
+
+class PageTextCorrectionCreate(BaseModel):
+    block_number: int = Field(ge=1)
+    corrected_text: str = Field(max_length=100_000)
+    change_reason: str = Field(min_length=2, max_length=200)
+
+    @field_validator("change_reason", mode="before")
+    @classmethod
+    def normalize_correction_reason(cls, value: str) -> str:
+        return value.strip()
+
+
+class PageTextCorrectionRecord(BaseModel):
+    id: str
+    document_id: str
+    page_number: int
+    block_number: int
+    version: int
+    before_text: str
+    after_text: str
+    change_reason: str
+    source: Literal["human"]
+    created_at: datetime
+
+
+class PageBlockRecord(BaseModel):
+    block_number: int
+    source_text: str
+    current_text: str
+    parse_method: str
+    parse_version: str
+    bbox: dict[str, Any] = Field(default_factory=dict)
+    page_width: float | None = None
+    page_height: float | None = None
+    block_kind: Literal["text", "table_candidate"] = "text"
+    table_candidate: dict[str, Any] = Field(default_factory=dict)
+    text_version: int = 1
+    corrected_at: datetime | None = None
+
+
+class PageContentRecord(BaseModel):
+    document_id: str
+    document_name: str
+    page_number: int
+    page_width: float | None = None
+    page_height: float | None = None
+    blocks: list[PageBlockRecord]
+    corrections: list[PageTextCorrectionRecord]
 
 
 class UploadResult(BaseModel):

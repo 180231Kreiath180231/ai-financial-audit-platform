@@ -842,6 +842,44 @@ def _project_v18(db: sqlite3.Connection) -> None:
     )
 
 
+def _project_v19(db: sqlite3.Connection) -> None:
+    """Add traceable page layout and non-destructive human text corrections."""
+    page_columns = {row[1] for row in db.execute("PRAGMA table_info(pages)").fetchall()}
+    additions = {
+        "source_text": "TEXT",
+        "bbox_json": "TEXT NOT NULL DEFAULT '{}'",
+        "page_width": "REAL",
+        "page_height": "REAL",
+        "block_kind": "TEXT NOT NULL DEFAULT 'text'",
+        "table_candidate_json": "TEXT NOT NULL DEFAULT '{}'",
+        "text_version": "INTEGER NOT NULL DEFAULT 1",
+        "corrected_at": "TEXT",
+    }
+    for name, declaration in additions.items():
+        if name not in page_columns:
+            db.execute(f"ALTER TABLE pages ADD COLUMN {name} {declaration}")
+    db.execute("UPDATE pages SET source_text=original_text WHERE source_text IS NULL")
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS page_text_corrections (
+            id TEXT PRIMARY KEY,
+            document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+            page_number INTEGER NOT NULL,
+            block_number INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            before_text TEXT NOT NULL,
+            after_text TEXT NOT NULL,
+            change_reason TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'human' CHECK(source IN ('human')),
+            created_at TEXT NOT NULL,
+            UNIQUE(document_id, page_number, block_number, version)
+        )"""
+    )
+    db.execute(
+        """CREATE INDEX IF NOT EXISTS idx_page_text_corrections_target
+        ON page_text_corrections(document_id, page_number, block_number, version DESC)"""
+    )
+
+
 REGISTRY_MIGRATIONS: Sequence[Migration] = (
     (1, "initial_registry", _registry_v1),
     (2, "model_gateway", _registry_v2),
@@ -867,6 +905,7 @@ PROJECT_MIGRATIONS: Sequence[Migration] = (
     (16, "audit_notes", _project_v16),
     (17, "deterministic_management_materials", _project_v17),
     (18, "project_assistant_conversations", _project_v18),
+    (19, "page_layout_and_human_corrections", _project_v19),
 )
 
 

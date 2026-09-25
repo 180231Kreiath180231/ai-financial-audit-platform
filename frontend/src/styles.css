@@ -359,6 +359,41 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
 .search-hit-actions button { min-height: 30px; padding: 0 6px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 9px; }
 .search-hit-actions button:last-child { border-right: 0; }
 .search-hit-actions button:hover { background: var(--accent-soft); color: var(--accent); }
+.page-correction { border-bottom: 1px solid var(--line); background: var(--panel); }
+.page-correction-toggle { width: 100%; min-height: 44px; display: grid; grid-template-columns: 20px minmax(0, 1fr) 18px; align-items: center; gap: 10px; padding: 7px 14px; border: 0; background: transparent; color: var(--muted); text-align: left; }
+.page-correction-toggle:hover { background: var(--panel-raised); color: var(--text); }
+.page-correction-toggle > svg:first-child { color: var(--accent); }
+.page-correction-toggle > svg:last-child { transition: transform 120ms ease; }
+.page-correction.expanded .page-correction-toggle > svg:last-child { transform: rotate(180deg); }
+.page-correction-toggle span { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.page-correction-toggle b { color: var(--text); font-size: 12px; }
+.page-correction-toggle small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-correction-body { max-height: min(390px, 48vh); overflow: auto; padding: 12px 14px 16px; border-top: 1px solid var(--line); background: var(--panel-raised); }
+.page-correction-loading, .page-correction-error, .page-correction-notice { min-height: 40px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); background: var(--panel); }
+.page-correction-error { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 42%, var(--line)); }
+.page-correction-notice { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); }
+.page-layout-summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.page-layout-summary span { min-height: 28px; display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--line); color: var(--text); font-size: 11px; }
+.page-layout-help { margin: 8px 0 12px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.page-correction form { display: grid; grid-template-columns: minmax(120px, .45fr) minmax(180px, 1fr); gap: 10px 12px; }
+.page-correction form > label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: 11px; }
+.page-correction form > label > span, .page-source-text > span { color: var(--text); font-weight: 700; }
+.page-correction form input, .page-correction form select, .page-correction form textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel); color: var(--text); }
+.page-correction form input, .page-correction form select { min-height: 40px; padding: 8px 10px; }
+.page-correction form textarea { min-height: 116px; resize: vertical; padding: 10px; line-height: 1.55; }
+.page-correction-text { grid-column: 1 / -1; }
+.page-correction form small { line-height: 1.45; }
+.page-source-text { grid-column: 1 / -1; padding: 8px 10px; border-left: 2px solid var(--warning); background: var(--panel); color: var(--muted); font-size: 11px; }
+.page-source-text p { max-height: 70px; margin: 5px 0 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.page-correction-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 11px; }
+.page-correction-history { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.page-correction-history h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; font-size: 12px; }
+.page-correction-history > p { margin: 0; color: var(--muted); }
+.page-correction-history ol { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.page-correction-history li { padding: 8px 10px; border: 1px solid var(--line); background: var(--panel); }
+.page-correction-history li div { display: flex; justify-content: space-between; gap: 12px; }
+.page-correction-history time, .page-correction-history small { color: var(--muted); font-size: 10px; }
+.page-correction-history p { margin: 4px 0; }
 .canvas-stage { position: relative; min-height: 0; flex: 1; overflow: auto; display: grid; justify-items: center; align-items: start; padding: 24px; background-color: color-mix(in srgb, var(--bg) 72%, var(--panel-soft)); background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 24px 24px; }
 .canvas-stage canvas { display: block; max-width: none; background: white; box-shadow: var(--shadow); }
 .viewer-state { position: absolute; inset: 24px; z-index: 1; display: grid; align-content: center; justify-items: center; gap: 10px; padding: 30px; background: var(--panel); color: var(--muted); font-size: 12px; }
@@ -1148,6 +1183,15 @@ main { height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--footer-h)); 
   .viewer-toolbar { align-items: flex-start; flex-direction: column; }
   .viewer-controls { width: 100%; justify-content: center; }
   .viewer-file strong { max-width: 85vw; }
+  .page-correction-toggle { min-height: 48px; }
+  .page-correction-toggle span { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .page-correction-body { max-height: min(440px, 58vh); padding: 12px 12px 132px; scroll-padding-bottom: 132px; }
+  .page-correction form { grid-template-columns: 1fr; }
+  .page-correction-text, .page-source-text, .page-correction-actions { grid-column: auto; }
+  .page-correction form input, .page-correction form select, .page-correction form textarea { min-height: 44px; font-size: 16px; }
+  .page-correction-actions { align-items: stretch; flex-direction: column; }
+  .page-correction-actions .button { width: 100%; }
+  .page-correction-history li div { align-items: flex-start; flex-direction: column; gap: 2px; }
   .canvas-stage { padding: 14px; }
   .form-grid { grid-template-columns: 1fr; }
   .field-wide { grid-column: auto; }

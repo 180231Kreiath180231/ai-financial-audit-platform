@@ -21,6 +21,7 @@ interface Props {
   onOpen: (hit: SearchHit, query: string) => void
   onSelectEvidence: (evidence: EvidenceSelection) => void
   onDocumentUpdated: (document: DocumentRecord) => void
+  refreshToken?: number
 }
 
 interface FilterDraft {
@@ -77,6 +78,7 @@ export function ProjectSearch({
   onOpen,
   onSelectEvidence,
   onDocumentUpdated,
+  refreshToken = 0,
 }: Props) {
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
@@ -137,7 +139,7 @@ export function ProjectSearch({
         if (active) setRetrievalLoading(false)
       })
     return () => { active = false }
-  }, [projectId, documents.length, retrievalRetry])
+  }, [projectId, documents.length, refreshToken, retrievalRetry])
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length
   const selectedFilterDocument = documents.find((document) => document.id === filters.documentId)
