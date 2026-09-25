@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import {
   Archive,
+  ArrowRight,
   CaretDown,
   CheckCircle,
   FilePdf,
@@ -21,6 +22,7 @@ import { GatewaySettings } from './components/GatewaySettings'
 import { NotesWorkspace } from './components/NotesWorkspace'
 import { OutputWorkspace } from './components/OutputWorkspace'
 import { ProjectDialog } from './components/ProjectDialog'
+import { ProjectOverview } from './components/ProjectOverview'
 import { ProjectSearch } from './components/ProjectSearch'
 import { RiskWorkspace } from './components/RiskWorkspace'
 import { StatusMark } from './components/StatusMark'
@@ -108,6 +110,7 @@ export function App() {
   const [mobilePane, setMobilePane] = useState<MobilePane>('canvas')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('basis')
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [projectBusy, setProjectBusy] = useState(false)
   const [projectError, setProjectError] = useState<string | null>(null)
@@ -115,12 +118,26 @@ export function App() {
   const [operationError, setOperationError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const uploadRef = useRef<HTMLInputElement>(null)
+  const mobileMoreFirstRef = useRef<HTMLButtonElement>(null)
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId) ?? null
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
   const selectedRisk = risks.find((risk) => risk.id === selectedRiskId) ?? risks[0] ?? null
   const activeTaskCount = tasks.filter((task) => ['queued', 'running', 'pausing'].includes(task.status)).length
+  const currentContext = view === 'project'
+    ? `项目概览 · ${selectedProject?.name ?? '未选择项目'}`
+    : view === 'documents'
+      ? selectedDocument?.filename ?? `资料工作区 · ${selectedProject?.name ?? '未选择项目'}`
+      : view === 'analysis'
+        ? `财务分析 · ${selectedProject?.name ?? '未选择项目'}`
+        : view === 'risks' && riskSection === 'notes'
+          ? `审计备忘录 · ${selectedProject?.name ?? '未选择项目'}`
+          : view === 'risks' && selectedRisk
+            ? `${selectedRisk.risk_number} · ${selectedRisk.summary}`
+            : view === 'outputs'
+              ? `工作成果 · ${selectedProject?.name ?? '未选择项目'}`
+              : '模型与外发设置'
 
   const bootstrap = useCallback(async () => {
     setBootError(null)
@@ -238,10 +255,15 @@ export function App() {
         event.preventDefault()
         document.getElementById('project-selector')?.focus()
       }
+      if (event.key === 'Escape') setMobileMoreOpen(false)
     }
     window.addEventListener('keydown', shortcut)
     return () => window.removeEventListener('keydown', shortcut)
   }, [])
+
+  useEffect(() => {
+    if (mobileMoreOpen) mobileMoreFirstRef.current?.focus()
+  }, [mobileMoreOpen])
 
   const taskCounts = useMemo(() => ({
     queued: tasks.filter((task) => task.status === 'queued').length,
@@ -465,15 +487,22 @@ export function App() {
       <header className="app-header">
         <div className="brand-block">
           <div className="brand-mark" aria-hidden="true">衡</div>
-          <div><strong>衡鉴审计工作台</strong><span>本地优先 · 第一版</span></div>
+          <div><strong>衡鉴审计工作台</strong><span>本地优先 · 证据可追溯</span></div>
         </div>
-        <div className="project-title">
-          <strong>{selectedProject?.name ?? '尚未创建项目'}</strong>
-          <span>{selectedProject ? `${selectedProject.entity_name} · ${selectedProject.year_start}—${selectedProject.year_end}` : '创建隔离项目后开始'}</span>
+        <div className="project-context">
+          <label className="sr-only" htmlFor="project-selector">当前项目</label>
+          <div className="project-context-select">
+            <select id="project-selector" value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)} aria-label="切换当前项目">
+              {projects.length === 0 && <option value="">尚未创建项目</option>}
+              {projects.map((project) => <option key={project.id} value={project.id}>{project.name}{project.storage_available === false ? '（目录不可用）' : ''}</option>)}
+            </select>
+            <CaretDown aria-hidden="true" />
+          </div>
+          <button className="icon-button project-add-button" type="button" aria-label="创建新项目" onClick={() => setProjectDialogOpen(true)}><Plus aria-hidden="true" /></button>
         </div>
         <div className="header-tools">
           <span className="local-status"><i />本机负载 <b>{resources.cpu_percent}%</b></span>
-          <button className="quick-button" type="button" onClick={() => document.getElementById('project-selector')?.focus()}>快速定位 <kbd>Ctrl K</kbd></button>
+          <button className="quick-button" type="button" onClick={() => document.getElementById('project-selector')?.focus()}>切换项目 <kbd>Ctrl K</kbd></button>
           <span className={`offline-badge ${gatewayOverview?.strict_offline === false ? 'warning' : ''}`}><ShieldCheck aria-hidden="true" />{gatewayOverview?.strict_offline === false ? '外发总开关已开' : '严格离线'}</span>
           <button className="icon-button theme-button" type="button" aria-label={theme === 'dark' ? '切换为浅色主题' : '切换为深色主题'} onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
@@ -491,8 +520,37 @@ export function App() {
         ))}
       </nav>
 
-      <main id="main-content" className={view === 'project' || view === 'documents' ? 'with-workspace-switch' : undefined} tabIndex={-1}>
-        {(view === 'project' || view === 'documents') && (
+      <main id="main-content" className={view === 'documents' ? 'with-workspace-switch' : undefined} tabIndex={-1}>
+        {view === 'project' && (
+          <ProjectOverview
+            project={selectedProject}
+            documents={documents}
+            tasks={tasks}
+            risks={risks}
+            resources={resources}
+            strictOffline={gatewayOverview?.strict_offline !== false}
+            onCreateProject={() => setProjectDialogOpen(true)}
+            onOpenDocuments={() => { setView('documents'); setMobilePane('queue') }}
+            onOpenDocument={(documentId) => {
+              setSelectedDocumentId(documentId)
+              setSelectedTaskId(tasks.find((task) => task.document_id === documentId)?.id ?? '')
+              setView('documents')
+              setMobilePane('canvas')
+            }}
+            onOpenTask={(taskId) => {
+              const task = tasks.find((candidate) => candidate.id === taskId)
+              setSelectedTaskId(taskId)
+              if (task?.document_id) setSelectedDocumentId(task.document_id)
+              setView('documents')
+              setMobilePane('decision')
+            }}
+            onOpenAnalysis={() => setView('analysis')}
+            onOpenRisks={() => { setRiskSection('risks'); setView('risks') }}
+            onOpenOutputs={() => setView('outputs')}
+          />
+        )}
+
+        {view === 'documents' && (
           <>
             <nav className="mobile-workspace-switch" aria-label="项目工作区">
               {(['queue', 'canvas', 'decision'] as MobilePane[]).map((pane, index) => (
@@ -502,15 +560,8 @@ export function App() {
             <div className={`workspace mobile-${mobilePane}`}>
               <aside className="queue-pane pane" aria-label="资料与任务队列">
                 <div className="pane-head queue-head">
-                  <div><span className="section-kicker">文档工作区</span><h1>{view === 'project' ? '项目资料' : '资料队列'}</h1></div>
-                  <button className="icon-button" type="button" aria-label="创建新项目" onClick={() => setProjectDialogOpen(true)}><Plus aria-hidden="true" /></button>
-                </div>
-                <label className="project-select-label" htmlFor="project-selector">当前项目</label>
-                <div className="select-wrap">
-                  <select id="project-selector" value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>
-                    {projects.map((project) => <option key={project.id} value={project.id}>{project.name}{project.storage_available === false ? '（目录不可用）' : ''}</option>)}
-                  </select>
-                  <CaretDown aria-hidden="true" />
+                  <div><span className="section-kicker">证据工作区</span><h1>资料队列</h1></div>
+                  <button className="icon-button" type="button" aria-label="导入 PDF" disabled={selectedProject?.storage_available === false} onClick={() => uploadRef.current?.click()}><UploadSimple aria-hidden="true" /></button>
                 </div>
                 {selectedProject?.is_synthetic && <div className="synthetic-note"><ShieldCheck aria-hidden="true" /><span><b>合成演示项目</b>不包含真实客户资料，也不会调用外部模型。</span></div>}
                 {selectedProject?.is_synthetic && (
@@ -605,10 +656,10 @@ export function App() {
                       <div><span>本地文档</span><strong>{selectedProject?.document_count ?? 0}</strong><small>{selectedProject?.page_count ?? 0} 个可定位页面</small></div>
                       <div><span>处理任务</span><strong>{tasks.length}</strong><small>单工作器 · 并发固定为 1</small></div>
                       <div><span>失败隔离</span><strong>{taskCounts.failed}</strong><small>失败不会阻塞整批导入</small></div>
-                      <div><span>本机存储</span><strong>{resources.disk_free_gb || '—'}<em>GB</em></strong><small>可用磁盘空间</small></div>
+                      <div><span>本机存储</span><strong>{resources.disk_free_gb > 0 ? resources.disk_free_gb : '未记录'}{resources.disk_free_gb > 0 && <em>GB</em>}</strong><small>可用磁盘空间</small></div>
                     </section>
                     <section className="onboarding">
-                      <div className="onboarding-copy"><span className="section-kicker">第一版可运行闭环</span><h3>从原始 PDF 到可复核页码</h3><p>文件先写入项目隔离目录，再由单工作器计算 SHA-256、检查 PDF 完整性、提取页级原文并识别扫描页。合成项目可用 Fake Vision 验证页级闭环，相同文件不会重复解析。</p></div>
+                      <div className="onboarding-copy"><span className="section-kicker">资料处理流程</span><h3>从原始 PDF 到可复核页码</h3><p>文件先写入项目隔离目录，再由单工作器计算 SHA-256、检查 PDF 完整性、提取页级原文并识别扫描页。演示项目可在本地验证扫描页流程，相同文件不会重复解析。</p></div>
                       <ol className="process-steps">
                         <li className="done"><span>01</span><div><b>创建隔离项目</b><small>独立目录与 SQLite 数据库</small></div></li>
                         <li className={tasks.length ? 'done' : ''}><span>02</span><div><b>导入并去重</b><small>损坏文件隔离，整批继续</small></div></li>
@@ -617,7 +668,7 @@ export function App() {
                       </ol>
                     </section>
                     <section className="security-ledger">
-                      <div><ShieldCheck aria-hidden="true" /><span><b>严格离线已生效</b><small>合成项目的 Fake Vision 只验证扫描页流程；真实页面、OCR、Embedding 和遥测均不会外发。</small></span></div>
+                      <div><ShieldCheck aria-hidden="true" /><span><b>严格离线已生效</b><small>演示识别只验证扫描页流程；真实页面、OCR、Embedding 和遥测均不会外发。</small></span></div>
                       <div><HardDrives aria-hidden="true" /><span><b>{selectedProject?.storage_path ?? '本地项目目录'}</b><small>原始文件、解析结果与任务轨迹均保存在本机。</small></span></div>
                     </section>
                   </div>
@@ -648,7 +699,7 @@ export function App() {
                     ) : <div className="inspector-empty"><ListMagnifyingGlass aria-hidden="true" /><h3>等待资料任务</h3><p>选择 PDF 后，这里显示真实进度、错误码和可执行的下一步。</p></div>}
                   </div>
                 )}
-                {inspectorTab === 'explain' && <div className="inspector-empty"><ShieldCheck aria-hidden="true" /><h3>仅开放合成解释</h3><p>风险卡可调用本地 Fake Provider 生成明显标注的合成草稿。真实服务商和证据外发仍被阻断。</p><span className="future-label">外部请求始终为 0 次</span></div>}
+                {inspectorTab === 'explain' && <div className="inspector-empty"><ShieldCheck aria-hidden="true" /><h3>仅开放演示解释</h3><p>风险卡可使用本地模拟服务生成明确标注的演示草稿。真实服务商和证据外发仍被阻断。</p><span className="future-label">外部请求始终为 0 次</span></div>}
                 {inspectorTab === 'action' && (
                   <div className="inspector-content">
                     {selectedEvidence.length > 0 && <form className="risk-draft-form" onSubmit={(event) => { event.preventDefault(); void createRiskDraft() }}>
@@ -731,15 +782,25 @@ export function App() {
       </main>
 
       <footer className="status-bar">
-        <div><span>当前上下文</span><b>{view === 'risks' && riskSection === 'notes' ? `审计备忘录 · ${selectedProject?.name ?? '未选择项目'}` : view === 'risks' && selectedRisk ? `${selectedRisk.risk_number} · ${selectedRisk.summary}` : selectedDocument?.filename ?? selectedProject?.name ?? '未选择项目'}</b></div>
+        <div><span>当前上下文</span><b>{currentContext}</b></div>
         <div className="status-center"><ShieldCheck aria-hidden="true" /><span>{gatewayOverview?.strict_offline === false ? '外发总开关已开启 · 当前真实连接仍禁用' : '仅使用本地资料 · 外部 API 已阻断'}</span></div>
         <div className="resource-brief"><span>CPU <b>{resources.cpu_percent}%</b></span><span>内存 <b>{resources.memory_percent}%</b></span><small>本地工作线程 {resources.worker_limit}</small></div>
       </footer>
 
       <nav className="mobile-nav" aria-label="移动端主功能">
-        {navItems.slice(0, 4).map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} type="button" onClick={() => { if (item.id === 'risks') setRiskSection('risks'); setView(item.id) }}>{item.label}</button>)}
-        <button type="button" className={view === 'outputs' || view === 'settings' ? 'active' : ''} onClick={() => setView(view === 'outputs' ? 'settings' : 'outputs')}>更多</button>
+        {navItems.slice(0, 4).map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} type="button" onClick={() => { setMobileMoreOpen(false); if (item.id === 'risks') setRiskSection('risks'); setView(item.id) }}>{item.label}</button>)}
+        <button type="button" className={view === 'outputs' || view === 'settings' ? 'active' : ''} aria-expanded={mobileMoreOpen} aria-controls="mobile-more-menu" onClick={() => setMobileMoreOpen((current) => !current)}>更多</button>
       </nav>
+
+      {mobileMoreOpen && (
+        <>
+          <button className="mobile-more-backdrop" type="button" aria-label="关闭更多功能" onClick={() => setMobileMoreOpen(false)} />
+          <div id="mobile-more-menu" className="mobile-more-menu" role="menu" aria-label="更多功能">
+            <button ref={mobileMoreFirstRef} type="button" role="menuitem" className={view === 'outputs' ? 'active' : ''} onClick={() => { setView('outputs'); setMobileMoreOpen(false) }}><span><b>输出</b><small>成果草稿、导出与历史</small></span><ArrowRight aria-hidden="true" /></button>
+            <button type="button" role="menuitem" className={view === 'settings' ? 'active' : ''} onClick={() => { setView('settings'); setMobileMoreOpen(false) }}><span><b>设置</b><small>模型、外发与离线控制</small></span><ArrowRight aria-hidden="true" /></button>
+          </div>
+        </>
+      )}
 
       <ProjectDialog open={projectDialogOpen} busy={projectBusy} error={projectError} onClose={() => { setProjectDialogOpen(false); setProjectError(null) }} onSubmit={createProject} />
     </div>

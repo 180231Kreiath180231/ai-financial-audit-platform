@@ -353,7 +353,7 @@ export function OutputWorkspace({ project, risks, onOpenRisks }: Props) {
     <section className="output-page" aria-labelledby="output-page-title">
       <header className="output-page-head">
         <div>
-          <span className="section-kicker">迭代十三 · 管理层材料与证据包</span>
+          <span className="section-kicker">管理层材料与证据包</span>
           <h1 id="output-page-title">审计输出</h1>
           <p>从已确认风险本地生成管理层沟通材料、风险清单、资料清单与访谈提纲，并从同一固化版本生成独立证据包索引。</p>
         </div>

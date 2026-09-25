@@ -1,4 +1,13 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+async function openDocuments(page: Page) {
+  const mobileNavigation = page.getByRole('navigation', { name: '移动端主功能' })
+  if (await mobileNavigation.isVisible()) {
+    await mobileNavigation.getByRole('button', { name: '资料' }).click()
+  } else {
+    await page.getByRole('navigation', { name: '主功能' }).getByRole('button', { name: '资料' }).click()
+  }
+}
 
 function syntheticTextPdf(text: string): Buffer {
   const stream = `BT /F1 18 Tf 72 720 Td (${text}) Tj ET`
@@ -24,10 +33,14 @@ function syntheticTextPdf(text: string): Buffer {
 
 test('loads the local-first project workspace', async ({ page }) => {
   await page.goto('/')
+  await expect(page.getByRole('heading', { name: '项目概览' })).toBeVisible()
+  await expect(page.getByText('从资料到工作成果')).toBeVisible()
+
+  await openDocuments(page)
   if (test.info().project.name === 'mobile') {
     await page.getByRole('navigation', { name: '项目工作区' }).getByRole('button', { name: '资料' }).click()
   }
-  await expect(page.getByRole('heading', { name: '项目资料' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '资料队列' })).toBeVisible()
   await expect(page.getByText('合成演示项目')).toBeVisible()
   await expect(page.getByRole('button', { name: '选择 PDF' })).toBeVisible()
 
@@ -42,6 +55,7 @@ test('loads the local-first project workspace', async ({ page }) => {
 test('imports a synthetic PDF and jumps to a matching evidence page', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop acceptance path')
   await page.goto('/')
+  await openDocuments(page)
 
   await page.locator('input[type="file"]').setInputFiles({
     name: 'playwright-evidence.pdf',
@@ -76,6 +90,7 @@ test('imports a synthetic PDF and jumps to a matching evidence page', async ({ p
 test('versions document metadata and filters without a keyword', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop metadata acceptance path')
   await page.goto('/')
+  await openDocuments(page)
 
   await page.locator('input[type="file"]').setInputFiles({
     name: 'playwright-metadata.pdf',
@@ -112,6 +127,7 @@ test('versions document metadata and filters without a keyword', async ({ page }
 test('detects a scanned page and completes the local Fake Vision trace', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop scanned-page acceptance path')
   await page.goto('/')
+  await openDocuments(page)
 
   await page.locator('input[type="file"]').setInputFiles({
     name: 'playwright-scanned-page.pdf',
@@ -137,6 +153,7 @@ test('detects a scanned page and completes the local Fake Vision trace', async (
 test('creates, reviews, and freezes a versioned risk from resolved evidence', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop', 'desktop risk acceptance path')
   await page.goto('/')
+  await openDocuments(page)
 
   await page.locator('input[type="file"]').setInputFiles({
     name: 'playwright-risk-evidence.pdf',
@@ -308,12 +325,21 @@ test('imports a trial balance and traces a deterministic risk to CSV rows', asyn
 test('mobile workspace exposes all three panes', async ({ page }) => {
   test.skip(test.info().project.name !== 'mobile', 'mobile-only assertion')
   await page.goto('/')
+  await openDocuments(page)
   const switcher = page.getByRole('navigation', { name: '项目工作区' })
   await expect(switcher.getByRole('button', { name: '资料' })).toBeVisible()
   await switcher.getByRole('button', { name: '处置' }).click()
   const decisionPanel = page.getByRole('complementary', { name: '复核与处置面板' })
   await expect(decisionPanel).toBeVisible()
   await expect(decisionPanel.getByRole('button', { name: '判断依据' })).toBeVisible()
+
+  const mobileNavigation = page.getByRole('navigation', { name: '移动端主功能' })
+  await mobileNavigation.getByRole('button', { name: '更多' }).click()
+  const moreMenu = page.getByRole('menu', { name: '更多功能' })
+  await expect(moreMenu.getByRole('menuitem', { name: /输出/ })).toBeVisible()
+  await expect(moreMenu.getByRole('menuitem', { name: /设置/ })).toBeVisible()
+  await moreMenu.getByRole('menuitem', { name: /设置/ }).click()
+  await expect(page.getByRole('heading', { name: '模型与外发设置' })).toBeVisible()
 })
 
 test('settings exposes audited local model routing without external requests', async ({ page }) => {

@@ -119,7 +119,7 @@ describe('RiskWorkspace', () => {
     await user.click(screen.getByRole('button', { name: '生成合成解释草稿' }))
 
     expect(props.onFakeExplanation).toHaveBeenCalledWith(risk)
-    expect(screen.getByText('尚未生成 · 仅允许 Fake Provider')).toBeVisible()
+    expect(screen.getByText('尚未生成 · 当前仅允许本地模拟服务')).toBeVisible()
   })
 
   it('does not offer a model explanation after human confirmation', () => {

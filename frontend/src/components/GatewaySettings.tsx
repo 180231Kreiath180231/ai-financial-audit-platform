@@ -35,7 +35,7 @@ const capabilityLabels: Record<ModelCapability, string> = {
 const PADDLEOCR_JOB_URL = 'https://paddleocr.aistudio-app.com/api/v2/ocr/jobs'
 
 const providerKindLabels = {
-  fake: '本地 Fake Provider',
+  fake: '本地模拟服务',
   openai_compatible: 'OpenAI-compatible',
   paddleocr_aistudio: 'PaddleOCR AI Studio',
 } as const
@@ -364,7 +364,7 @@ export function GatewaySettings({
             <div><h2 id="probe-title">安全路由自检</h2><p>使用合成提示验证能力路由和调用审计，不产生外部网络请求。</p></div>
           </div>
           <div className="probe-row">
-            <dl><div><dt>本地服务商</dt><dd>Fake Provider</dd></div><div><dt>调用记录</dt><dd>{overview.recent_calls.length} 条</dd></div></dl>
+            <dl><div><dt>本地服务商</dt><dd>模拟服务</dd></div><div><dt>调用记录</dt><dd>{overview.recent_calls.length} 条</dd></div></dl>
             <button
               className="button primary"
               type="button"

@@ -46,7 +46,7 @@ export function ProjectDialog({ open, busy, error, onClose, onSubmit }: Props) {
       year_start: yearStart,
       year_end: yearEnd,
       storage_path: storagePath,
-      model_profile: '严格离线 / Fake Provider',
+      model_profile: '严格离线 / 本地模拟服务',
     })
   }
 
@@ -86,8 +86,8 @@ export function ProjectDialog({ open, busy, error, onClose, onSubmit }: Props) {
           </label>
           <label className="field field-wide">
             <span>默认模型方案</span>
-            <input value="严格离线 / Fake Provider" readOnly />
-            <small>第一版不连接真实模型，也不会外发资料。</small>
+            <input value="严格离线 / 本地模拟服务" readOnly />
+            <small>默认使用本地模拟服务，不会外发资料。</small>
           </label>
         </div>
         {error && <div className="inline-error" role="alert">{error}</div>}

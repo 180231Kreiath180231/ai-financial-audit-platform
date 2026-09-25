@@ -87,7 +87,7 @@ export function RiskWorkspace({
   return (
     <section className="risk-page" aria-labelledby="risk-page-title">
       <header className="risk-page-head">
-        <div><span className="section-kicker">迭代四 · 人工最终决策</span><h1 id="risk-page-title">风险台账</h1><p>人工证据与确定性财务规则都只生成“待评估”草稿；最终风险判断和状态变更由复核人员完成。</p></div>
+        <div><span className="section-kicker">人工复核与最终决策</span><h1 id="risk-page-title">风险台账</h1><p>人工证据与确定性财务规则都只生成“待评估”草稿；最终风险判断和状态变更由复核人员完成。</p></div>
         <div className="risk-head-actions">
           <button className="button secondary" type="button" onClick={onOpenNotes}><Notebook aria-hidden="true" />审计备忘录</button>
           <div className="risk-metrics" aria-label="风险状态统计">
@@ -147,7 +147,7 @@ export function RiskWorkspace({
                 </section>
 
                 <section className="risk-detail-section" aria-labelledby="explanation-heading">
-                  <div className="risk-section-title"><Sparkle aria-hidden="true" /><div><h3 id="explanation-heading">AI 解释</h3><p>{selectedRisk.actual_model ? `${selectedRisk.model_provider} / ${selectedRisk.actual_model}` : '尚未生成 · 仅允许 Fake Provider'}</p></div></div>
+                  <div className="risk-section-title"><Sparkle aria-hidden="true" /><div><h3 id="explanation-heading">AI 解释</h3><p>{selectedRisk.actual_model ? `${selectedRisk.model_provider} / ${selectedRisk.actual_model}` : '尚未生成 · 当前仅允许本地模拟服务'}</p></div></div>
                   {selectedRisk.model_explanation ? <div className="model-draft"><p>{selectedRisk.model_explanation}</p><small>{selectedRisk.uncertainty}</small></div> : selectedRisk.status === '待复核' ? <button className="button secondary" type="button" disabled={busy !== null} onClick={() => void onFakeExplanation(selectedRisk)}><Sparkle aria-hidden="true" />生成合成解释草稿</button> : <div className="completed-note" role="status"><ShieldCheck aria-hidden="true" /><span><b>当前状态不允许生成解释</b>{selectedRisk.status === '待补证' ? '完成补证并重新进入待复核后再生成。' : '人工确认后的风险不会被新的模型内容静默改变。'}</span></div>}
                 </section>
 

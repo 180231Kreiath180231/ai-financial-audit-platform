@@ -138,6 +138,7 @@ PDF 归档件的直接生成、字体嵌入、导出审计和逐页渲染结果�
 [迭代十五批量导入与资料跟踪验收](docs/acceptance/iteration-15-batch-import-material-tracking-2026-09-24.md)记录 500 文件单次上传实测、资料跟踪字段和 Word/PDF v3 逐页检查。
 [ADR-0022](docs/adr/0022-offline-backup-and-isolated-restore.md)记录离线备份格式、停止应用门禁、哈希校验、路径安全与 DPAPI 边界；[迭代十六离线备份恢复与许可证归档验收](docs/acceptance/iteration-16-backup-restore-2026-09-24.md)记录 Windows 合成实机演练和当前生产依赖许可证归档。
 [迭代十七严格离线网络验收](docs/acceptance/iteration-17-strict-offline-network-2026-09-24.md)记录统一网关负向验证、PktMon 抓包方法和当前非管理员环境受阻结论。
+[迭代十八项目概览与资料工作区验收](docs/acceptance/iteration-18-project-overview-ui-2026-09-24.md)记录“项目/资料”职责拆分、页头项目切换、移动端更多菜单及深浅主题视觉回归。
 项目级审计备忘录、风险与页码关联、模型读取许可和删除审计边界记录在
 [ADR-0018](docs/adr/0018-project-audit-notes.md)，实现范围和自动化结果记录在
 [迭代十审计备忘录验收](docs/acceptance/iteration-10-audit-notes-2026-09-23.md)。
